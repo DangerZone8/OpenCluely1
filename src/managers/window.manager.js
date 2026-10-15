@@ -119,7 +119,7 @@ class WindowManager {
     try {
       // Pass autoShow so the main window doesn't flash visible during
       // first-run onboarding before the user has configured API keys.
-      await this.createMainWindow({ autoShow: showMainWindow });
+      await this.createMainWindow();
       await this.createChatWindow();
       await this.createLLMResponseWindow();
       await this.createSettingsWindow();
