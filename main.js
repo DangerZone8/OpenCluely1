@@ -39,9 +39,10 @@ require("dotenv").config({ path: ENV_PATH });
 // are wrapped in single quotes so dotenv parses them as one token — essential
 // for Whisper commands like:  "C:\Users\Jane Doe\...\python.exe" -m whisper
 function formatEnvValue(raw) {
-  const v = String(raw).replace(/[\\r\\n]+/g, " ").trim();
+  const v = String(raw).replace(/[\r\n]+/g, " ").trim();
   if (!v) return "";
-  const needsQuotes = /[\\s]/.test(v) || v.includes("#") || /^[\x27\x22\x60]/.test(v);
+  const startsWithQuote = v[0] === "'" || v[0] === '"' || v[0] === String.fromCharCode(96);
+  const needsQuotes = /\s/.test(v) || v.includes("#") || startsWithQuote;
   if (!needsQuotes) return v;
 
   // dotenv supports single, double, and backtick delimiters. Pick a delimiter
