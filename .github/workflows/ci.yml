@@ -51,6 +51,9 @@ jobs:
       - name: Verify cross-platform clean command
         run: npm run clean
 
+      - name: Verify Vercel static-site build
+        run: node scripts/build-vercel.js
+
       - name: Build unpacked desktop application
         shell: bash
         env:
