@@ -2,6 +2,10 @@ name: Build & Release
 
 on:
   push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/release.yml'
     tags:
       - 'v*'
   workflow_dispatch:
@@ -64,8 +68,10 @@ jobs:
         run: |
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
-          else
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
             VERSION="$REQUESTED_VERSION"
+          else
+            VERSION="1.0.${GITHUB_RUN_NUMBER}"
           fi
           echo "Tag version: $VERSION"
           CURRENT=$(node -p "require('./package.json').version")
@@ -116,7 +122,7 @@ jobs:
   release:
     name: Create GitHub Release
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.dry_run != true)
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.dry_run != true) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[release]'))
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (full history for changelog)
@@ -134,8 +140,12 @@ jobs:
             CURRENT_TAG="${GITHUB_REF_NAME}"
             TARGET_REF="$CURRENT_TAG"
             PREV_TAG=$(git describe --tags --abbrev=0 "${CURRENT_TAG}^" 2>/dev/null || true)
-          else
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
             CURRENT_TAG="v${{ inputs.version }}"
+            TARGET_REF="$GITHUB_SHA"
+            PREV_TAG=$(git describe --tags --abbrev=0 "$TARGET_REF" 2>/dev/null || true)
+          else
+            CURRENT_TAG="v1.0.${GITHUB_RUN_NUMBER}"
             TARGET_REF="$GITHUB_SHA"
             PREV_TAG=$(git describe --tags --abbrev=0 "$TARGET_REF" 2>/dev/null || true)
           fi
@@ -269,9 +279,9 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v{0}', inputs.version) }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || (github.event_name == 'workflow_dispatch' && inputs.version != '' && format('v{0}', inputs.version) || format('v1.0.{0}', github.run_number)) }}
           target_commitish: ${{ github.sha }}
-          name: OpenCluely ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v{0}', inputs.version) }}
+          name: OpenCluely ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || (github.event_name == 'workflow_dispatch' && inputs.version != '' && format('v{0}', inputs.version) || format('v1.0.{0}', github.run_number)) }}
           draft: false
           prerelease: false
           body_path: RELEASE_BODY.md
