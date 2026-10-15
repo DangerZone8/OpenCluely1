@@ -127,12 +127,7 @@ ensure_env_file() {
 upsert_env() {
   local key="$1"
   local value="$2"
-
-  if grep -q "^${key}=" .env 2>/dev/null; then
-    perl -0pi -e "s|^${key}=.*\$|${key}=${value}|m" .env
-  else
-    printf "%s=%s\n" "$key" "$value" >> .env
-  fi
+  node "$SCRIPT_DIR/scripts/update-env.js" "$key" "$value"
 }
 
 ensure_gemini_key() {
