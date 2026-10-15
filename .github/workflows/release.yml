@@ -63,7 +63,7 @@ jobs:
             exit 1
           fi
           set +e
-          timeout --signal=TERM --kill-after=5s 20s xvfb-run -a "$APP_BIN" --no-sandbox --disable-gpu --user-data-dir=/tmp/opencluely-release-smoke
+          xvfb-run -a timeout --signal=TERM --kill-after=5s 20s "$APP_BIN" --no-sandbox --disable-gpu --user-data-dir=/tmp/opencluely-release-smoke
           APP_EXIT=$?
           set -e
           if [ "$APP_EXIT" -eq 124 ] || [ "$APP_EXIT" -eq 137 ] || [ "$APP_EXIT" -eq 143 ]; then
