@@ -1045,13 +1045,16 @@ class WindowManager {
       return;
     }
 
+    // Set state before scheduling platform-specific show operations so the
+    // macOS deferred show sees this request as current.
+    this.isVisible = true;
+    this.mainVisibilityGeneration += 1;
     this.windows.forEach((window, type) => {
       if (type !== 'llmResponse') { // Don't show LLM response unless it has content
         this.showOnCurrentDesktop(window);
       }
     });
     
-    this.isVisible = true;
     const activeWindow = this.windows.get(this.activeWindow);
     if (activeWindow) {
       activeWindow.focus();
