@@ -192,10 +192,9 @@ class WindowManager {
     mainWindow.webContents.send('main-window-shown', {});
   }
 
-  async createMainWindow(options = {}) {
+  async createMainWindow() {
     // Creating the overlay must never make it visible implicitly. The caller
     // explicitly opts in through showMainWindow() after initialization.
-    const { autoShow = false } = options;
     if (this.windows.has('main')) {
       return this.windows.get('main');
     }
@@ -1070,10 +1069,8 @@ class WindowManager {
     this.isVisible = false;
     this.mainVisibilityGeneration += 1;
     this.wasMainVisibleBeforeSettings = false;
-    this.windows.forEach((window, type) => {
-      if (type !== 'llmResponse') {
-        window.hide();
-      }
+    this.windows.forEach((window) => {
+      if (!window.isDestroyed()) window.hide();
     });
     
     this.isVisible = false;
