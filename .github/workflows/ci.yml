@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            script: linux
+          - os: windows-latest
+            script: win
+          - os: macos-latest
+            script: mac
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install Linux packaging dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fakeroot dpkg rpm libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 xauth xvfb libasound2t64 ffmpeg python3 python3-venv python3-pip
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check JavaScript syntax
+        run: npm run check
+
+      - name: Verify package metadata
+        run: node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if (p.version !== l.version || p.name !== l.name) process.exit(1); console.log('package metadata matches')"
+
+      - name: Verify cross-platform clean command
+        run: npm run clean
+
+      - name: Build unpacked desktop application
+        shell: bash
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run build:${{ matrix.script }} -- --dir --publish never

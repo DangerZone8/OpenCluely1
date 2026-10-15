@@ -46,6 +46,16 @@ function formatEnvValue(raw) {
   return `"${v.replace(/"/g, '\\"')}"`;
 }
 
+function redactSensitiveSettings(settings) {
+  if (!settings || typeof settings !== "object" || Array.isArray(settings)) return {};
+  return Object.fromEntries(Object.entries(settings).map(([key, value]) => {
+    if (/(api.?key|secret|token|password)/i.test(key)) {
+      return [key, value ? "[REDACTED]" : ""];
+    }
+    return [key, value];
+  }));
+}
+
 // ── Linux GPU process crash workaround ──
 // On many Linux setups (Wayland, X11 without GPU drivers, Docker, headless,
 // or systems with broken Mesa/NVIDIA stacks), Chromium's GPU process crashes
@@ -61,7 +71,6 @@ if (process.platform === "linux") {
   app.disableHardwareAcceleration();
   app.commandLine.appendSwitch("disable-gpu");
   app.commandLine.appendSwitch("disable-gpu-compositing");
-  app.commandLine.appendSwitch("disable-software-rasterizer");
   app.commandLine.appendSwitch("disable-gpu-sandbox");
   // On X11 only; harmless on Wayland. Prevents Chromium from spawning a
   // compositor process that adds another X11 client.
@@ -320,14 +329,9 @@ class ApplicationController {
       callback({ requestHeaders: details.requestHeaders });
     });
     
-    // Handle certificate errors for Google APIs
-    ses.setCertificateVerifyProc((request, callback) => {
-      if (request.hostname === 'generativelanguage.googleapis.com') {
-        callback(0); // Trust Google's certificates
-      } else {
-        callback(-2); // Use default verification
-      }
-    });
+    // Keep Electron's default TLS certificate verification enabled. Never
+    // bypass certificate validation for the AI provider: doing so can expose
+    // API keys and prompt contents to a man-in-the-middle.
     
     logger.debug('Network configuration applied for Gemini API');
   }
@@ -1740,7 +1744,7 @@ class ApplicationController {
       }
 
       logger.info("Settings saved successfully", {
-        ...settings,
+        ...redactSensitiveSettings(settings),
         persistedEnvKeys: persistedKeys
       });
       return { success: true, persistedEnvKeys: persistedKeys };
@@ -1753,7 +1757,7 @@ class ApplicationController {
   persistSettings(settings) {
     // You can extend this to save to a file or database
     // For now, we'll just keep them in memory
-    logger.debug("Settings persisted", settings);
+    logger.debug("Settings persisted", redactSensitiveSettings(settings));
   }
 
   /**
@@ -1817,7 +1821,14 @@ class ApplicationController {
     const newContent = outLines.join("\n");
     try {
       const tmpPath = envPath + ".tmp";
-      fs.writeFileSync(tmpPath, newContent, "utf8");
+      // API keys are stored here. Restrict the temporary file before rename
+      // so the final .env inherits private permissions on POSIX systems.
+      fs.writeFileSync(tmpPath, newContent, { encoding: "utf8", mode: 0o600 });
+      try {
+        fs.chmodSync(tmpPath, 0o600);
+      } catch (_) {
+        // Best effort on platforms where POSIX file modes are not supported.
+      }
       fs.renameSync(tmpPath, envPath);
     } catch (e) {
       logger.error("Failed to persist .env updates", {

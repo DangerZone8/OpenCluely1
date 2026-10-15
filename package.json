@@ -4,9 +4,10 @@
   "description": "AI Problem Solving Assistant",
   "main": "main.js",
   "scripts": {
-    "start": "env -u ELECTRON_RUN_AS_NODE electron .",
-    "dev": "env -u ELECTRON_RUN_AS_NODE electron . --no-sandbox --disable-gpu",
+    "start": "node scripts/launch-electron.js",
+    "dev": "node scripts/launch-electron.js --no-sandbox --disable-gpu",
     "test-speech": "node scripts/test-speech.js",
+    "check": "node scripts/check-syntax.js",
     "build": "electron-builder",
     "build:mac": "electron-builder --mac",
     "build:win": "electron-builder --win",
@@ -14,7 +15,7 @@
     "build:all": "electron-builder --mac --win --linux",
     "dist": "npm run build",
     "pack": "electron-builder --dir",
-    "clean": "rm -rf dist/",
+    "clean": "node scripts/clean.js",
     "rebuild": "npm run clean && npm run build",
     "release": "npm run clean && npm run build:all",
     "postinstall": "electron-builder install-app-deps"
@@ -26,9 +27,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/TechyCSR/OpenCluely"
+    "url": "https://github.com/DangerZone8/OpenCluely1"
   },
-  "license": "ISC",
+  "license": "Apache-2.0",
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.2.0",
     "@google/genai": "^2.9.0",
