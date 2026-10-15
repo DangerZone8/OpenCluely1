@@ -8,9 +8,9 @@ const mainPath = path.join(root, "main.js");
 const preload = fs.readFileSync(preloadPath, "utf8");
 const main = fs.readFileSync(mainPath, "utf8");
 
-const invokeChannels = [...preload.matchAll(/ipcRenderer\\.invoke\\(\\s*["']([^"']+)["']/g)]
+const invokeChannels = [...preload.matchAll(/ipcRenderer\.invoke\(\s*["']([^"']+)["']/g)]
   .map((match) => match[1]);
-const handlerChannels = [...main.matchAll(/ipcMain\\.handle\\(\\s*["']([^"']+)["']/g)]
+const handlerChannels = [...main.matchAll(/ipcMain\.handle\(\s*["']([^"']+)["']/g)]
   .map((match) => match[1]);
 
 const duplicates = (items) => [...new Set(items.filter((item, index) => items.indexOf(item) !== index))];
@@ -24,5 +24,5 @@ if (missingHandlers.length || duplicateInvokes.length || duplicateHandlers.lengt
   if (duplicateHandlers.length) console.error("Duplicate ipcMain.handle() channels:", duplicateHandlers.join(", "));
   process.exitCode = 1;
 } else {
-  console.log(`IPC contract check passed: ${invokeChannels.length} preload invoke channels have unique main-process handlers.`);
+  console.log("IPC contract check passed: " + invokeChannels.length + " preload invoke channels have unique main-process handlers.");
 }
