@@ -283,8 +283,16 @@ class MainWindowUI {
 
         // Overlay window controls. Minimize hides this overlay; close hides all assistant windows.
         // Ctrl+Shift+V restores/toggles visibility when hidden.
+        const settingsButton = document.getElementById('settingsAssistant');
         const minimizeButton = document.getElementById('minimizeAssistant');
         const closeButton = document.getElementById('closeAssistant');
+        if (settingsButton) {
+            settingsButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                this.openSettings();
+            });
+        }
         if (minimizeButton) {
             minimizeButton.addEventListener('click', async (event) => {
                 event.preventDefault();
@@ -301,7 +309,7 @@ class MainWindowUI {
                 event.preventDefault();
                 event.stopPropagation();
                 try {
-                    if (window.electronAPI && window.electronAPI.hideAllWindows) await window.electronAPI.hideAllWindows();
+                    if (window.electronAPI && window.electronAPI.quit) await window.electronAPI.quit();
                     else if (window.electronAPI && window.electronAPI.closeWindow) await window.electronAPI.closeWindow();
                 } catch (error) {
                     logger.error('Could not close assistant overlay', { error: error.message });
