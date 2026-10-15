@@ -13,6 +13,8 @@ class WindowManager {
     this.activeWindow = 'main';
     this.isInteractive = true; // default to interactive so windows are clickable/drag-able
     this.isVisible = false;
+    // Invalidates delayed show callbacks when the user explicitly hides the overlay.
+    this.mainVisibilityGeneration = 0;
     this.currentDisplay = null;
     this.screenWatcher = null;
     this.desktopWatcher = null;
@@ -146,7 +148,12 @@ class WindowManager {
 
   async showMainWindow() {
     const mainWindow = this.windows.get('main');
-    if (!mainWindow) return;
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+
+    // Mark the overlay as enabled before awaiting so a concurrent hide can
+    // cancel this show request instead of being undone by a delayed callback.
+    this.isVisible = true;
+    const showGeneration = ++this.mainVisibilityGeneration;
     
     // Immediate always-on-top enforcement for main window
     if (process.platform === 'darwin') {
@@ -161,6 +168,7 @@ class WindowManager {
     
     // Wait for app to fully initialize and detect current desktop
     await new Promise((resolve) => setTimeout(resolve, 100));
+    if (mainWindow.isDestroyed() || !this.isVisible || showGeneration !== this.mainVisibilityGeneration) return;
     this.showOnCurrentDesktop(mainWindow);
     
     // Additional enforcement after showing
@@ -177,6 +185,7 @@ class WindowManager {
       }
     }
     
+    if (!this.isVisible || showGeneration !== this.mainVisibilityGeneration || mainWindow.isDestroyed()) return;
     this.isVisible = true;
     logger.info('Main window displayed');
     // Notify renderer to refresh speech availability
@@ -779,6 +788,14 @@ class WindowManager {
   showOnCurrentDesktop(win) {
     if (!win || win.isDestroyed()) return;
 
+    // macOS requires a deferred show to avoid desktop/Space flicker. Keep
+    // that timer cancellable so a later hide always wins over an older show.
+    const isMainOverlay = win === this.windows.get('main');
+    const showGeneration = isMainOverlay ? this.mainVisibilityGeneration : null;
+    const mainShowIsCurrent = () => !isMainOverlay || (
+      this.isVisible && showGeneration === this.mainVisibilityGeneration
+    );
+
     const llmWin = this.windows.get('llmResponse');
     const isLLM = llmWin && !llmWin.isDestroyed() && win.id === llmWin.id;
 
@@ -801,14 +818,14 @@ class WindowManager {
       setMacOSAlwaysOnTop();
 
       setTimeout(() => {
-        if (win.isDestroyed()) return;
+        if (win.isDestroyed() || !mainShowIsCurrent()) return;
         win.show();
         win.focus();
         setMacOSAlwaysOnTop();
-        setTimeout(() => { if (!win.isDestroyed()) setMacOSAlwaysOnTop(); }, 100);
+        setTimeout(() => { if (!win.isDestroyed() && mainShowIsCurrent()) setMacOSAlwaysOnTop(); }, 100);
         // Keep LLM window visible across workspaces; others revert
         setTimeout(() => {
-          if (win.isDestroyed()) return;
+          if (win.isDestroyed() || !mainShowIsCurrent()) return;
           if (!isLLM) {
             win.setVisibleOnAllWorkspaces(false);
           }
@@ -1047,6 +1064,9 @@ class WindowManager {
   }
 
   hideAllWindows() {
+    this.isVisible = false;
+    this.mainVisibilityGeneration += 1;
+    this.wasMainVisibleBeforeSettings = false;
     this.windows.forEach((window, type) => {
       if (type !== 'llmResponse') {
         window.hide();
