@@ -1,4 +1,4 @@
-const { BrowserWindow, screen, desktopCapturer, shell } = require('electron');
+const { app, BrowserWindow, screen, desktopCapturer, shell } = require('electron');
 const path = require('path');
 const logger = require('../core/logger').createServiceLogger('WINDOW');
 const config = require('../core/config');
@@ -6,6 +6,10 @@ const config = require('../core/config');
 class WindowManager {
   constructor() {
     this.windows = new Map();
+    this.isQuitting = false;
+    app.on('before-quit', () => {
+      this.isQuitting = true;
+    });
     this.activeWindow = 'main';
     this.isInteractive = true; // default to interactive so windows are clickable/drag-able
     this.isVisible = false;
@@ -882,6 +886,8 @@ class WindowManager {
       // window instance. Floating overlay windows retain their prior behavior.
       if (type === 'settings') {
         window.on('close', (event) => {
+          // Keep Settings reusable during normal use, but never block app.quit().
+          if (this.isQuitting || app.isQuitting) return;
           event.preventDefault();
           this.hideSettings();
         });
