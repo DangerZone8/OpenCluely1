@@ -1049,13 +1049,15 @@ class WindowManager {
     this.isVisible = true;
     this.mainVisibilityGeneration += 1;
     this.windows.forEach((window, type) => {
-      if (type !== 'llmResponse') { // Don't show LLM response unless it has content
+      // The response window is shown only when it has content. Also guard
+      // against a window being destroyed while a toggle is being processed.
+      if (type !== 'llmResponse' && window && !window.isDestroyed()) {
         this.showOnCurrentDesktop(window);
       }
     });
-    
+
     const activeWindow = this.windows.get(this.activeWindow);
-    if (activeWindow) {
+    if (activeWindow && !activeWindow.isDestroyed()) {
       activeWindow.focus();
     }
     
