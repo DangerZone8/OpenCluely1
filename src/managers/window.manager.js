@@ -885,6 +885,12 @@ class WindowManager {
       // and intercept close to hide it rather than destroying the reusable
       // window instance. Floating overlay windows retain their prior behavior.
       if (type === 'settings') {
+        window.on('minimize', () => {
+          // Minimizing Settings should be a deliberate return to the desktop,
+          // not leave the user with no visible window because the overlay was
+          // suspended when Settings opened.
+          this.hideSettings();
+        });
         window.on('close', (event) => {
           // Keep Settings reusable during normal use, but never block app.quit().
           if (this.isQuitting || app.isQuitting) return;
