@@ -7,7 +7,7 @@
     "start": "node scripts/launch-electron.js",
     "dev": "node scripts/launch-electron.js --no-sandbox --disable-gpu",
     "test-speech": "node scripts/test-speech.js",
-    "check": "node scripts/check-syntax.js && node scripts/check-ipc-contract.js && node scripts/check-crash-handling.js",
+    "check": "node scripts/check-syntax.js && node scripts/check-ipc-contract.js && node scripts/check-crash-handling.js && node scripts/test-update-env.js",
     "build": "electron-builder",
     "build:mac": "electron-builder --mac",
     "build:win": "electron-builder --win",

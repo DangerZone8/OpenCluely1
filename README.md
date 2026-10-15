@@ -66,7 +66,7 @@ If you would rather build from source, three steps are all it takes.
 
    ```bash
    git clone https://github.com/DangerZone8/OpenCluely1.git
-   cd OpenCluely11
+   cd OpenCluely1
    ```
 
 2. Run the setup script.
@@ -187,7 +187,7 @@ OpenCluely is under active development. The core is stable and improvements ship
 <details>
 <summary>Setup issues</summary>
 
-- **setup.sh will not run.** Make sure you are in the project folder (`cd OpenCluely11`) and that the script is executable (`chmod +x setup.sh`). On Windows, use Git Bash.
+- **setup.sh will not run.** Make sure you are in the project folder (`cd OpenCluely1`) and that the script is executable (`chmod +x setup.sh`). On Windows, use Git Bash.
 - **Setup stops with exit code 130.** That means Ctrl+C was pressed. Run `./setup.sh` again.
 - **Node or npm not found.** Install Node.js 18 or newer from [nodejs.org](https://nodejs.org/), restart the terminal, and retry.
 
