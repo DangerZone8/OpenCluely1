@@ -17,6 +17,8 @@ class MainWindowUI {
         this.isRecording = false;
         this.speechAvailable = false; // track availability
         this._popoverHideTimeout = null;
+        this._resizeTimer = null;
+        this._lastRequestedWindowSize = null;
         // Renderer-side audio capture state (used for Whisper on Windows)
         this._audioContext = null;
         this._mediaStream = null;
@@ -239,30 +241,43 @@ class MainWindowUI {
     }
 
     resizeWindowToContent() {
-        // Wait for DOM to fully render
-        setTimeout(() => {
+        // Coalesce rapid DOM/hover events into one resize. The old implementation
+        // queued independent timers, so opening/closing the shortcuts popover
+        // could send stale sizes in the wrong order and visibly bounce the overlay.
+        if (this._resizeTimer) clearTimeout(this._resizeTimer);
+        this._resizeTimer = setTimeout(() => {
+            this._resizeTimer = null;
             const commandTab = document.querySelector('.command-tab');
-            if (commandTab && window.electronAPI && window.electronAPI.resizeWindow) {
-                const rect = commandTab.getBoundingClientRect();
-                const width = Math.ceil(rect.width);
-                let height = Math.ceil(rect.height);
+            if (!commandTab || !window.electronAPI || !window.electronAPI.resizeWindow) return;
 
-                // If shortcuts popover is visible, extend height to fit it
-                if (this.shortcutsPopover && this.shortcutsPopover.classList.contains('is-open')) {
-                    const popRect = this.shortcutsPopover.getBoundingClientRect();
-                    // popover is positioned below the bar (top:36px), add that plus its height and a small margin
-                    height = Math.max(height, Math.ceil(36 + popRect.height + 8));
-                }
-                
-                logger.debug('Resizing window to content', {
-                    width,
-                    height,
-                    component: 'MainWindowUI'
-                });
-                
-                window.electronAPI.resizeWindow(width, height);
+            const rect = commandTab.getBoundingClientRect();
+            const width = Math.ceil(rect.width);
+            let height = Math.ceil(rect.height);
+
+            if (this.shortcutsPopover && this.shortcutsPopover.classList.contains('is-open')) {
+                const popRect = this.shortcutsPopover.getBoundingClientRect();
+                height = Math.max(height, Math.ceil(36 + popRect.height + 8));
             }
-        }, 100);
+
+            const previous = this._lastRequestedWindowSize;
+            if (previous && previous.width === width && previous.height === height) return;
+            this._lastRequestedWindowSize = { width, height };
+
+            logger.debug('Resizing overlay to settled content size', {
+                width,
+                height,
+                component: 'MainWindowUI'
+            });
+
+            try {
+                const result = window.electronAPI.resizeWindow(width, height);
+                if (result && typeof result.catch === 'function') {
+                    result.catch((error) => logger.warn('Overlay resize request failed', { error: error.message }));
+                }
+            } catch (error) {
+                logger.warn('Overlay resize request failed', { error: error.message });
+            }
+        }, 90);
     }
 
     setupElements() {
@@ -1162,8 +1177,26 @@ class MainWindowUI {
 
     openSettings() {
         try {
+            // Close transient UI before switching to a separate desktop window.
+            // This avoids a pending popover resize racing with the Settings handoff.
+            if (this._popoverHideTimeout) {
+                clearTimeout(this._popoverHideTimeout);
+                this._popoverHideTimeout = null;
+            }
+            if (this.shortcutsPopover) this.shortcutsPopover.classList.remove('is-open');
+            if (this._resizeTimer) {
+                clearTimeout(this._resizeTimer);
+                this._resizeTimer = null;
+            }
+
             if (window.electronAPI && window.electronAPI.showSettings) {
-                window.electronAPI.showSettings();
+                const opening = window.electronAPI.showSettings();
+                if (opening && typeof opening.catch === 'function') {
+                    opening.catch((error) => logger.error('Settings IPC failed', {
+                        component: 'MainWindowUI',
+                        error: error.message
+                    }));
+                }
             } else {
                 logger.error('electronAPI or showSettings not available');
                 return;
