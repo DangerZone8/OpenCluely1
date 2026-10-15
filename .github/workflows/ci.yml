@@ -80,7 +80,7 @@ jobs:
           test -n "$APP_BIN"
           test -x "$APP_BIN"
           set +e
-          timeout --signal=TERM --kill-after=5s 20s xvfb-run -a "$APP_BIN" --no-sandbox --disable-gpu --user-data-dir=/tmp/opencluely-installed-smoke
+          xvfb-run -a timeout --signal=TERM --kill-after=5s 20s "$APP_BIN" --no-sandbox --disable-gpu --user-data-dir=/tmp/opencluely-installed-smoke
           APP_EXIT=$?
           set -e
           if [ "$APP_EXIT" -eq 124 ] || [ "$APP_EXIT" -eq 137 ] || [ "$APP_EXIT" -eq 143 ]; then
