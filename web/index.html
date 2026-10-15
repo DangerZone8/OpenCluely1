@@ -4,46 +4,143 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b0d12">
-  <meta name="description" content="OpenCluely is an open-source desktop AI assistant for coding practice and learning.">
-  <title>OpenCluely — Desktop AI Assistant</title>
+  <meta name="description" content="Download OpenCluely, an open-source desktop AI assistant for coding practice and learning.">
+  <title>Download OpenCluely — Desktop AI Assistant</title>
   <style>
     :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0b0d12; color: #f5f7fb; }
     * { box-sizing: border-box; }
     body { margin: 0; min-height: 100vh; background: radial-gradient(ellipse at top, #1a2340 0%, #0b0d12 55%); }
-    main { width: min(900px, calc(100% - 40px)); margin: 0 auto; padding: 72px 0 48px; }
-    .eyebrow { color: #9ba8ff; font-size: .8rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
-    h1 { max-width: 700px; margin: 18px 0; font-size: clamp(2.8rem, 8vw, 5.5rem); line-height: .98; letter-spacing: -.055em; }
-    p { max-width: 660px; color: #b7bfce; font-size: 1.1rem; line-height: 1.75; }
-    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 30px 0 48px; }
-    a.button { display: inline-flex; align-items: center; justify-content: center; padding: 13px 18px; border-radius: 10px; text-decoration: none; font-weight: 700; }
+    main { width: min(960px, calc(100% - 36px)); margin: 0 auto; padding: 54px 0 42px; }
+    .eyebrow { color: #a9b4ff; font-size: .8rem; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { max-width: 740px; margin: 16px 0; font-size: clamp(2.7rem, 8vw, 5rem); line-height: .98; letter-spacing: -.055em; }
+    p { max-width: 690px; color: #b7bfce; font-size: 1.06rem; line-height: 1.7; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 26px 0 34px; }
+    a.button { display: inline-flex; align-items: center; justify-content: center; padding: 13px 17px; border-radius: 10px; text-decoration: none; font-weight: 750; transition: transform .15s ease, opacity .15s ease; }
+    a.button:hover { transform: translateY(-1px); }
     .primary { background: #dce2ff; color: #101528; }
     .secondary { border: 1px solid #343b4d; color: #f5f7fb; }
-    section { border-top: 1px solid #252b38; padding-top: 24px; margin-top: 30px; }
-    h2 { font-size: 1.15rem; }
-    .note { font-size: .92rem; color: #8e99ad; }
-    footer { margin-top: 52px; padding-top: 20px; border-top: 1px solid #252b38; color: #8e99ad; font-size: .9rem; }
-    footer a { color: #b9c3ff; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 22px; }
+    .platform { border: 1px solid #2b3242; border-radius: 16px; padding: 20px; background: rgba(17, 21, 32, .78); }
+    .platform h2 { margin: 0 0 8px; font-size: 1.1rem; }
+    .platform p { min-height: 54px; margin: 0 0 16px; font-size: .93rem; }
+    .platform .button { width: 100%; }
+    .status { color: #9fa9bc; font-size: .9rem; min-height: 1.5em; margin-top: 10px; }
+    .note { font-size: .9rem; color: #929db1; }
+    section { border-top: 1px solid #252b38; padding-top: 22px; margin-top: 30px; }
+    footer { margin-top: 42px; padding-top: 18px; border-top: 1px solid #252b38; color: #8e99ad; font-size: .9rem; }
+    footer a, .text-link { color: #b9c3ff; }
+    @media (max-width: 520px) { main { padding-top: 38px; } .platform p { min-height: 0; } }
   </style>
 </head>
 <body>
   <main>
     <div class="eyebrow">Open source · Desktop · Cross-platform</div>
-    <h1>Your coding practice, with an AI companion.</h1>
-    <p>OpenCluely is a desktop AI assistant designed to support coding practice, problem-solving, and learning. Review the source, configure your AI provider, and use it in line with the rules of your class, assessment, or workplace.</p>
+    <h1>Get OpenCluely for your computer.</h1>
+    <p>Download the desktop application for your operating system. The website itself is hosted on Vercel; the installer packages are published as release assets and downloaded directly from GitHub Releases.</p>
     <div class="actions">
-      <a class="button primary" href="https://github.com/DangerZone8/OpenCluely1/releases/latest">Get the latest release</a>
+      <a id="recommended-download" class="button primary" href="https://github.com/DangerZone8/OpenCluely1/releases/latest">Find my download</a>
       <a class="button secondary" href="https://github.com/DangerZone8/OpenCluely1">View source on GitHub</a>
     </div>
+    <p id="release-status" class="status" role="status" aria-live="polite">Checking the latest published release…</p>
+
     <section>
-      <h2>Desktop app, not a browser app</h2>
-      <p>This site is the web landing page. The full application uses Electron and operating-system capabilities such as desktop windows, audio input, and screen capture, so those features run in the installed desktop app rather than inside Vercel.</p>
+      <h2>Choose your platform</h2>
+      <div class="grid">
+        <article class="platform">
+          <h2>Windows</h2>
+          <p>Windows installer (.exe). Use this for a standard installation.</p>
+          <a id="windows-download" class="button secondary" href="https://github.com/DangerZone8/OpenCluely1/releases/latest">Download for Windows</a>
+        </article>
+        <article class="platform">
+          <h2>macOS</h2>
+          <p>macOS disk image (.dmg) or archive (.zip), if available in the release.</p>
+          <a id="mac-download" class="button secondary" href="https://github.com/DangerZone8/OpenCluely1/releases/latest">Download for macOS</a>
+        </article>
+        <article class="platform">
+          <h2>Linux</h2>
+          <p>AppImage or Debian package (.deb), depending on the release assets.</p>
+          <a id="linux-download" class="button secondary" href="https://github.com/DangerZone8/OpenCluely1/releases/latest">Download for Linux</a>
+        </article>
+      </div>
+      <p class="note">If a platform's installer has not been published yet, its button opens the release page so you can check available files. Never download an installer from an unofficial mirror.</p>
     </section>
+
     <section>
-      <h2>Open source and configurable</h2>
-      <p>Read the setup instructions, inspect the code, and configure supported AI and speech providers in the repository documentation.</p>
-      <p class="note">AI-provider usage may require your own API key. Follow the rules and policies that apply to your learning or work environment.</p>
+      <h2>Install and configure</h2>
+      <p>Open the downloaded installer or package and follow your operating system's prompts. Check the repository README for current requirements and configuration instructions. AI-provider use may require your own API key.</p>
+      <p class="note">Use the assistant in accordance with the rules of your school, assessment, interview, and workplace. Don't use it to misrepresent AI assistance as unaided work.</p>
     </section>
-    <footer>OpenCluely · <a href="https://github.com/DangerZone8/OpenCluely1/blob/main/LICENSE">Apache 2.0 license</a></footer>
+
+    <footer>OpenCluely · <a href="https://github.com/DangerZone8/OpenCluely1/blob/main/LICENSE">Apache 2.0 license</a> · <a href="https://github.com/DangerZone8/OpenCluely1/releases">All releases</a></footer>
   </main>
+  <script>
+    (function () {
+      const repo = "https://api.github.com/repos/DangerZone8/OpenCluely1/releases/latest";
+      const releasesPage = "https://github.com/DangerZone8/OpenCluely1/releases/latest";
+      const links = {
+        windows: document.getElementById("windows-download"),
+        mac: document.getElementById("mac-download"),
+        linux: document.getElementById("linux-download")
+      };
+      const recommended = document.getElementById("recommended-download");
+      const status = document.getElementById("release-status");
+
+      function pickAsset(assets, platform) {
+        const files = assets || [];
+        const byName = (pattern) => files.find((asset) => pattern.test(asset.name));
+        if (platform === "windows") {
+          return byName(/setup.*\.exe$/i) || byName(/\.exe$/i);
+        }
+        if (platform === "mac") {
+          return byName(/\.dmg$/i) || byName(/mac.*\.zip$/i) || byName(/\.zip$/i);
+        }
+        return byName(/\.appimage$/i) || byName(/\.deb$/i);
+      }
+
+      function platformFromAgent() {
+        const ua = navigator.userAgent || "";
+        if (/Windows/i.test(ua)) return "windows";
+        if (/Macintosh|Mac OS X/i.test(ua)) return "mac";
+        if (/Linux|X11/i.test(ua)) return "linux";
+        return null;
+      }
+
+      fetch(repo, { headers: { Accept: "application/vnd.github+json" } })
+        .then((response) => {
+          if (!response.ok) throw new Error("No published release found yet");
+          return response.json();
+        })
+        .then((release) => {
+          const assets = release.assets || [];
+          Object.keys(links).forEach((platform) => {
+            const asset = pickAsset(assets, platform);
+            if (asset && asset.browser_download_url) {
+              links[platform].href = asset.browser_download_url;
+              links[platform].textContent = "Download " + asset.name;
+            } else {
+              links[platform].href = release.html_url || releasesPage;
+              links[platform].textContent = "View available files";
+            }
+          });
+          const detected = platformFromAgent();
+          const asset = detected ? pickAsset(assets, detected) : null;
+          if (asset && asset.browser_download_url) {
+            recommended.href = asset.browser_download_url;
+            recommended.textContent = "Download for this device";
+            status.textContent = "Latest release: " + (release.tag_name || release.name || "available") + ".";
+          } else {
+            recommended.href = release.html_url || releasesPage;
+            recommended.textContent = "View latest release";
+            status.textContent = "Latest release found; choose your platform below to see available downloads.";
+          }
+        })
+        .catch(() => {
+          Object.keys(links).forEach((platform) => { links[platform].href = releasesPage; });
+          recommended.href = releasesPage;
+          recommended.textContent = "View latest release";
+          status.textContent = "Direct download links are unavailable until a release is published. You can check the release page.";
+        });
+    })();
+  </script>
 </body>
 </html>
