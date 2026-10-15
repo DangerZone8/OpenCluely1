@@ -8,7 +8,7 @@ Real-time AI help on a stealth overlay that screen sharing cannot see. Ask by vo
 
 <p>
   <a href="https://github.com/DangerZone8/OpenCluely1/releases/latest"><img src="https://img.shields.io/github/v/release/DangerZone8/OpenCluely1?style=for-the-badge&label=Latest&color=111111&labelColor=000000" alt="Latest release" /></a>
-  <a href="https://github.com/DangerZone8/OpenCluely1/releases"><img src="https://img.shields.io/github/downloads/TechyCSR/OpenCluely/total?style=for-the-badge&color=111111&labelColor=000000" alt="Downloads" /></a>
+  <a href="https://github.com/DangerZone8/OpenCluely1/releases"><img src="https://img.shields.io/github/downloads/DangerZone8/OpenCluely1/total?style=for-the-badge&color=111111&labelColor=000000" alt="Downloads" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-111111?style=for-the-badge&labelColor=000000" alt="Apache 2.0 License" /></a>
   <img src="https://img.shields.io/badge/Platforms-Windows%20%7C%20macOS%20%7C%20Linux-111111?style=for-the-badge&labelColor=000000" alt="Platforms" />
 </p>
@@ -66,7 +66,7 @@ If you would rather build from source, three steps are all it takes.
 
    ```bash
    git clone https://github.com/DangerZone8/OpenCluely1.git
-   cd OpenCluely1
+   cd OpenCluely11
    ```
 
 2. Run the setup script.
@@ -187,7 +187,7 @@ OpenCluely is under active development. The core is stable and improvements ship
 <details>
 <summary>Setup issues</summary>
 
-- **setup.sh will not run.** Make sure you are in the project folder (`cd OpenCluely1`) and that the script is executable (`chmod +x setup.sh`). On Windows, use Git Bash.
+- **setup.sh will not run.** Make sure you are in the project folder (`cd OpenCluely11`) and that the script is executable (`chmod +x setup.sh`). On Windows, use Git Bash.
 - **Setup stops with exit code 130.** That means Ctrl+C was pressed. Run `./setup.sh` again.
 - **Node or npm not found.** Install Node.js 18 or newer from [nodejs.org](https://nodejs.org/), restart the terminal, and retry.
 
