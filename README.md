@@ -235,3 +235,9 @@ Released under the Apache License 2.0. See [LICENSE](LICENSE) for details.
 Built by [TechyCSR](https://techycsr.dev). If OpenCluely helped you, consider giving it a star ⭐
 
 </div>
+
+## Recent stability fixes
+
+- The overlay starts hidden and is only shown after an explicit user action.
+- Hiding the overlay invalidates queued show operations so stale asynchronous callbacks cannot reopen it.
+- Release publishing is gated on an installed-package launch smoke test in a virtual desktop.
