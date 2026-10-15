@@ -6,10 +6,15 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
+      version:
+        description: 'Release version (without the leading v), e.g. 1.0.1'
+        required: true
+        default: '1.0.1'
       dry_run:
         description: 'Build only (skip release creation)'
+        type: boolean
         required: false
-        default: 'false'
+        default: false
 
 permissions:
   contents: write
@@ -51,11 +56,17 @@ jobs:
       # git tag (v1.0.7) the package.json still says 1.0.0 by default,
       # so artifact names drift from the release tag. Sync them here.
       # `npm pkg set` is cross-platform and doesn't touch git.
-      - name: Sync package.json version from tag
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Sync package.json version
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         shell: bash
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$REQUESTED_VERSION"
+          fi
           echo "Tag version: $VERSION"
           CURRENT=$(node -p "require('./package.json').version")
           echo "Current package.json version: $CURRENT"
@@ -105,7 +116,7 @@ jobs:
   release:
     name: Create GitHub Release
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.dry_run != true)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (full history for changelog)
@@ -118,10 +129,16 @@ jobs:
         id: changelog
         shell: bash
         run: |
-          CURRENT_TAG="${GITHUB_REF_NAME}"
           REPO_URL="https://github.com/${{ github.repository }}"
-
-          PREV_TAG=$(git describe --tags --abbrev=0 "${CURRENT_TAG}^" 2>/dev/null || true)
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            CURRENT_TAG="${GITHUB_REF_NAME}"
+            TARGET_REF="$CURRENT_TAG"
+            PREV_TAG=$(git describe --tags --abbrev=0 "${CURRENT_TAG}^" 2>/dev/null || true)
+          else
+            CURRENT_TAG="v${{ inputs.version }}"
+            TARGET_REF="$GITHUB_SHA"
+            PREV_TAG=$(git describe --tags --abbrev=0 "$TARGET_REF" 2>/dev/null || true)
+          fi
           if [ -z "$PREV_TAG" ]; then
             PREV_TAG=$(git tag --sort=-creatordate | grep -vx "${CURRENT_TAG}" | while read -r t; do
               if git merge-base --is-ancestor "$t" "${CURRENT_TAG}" 2>/dev/null; then echo "$t"; break; fi
@@ -132,7 +149,7 @@ jobs:
             RANGE=""
             RANGE_LABEL="Initial release"
           else
-            RANGE="${PREV_TAG}..${CURRENT_TAG}"
+            RANGE="${PREV_TAG}..${TARGET_REF}"
             RANGE_LABEL="[\`${PREV_TAG}...${CURRENT_TAG}\`](${REPO_URL}/compare/${PREV_TAG}...${CURRENT_TAG})"
           fi
 
@@ -252,8 +269,9 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: OpenCluely ${{ github.ref_name }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v{0}', inputs.version) }}
+          target_commitish: ${{ github.sha }}
+          name: OpenCluely ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v{0}', inputs.version) }}
           draft: false
           prerelease: false
           body_path: RELEASE_BODY.md
