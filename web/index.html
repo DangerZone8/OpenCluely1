@@ -36,9 +36,9 @@
   <main>
     <div class="eyebrow">Open source · Desktop · Cross-platform</div>
     <h1>Get OpenCluely for your computer.</h1>
-    <p>Download the desktop application for your operating system. The website itself is hosted on Vercel; the installer packages are published as release assets and downloaded directly from GitHub Releases.</p>
+    <p>Download the desktop installer directly from this page. Choose your operating system and the download starts from the published installer file; you do not need to open a release page.</p>
     <div class="actions">
-      <a id="recommended-download" class="button primary" href="https://github.com/DangerZone8/OpenCluely1/releases/latest">Find my download</a>
+      <a id="recommended-download" class="button primary" href="#" aria-disabled="true">Preparing direct download…</a>
       <a class="button secondary" href="https://github.com/DangerZone8/OpenCluely1">View source on GitHub</a>
     </div>
     <p id="release-status" class="status" role="status" aria-live="polite">Checking the latest published release…</p>
@@ -49,20 +49,20 @@
         <article class="platform">
           <h2>Windows</h2>
           <p>Windows installer (.exe). Use this for a standard installation.</p>
-          <a id="windows-download" class="button secondary" href="https://github.com/DangerZone8/OpenCluely1/releases/latest">Download for Windows</a>
+          <a id="windows-download" class="button secondary" href="#" aria-disabled="true">Checking installer…</a>
         </article>
         <article class="platform">
           <h2>macOS</h2>
           <p>macOS disk image (.dmg) or archive (.zip), if available in the release.</p>
-          <a id="mac-download" class="button secondary" href="https://github.com/DangerZone8/OpenCluely1/releases/latest">Download for macOS</a>
+          <a id="mac-download" class="button secondary" href="#" aria-disabled="true">Checking installer…</a>
         </article>
         <article class="platform">
           <h2>Linux</h2>
           <p>AppImage or Debian package (.deb), depending on the release assets.</p>
-          <a id="linux-download" class="button secondary" href="https://github.com/DangerZone8/OpenCluely1/releases/latest">Download for Linux</a>
+          <a id="linux-download" class="button secondary" href="#" aria-disabled="true">Checking installer…</a>
         </article>
       </div>
-      <p class="note">If a platform's installer has not been published yet, its button opens the release page so you can check available files. Never download an installer from an unofficial mirror.</p>
+      <p class="note">Only platforms with a published installer will have an active download button. If a button says unavailable, that installer has not been published yet.</p>
     </section>
 
     <section>
@@ -76,7 +76,6 @@
   <script>
     (function () {
       const repo = "https://api.github.com/repos/DangerZone8/OpenCluely1/releases/latest";
-      const releasesPage = "https://github.com/DangerZone8/OpenCluely1/releases/latest";
       const links = {
         windows: document.getElementById("windows-download"),
         mac: document.getElementById("mac-download"),
@@ -118,8 +117,9 @@
               links[platform].href = asset.browser_download_url;
               links[platform].textContent = "Download " + asset.name;
             } else {
-              links[platform].href = release.html_url || releasesPage;
-              links[platform].textContent = "View available files";
+              links[platform].removeAttribute("href");
+              links[platform].setAttribute("aria-disabled", "true");
+              links[platform].textContent = "Installer not available yet";
             }
           });
           const detected = platformFromAgent();
@@ -129,16 +129,24 @@
             recommended.textContent = "Download for this device";
             status.textContent = "Latest release: " + (release.tag_name || release.name || "available") + ".";
           } else {
-            recommended.href = release.html_url || releasesPage;
-            recommended.textContent = "View latest release";
-            status.textContent = "Latest release found; choose your platform below to see available downloads.";
+            recommended.removeAttribute("href");
+            recommended.setAttribute("aria-disabled", "true");
+            recommended.textContent = "Installer not available yet";
+            status.textContent = detected
+              ? "No installer for this operating system has been published yet."
+              : "Choose your operating system below for a direct installer download.";
           }
         })
         .catch(() => {
-          Object.keys(links).forEach((platform) => { links[platform].href = releasesPage; });
-          recommended.href = releasesPage;
-          recommended.textContent = "View latest release";
-          status.textContent = "Direct download links are unavailable until a release is published. You can check the release page.";
+          Object.keys(links).forEach((platform) => {
+            links[platform].removeAttribute("href");
+            links[platform].setAttribute("aria-disabled", "true");
+            links[platform].textContent = "Installer not available yet";
+          });
+          recommended.removeAttribute("href");
+          recommended.setAttribute("aria-disabled", "true");
+          recommended.textContent = "Installer not available yet";
+          status.textContent = "No published installer was found. Direct downloads will appear here when a release has installer files.";
         });
     })();
   </script>
