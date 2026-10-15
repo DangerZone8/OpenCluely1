@@ -877,11 +877,20 @@ class WindowManager {
         logger.debug('Window hidden', { type });
       });
 
-      // Handle window minimize attempts
-      window.on('minimize', (event) => {
-        event.preventDefault();
-        logger.debug('Prevented window minimize', { type });
-      });
+      // Settings must behave like a normal desktop window: allow minimizing
+      // and intercept close to hide it rather than destroying the reusable
+      // window instance. Floating overlay windows retain their prior behavior.
+      if (type === 'settings') {
+        window.on('close', (event) => {
+          event.preventDefault();
+          this.hideSettings();
+        });
+      } else {
+        window.on('minimize', (event) => {
+          event.preventDefault();
+          logger.debug('Prevented window minimize', { type });
+        });
+      }
 
       window.on('restore', () => {
         // Simplified restore handling
