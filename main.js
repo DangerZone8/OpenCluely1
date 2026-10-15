@@ -605,6 +605,21 @@ class ApplicationController {
       return sessionManager.getOptimizedHistory();
     });
 
+    // Keep the preload bridge's history APIs backed by real main-process handlers.
+    ipcMain.handle("get-llm-session-history", () => {
+      return sessionManager.getFullConversationHistory();
+    });
+
+    ipcMain.handle("format-session-history", () => {
+      return sessionManager.getFullConversationHistory()
+        .map((entry) => {
+          const role = String(entry.role || "unknown").toUpperCase();
+          const timestamp = entry.timestamp ? `[${entry.timestamp}] ` : "";
+          return `${timestamp}${role}: ${String(entry.content ?? "")}`;
+        })
+        .join("\n\n");
+    });
+
     ipcMain.handle("clear-session-memory", () => {
       sessionManager.clear();
       windowManager.broadcastToAllWindows("session-cleared");
@@ -716,6 +731,11 @@ class ApplicationController {
     });
 
     // Settings handlers
+    ipcMain.handle("hide-settings", () => {
+      windowManager.hideSettings();
+      return { success: true };
+    });
+
     ipcMain.handle("show-settings", () => {
       windowManager.showSettings();
 
