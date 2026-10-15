@@ -105,7 +105,7 @@ class WindowManager {
   }
 
   async initializeWindows(options = {}) {
-    const { showMainWindow = true } = options;
+    const { showMainWindow = false } = options;
     if (this.isInitialized || this.isInitializing) {
       logger.warn('Windows already initialized or initializing');
       return;
@@ -184,7 +184,9 @@ class WindowManager {
   }
 
   async createMainWindow(options = {}) {
-    const { autoShow = true } = options;
+    // Creating the overlay must never make it visible implicitly. The caller
+    // explicitly opts in through showMainWindow() after initialization.
+    const { autoShow = false } = options;
     if (this.windows.has('main')) {
       return this.windows.get('main');
     }
@@ -203,29 +205,9 @@ class WindowManager {
       window.setAlwaysOnTop(true);
     }
 
-    // Only auto-show when explicitly allowed (e.g. not during first-run
-    // onboarding). The single entry point for showing the overlay is
-    // `showMainWindow()` — callers control timing via the flag below.
-    if (autoShow) {
-      // Wait for app to fully initialize and detect current desktop
-      setTimeout(() => {
-        this.showOnCurrentDesktop(window);
-        // Additional enforcement after showing
-        setTimeout(() => {
-          if (!window.isDestroyed()) {
-            if (process.platform === 'darwin') {
-              try {
-                window.setAlwaysOnTop(true, 'screen-saver', 2);
-              } catch (error) {
-                window.setAlwaysOnTop(true, 'floating', 2);
-              }
-            } else {
-              window.setAlwaysOnTop(true);
-            }
-          }
-        }, 200);
-      }, 100);
-    }
+    // Visibility is controlled only by showMainWindow()/showAllWindows().
+    // Avoid delayed auto-show timers that can resurrect an overlay after the
+    // user has hidden it or switched to Settings.
 
     return window;
   }
