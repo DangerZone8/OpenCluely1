@@ -40,7 +40,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
@@ -187,7 +187,7 @@ jobs:
           > ```bash
           > git clone https://github.com/DangerZone8/OpenCluely1 && cd OpenCluely1 && ./setup.sh
           > ```
-          > Requires Node.js 18+. See the [README](https://github.com/DangerZone8/OpenCluely1#quick-start) for details.
+          > Requires Node.js 20+. See the [README](https://github.com/DangerZone8/OpenCluely1#quick-start) for details.
 
           ## First Run
 
