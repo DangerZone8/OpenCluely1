@@ -1335,16 +1335,23 @@ class WindowManager {
     if (this.isScreenBeingShared) return;
 
     const settingsWindow = this.windows.get('settings');
-    if (settingsWindow) {
-      this.showOnCurrentDesktop(settingsWindow);
-      this.centerWindow(settingsWindow); // This now positions at top-center
-      
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      // Settings are intentionally NOT topmost: users must be able to switch
+      // to their browser and copy/paste an API key without fighting the overlay.
+      settingsWindow.setVisibleOnAllWorkspaces(false);
+      settingsWindow.setAlwaysOnTop(false);
+      this.centerWindow(settingsWindow);
+      settingsWindow.show();
+      settingsWindow.focus();
+
       // Notify that settings window is shown
       setTimeout(() => {
-        settingsWindow.webContents.send('settings-window-shown');
+        if (!settingsWindow.isDestroyed()) {
+          settingsWindow.webContents.send('settings-window-shown');
+        }
       }, 50);
-      
-      logger.info('Settings window displayed at top');
+
+      logger.info('Settings window displayed as a normal focused window');
     }
   }
 
