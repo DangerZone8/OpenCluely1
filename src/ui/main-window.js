@@ -290,7 +290,7 @@ class MainWindowUI {
                 event.preventDefault();
                 event.stopPropagation();
                 try {
-                    if (window.electronAPI && window.electronAPI.closeWindow) await window.electronAPI.closeWindow();
+                    if (window.electronAPI && window.electronAPI.hideAllWindows) await window.electronAPI.hideAllWindows();
                 } catch (error) {
                     logger.error('Could not minimize assistant overlay', { error: error.message });
                 }
