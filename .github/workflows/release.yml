@@ -270,6 +270,10 @@ jobs:
             -exec cp -v {} release/ \;
           find artifacts -type f -name '*.AppImage' \
             -exec cp -v {} release/ \;
+          find artifacts -type f -name '*.dmg' \
+            -exec cp -v {} release/ \;
+          find artifacts -type f -name '*.zip' \
+            -exec cp -v {} release/ \;
           echo "--- Files selected for release ---"
           ls -la release/
 
