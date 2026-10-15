@@ -498,29 +498,27 @@ class ChatWindowUI {
         if (!text) return '';
         
         try {
-            // Use the markdown.js library for proper markdown parsing
-            // Try to access markdown library in different contexts
+            // Prefer the bundled renderer supplied by the HTML page. In a
+            // Node-enabled context, use the maintained marked package rather
+            // than the vulnerable legacy markdown npm package.
             let markdownLib;
-            
-            // First try global markdown object (from script tag)
+
             if (typeof markdown !== 'undefined' && markdown.toHTML) {
                 markdownLib = markdown;
-            }
-            // Then try require (Node.js context)
-            else if (typeof require !== 'undefined') {
+            } else if (typeof window !== 'undefined' && window.markdown) {
+                markdownLib = window.markdown;
+            } else if (typeof require !== 'undefined') {
                 try {
-                    markdownLib = require('markdown');
+                    markdownLib = require('marked');
                 } catch (requireError) {
-                    logger.debug('Could not require markdown library:', requireError.message);
+                    logger.debug('Could not require marked library:', requireError.message);
                 }
             }
-            // Finally try window.markdown (browser context)
-            else if (typeof window !== 'undefined' && window.markdown) {
-                markdownLib = window.markdown;
-            }
-            
-            if (markdownLib && markdownLib.toHTML) {
+
+            if (markdownLib && typeof markdownLib.toHTML === 'function') {
                 return markdownLib.toHTML(text);
+            } else if (markdownLib && typeof markdownLib.parse === 'function') {
+                return markdownLib.parse(text);
             } else {
                 logger.warn('Markdown library not available, falling back to basic formatting');
                 // Fallback to basic formatting

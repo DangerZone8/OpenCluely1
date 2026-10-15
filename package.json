@@ -34,7 +34,6 @@
     "@fortawesome/fontawesome-free": "^7.2.0",
     "@google/genai": "^2.9.0",
     "dotenv": "^16.3.1",
-    "markdown": "^0.5.0",
     "marked": "^15.0.12",
     "microsoft-cognitiveservices-speech-sdk": "^1.40.0",
     "node-record-lpcm16": "^1.0.1",
@@ -43,8 +42,8 @@
     "winston-daily-rotate-file": "^4.7.1"
   },
   "devDependencies": {
-    "electron": "^29.1.0",
-    "electron-builder": "^24.13.3"
+    "electron": "^44.7.2",
+    "electron-builder": "^26.15.5"
   },
   "build": {
     "appId": "com.opencluely.app",
@@ -113,8 +112,7 @@
             "ia32"
           ]
         }
-      ],
-      "sign": null
+      ]
     },
     "linux": {
       "target": [
