@@ -88,23 +88,24 @@ const logger = require("./src/core/logger").createServiceLogger("MAIN");
 const config = require("./src/core/config");
 const FirstRunManager = require("./src/core/first-run");
 
-// ── Global crash guard ──
-// The speech path spawns external processes (Whisper CLI, and on macOS/Linux
-// the sox/rec/arecord recorders via node-record-lpcm16). A missing recorder
-// binary makes that library emit an 'error' on its child process with no
-// listener, which would otherwise become an uncaughtException and quit the
-// entire app the moment the user clicks the mic. We log and stay alive — the
-// speech service surfaces a friendly status to the UI instead.
-process.on("uncaughtException", (err) => {
-  logger.error("Uncaught exception (kept alive)", {
-    error: err && err.message,
-    stack: err && err.stack,
-  });
-});
-process.on("unhandledRejection", (reason) => {
-  logger.error("Unhandled rejection (kept alive)", {
-    reason: String((reason && reason.message) || reason),
-  });
+// ── Fatal-error monitoring ──
+// Do not suppress Node's default termination after an uncaught exception or
+// unhandled rejection: continuing can leave Electron's main process in an
+// inconsistent state. The recorder child process and stream have their own
+// error listeners in SpeechService, so expected microphone startup failures
+// can be handled locally without a process-wide "keep alive" exception hook.
+// uncaughtExceptionMonitor observes fatal errors for logging without changing
+// Node's default crash behavior (including unhandled rejections promoted to it).
+process.on("uncaughtExceptionMonitor", (err, origin) => {
+  try {
+    logger.error("Fatal uncaught exception; process will terminate", {
+      origin,
+      error: err && err.message,
+      stack: err && err.stack,
+    });
+  } catch (_) {
+    // Logging must not interfere with the runtime's default termination.
+  }
 });
 
 // Services
