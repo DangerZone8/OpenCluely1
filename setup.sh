@@ -301,6 +301,11 @@ detect_os
 echo "Detected OS: $OS_NAME"
 require_command node "Node.js 18+ is required."
 require_command npm "npm is required."
+NODE_MAJOR="$(node -p 'Number(process.versions.node.split(".")[0])')"
+if (( NODE_MAJOR < 18 )); then
+  echo "Error: Node.js 18+ is required; found $(node -v)."
+  exit 1
+fi
 echo "Node: $(node -v)"
 echo "npm:  $(npm -v)"
 
