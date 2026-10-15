@@ -298,24 +298,22 @@ class WindowManager {
     
     if (type === 'settings') {
       // Completely minimal settings window - no decorations at all
+      // Settings must be a normal, independently accessible window so users
+      // can paste API keys, move it, minimize it, and return to other apps.
       browserWindowOptions = {
         ...baseOptions,
-        frame: false,
-        titleBarStyle: 'hidden',
-        transparent: true,
-        resizable: false,
-        minimizable: false,
+        frame: true,
+        transparent: false,
+        backgroundColor: '#171923',
+        resizable: true,
+        minimizable: true,
         maximizable: false,
-        closable: false,
-        hasShadow: false,
-        backgroundColor: '#00000000',
-        level: process.platform === 'darwin' ? 'floating' : undefined,
-        // Additional macOS flags for better always-on-top behavior
-        ...(process.platform === 'darwin' && {
-          type: 'panel',
-          acceptFirstMouse: true,
-          disableAutoHideCursor: true
-        })
+        closable: true,
+        skipTaskbar: false,
+        focusable: true,
+        alwaysOnTop: false,
+        hasShadow: true,
+        fullscreenable: false
       };
   } else if (type === 'onboarding') {
       // First-run onboarding wizard — same frameless/panel style as
