@@ -536,7 +536,23 @@ class WindowManager {
   }
 
   applyStealthMeasures(window, type) {
-    // Enhanced always-on-top enforcement for all platforms
+    // Settings is a normal utility window: never apply overlay/topmost behavior.
+    // Applying the overlay policy to Settings caused it to jump above other apps
+    // again on blur and every few seconds, making the desktop feel broken.
+    if (type === 'settings') {
+      try {
+        window.setAlwaysOnTop(false);
+        window.setVisibleOnAllWorkspaces(false);
+        window.setSkipTaskbar(false);
+        window.setContentProtection(false);
+      } catch (error) {
+        logger.debug('Could not fully reset settings window overlay flags', { error: error.message });
+      }
+      return;
+    }
+
+    // Set overlay behavior once at creation. Repeated focus/blur timers can
+    // steal z-order and cause visible flicker, so do not continually reassert it.
     if (process.platform === 'darwin') {
       // macOS: Use native window level constants for maximum effectiveness
       try {
@@ -632,57 +648,10 @@ class WindowManager {
       logger.debug('Content protection not supported on this platform');
     }
     
-    // More aggressive event listeners to maintain always-on-top behavior
-    const enforceAlwaysOnTop = () => {
-      if (!window.isDestroyed()) {
-        try {
-          if (process.platform === 'darwin') {
-            // Try multiple levels on macOS
-            window.setAlwaysOnTop(true, 'floating', 1);
-            setTimeout(() => {
-              if (!window.isDestroyed()) {
-                window.setAlwaysOnTop(true, 'screen-saver', 1);
-              }
-            }, 50);
-          } else {
-            window.setAlwaysOnTop(true);
-          }
-        } catch (error) {
-          logger.debug('Error in enforceAlwaysOnTop', { error: error.message });
-        }
-      }
-    };
-    
-    // Event-based enforcement
-    window.on('blur', () => {
-      setTimeout(enforceAlwaysOnTop, 50);
-      setTimeout(enforceAlwaysOnTop, 200);
-      setTimeout(enforceAlwaysOnTop, 500);
-    });
-    
-    window.on('show', () => {
-      setTimeout(enforceAlwaysOnTop, 50);
-      setTimeout(enforceAlwaysOnTop, 200);
-    });
-    
-    window.on('focus', () => {
-      setTimeout(enforceAlwaysOnTop, 50);
-    });
-    
-    window.on('restore', () => {
-      setTimeout(enforceAlwaysOnTop, 50);
-    });
-    
-    // Periodic enforcement every 3 seconds (more frequent)
-    const periodicEnforcement = setInterval(() => {
-      if (window.isDestroyed()) {
-        clearInterval(periodicEnforcement);
-        return;
-      }
-      enforceAlwaysOnTop();
-    }, 3000);
-    
-    logger.debug('Applied enhanced stealth measures with aggressive always-on-top', {
+    // Avoid focus/blur and periodic z-order enforcement. The native
+    // always-on-top flag above is sufficient; repeatedly toggling it causes
+    // flicker and can interfere with normal window focus.
+    logger.debug('Applied stable overlay window flags', {
       type,
       platform: process.platform,
       alwaysOnTop: true,
