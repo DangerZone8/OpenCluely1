@@ -37,6 +37,15 @@ requireMatch(manager, /hideAllWindows\(\)\s*\{[\s\S]*?this\.windows\.forEach\(\(
 requireMatch(manager, /showAllWindows\(\)\s*\{[\s\S]*?this\.isVisible\s*=\s*true;[\s\S]*?this\.showOnCurrentDesktop\(window\)/,
   'Explicitly enabling the overlay must set state before scheduling window shows.');
 
+// The user-facing toggle must switch state in both directions and must not
+// mutate visibility while screen sharing is active.
+requireMatch(manager, /toggleVisibility\\(\\)\\s*\\{[\\s\\S]*?if\\s*\\(this\\.isScreenBeingShared\\)\\s*\\{\\s*return this\\.isVisible;\\s*\\}[\\s\\S]*?if\\s*\\(this\\.isVisible\\)\\s*\\{\\s*this\\.hideAllWindows\\(\\);\\s*\\}\\s*else\\s*\\{\\s*this\\.showAllWindows\\(\\);\\s*\\}[\\s\\S]*?return this\\.isVisible;/,
+  'Toggle must hide when enabled, show when disabled, and preserve state during screen sharing.');
+requireMatch(manager, /showMainWindow\\(\\)[\\s\\S]*?const showGeneration = \\+\\+this\\.mainVisibilityGeneration;[\\s\\S]*?showGeneration !== this\\.mainVisibilityGeneration/,
+  'A stale delayed main-window show must not override a newer hide request.');
+requireMatch(manager, /hideAllWindows\\(\\)\\s*\\{[\\s\\S]*?this\\.isVisible\\s*=\\s*false;[\\s\\S]*?this\\.windows\\.forEach\\(\\(window\\)\\s*=>\\s*\\{\\s*if\\s*\\(!window\\.isDestroyed\\(\\)\\)\\s*window\\.hide\\(\\);/,
+  'Hide must close every live overlay window, including the AI-response window.');
+
 if (failures.length) {
   console.error('Overlay visibility regression checks failed:');
   for (const failure of failures) console.error(' - ' + failure);
