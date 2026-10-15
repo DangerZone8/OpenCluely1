@@ -61,7 +61,7 @@ jobs:
       # so artifact names drift from the release tag. Sync them here.
       # `npm pkg set` is cross-platform and doesn't touch git.
       - name: Sync package.json version
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
         shell: bash
         env:
           REQUESTED_VERSION: ${{ inputs.version }}
