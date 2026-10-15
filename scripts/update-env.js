@@ -12,9 +12,15 @@ const value = String(rawValue).replace(/[\r\n]+/g, " ").trim();
 
 function encodeValue(input) {
   if (input === "") return "";
-  if (!/[\s#"'\\]/.test(input)) return input;
-  if (!input.includes("'")) return "'" + input + "'";
-  return '"' + input.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+  const needsQuotes = /[\\s]/.test(input) || input.includes("#") || /^[\x27\x22\x60]/.test(input);
+  if (!needsQuotes) return input;
+
+  const delimiters = ["'", '"', String.fromCharCode(96)];
+  const delimiter = delimiters.find((candidate) => !input.includes(candidate));
+  if (!delimiter) {
+    throw new Error("Cannot safely encode an .env value containing all quote styles and requiring quotes.");
+  }
+  return delimiter + input + delimiter;
 }
 
 let contents = "";
