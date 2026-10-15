@@ -1304,30 +1304,48 @@ class WindowManager {
     if (this.isScreenBeingShared) return;
 
     const settingsWindow = this.windows.get('settings');
-    if (settingsWindow && !settingsWindow.isDestroyed()) {
-      // Settings are intentionally NOT topmost: users must be able to switch
-      // to their browser and copy/paste an API key without fighting the overlay.
-      settingsWindow.setVisibleOnAllWorkspaces(false);
-      settingsWindow.setAlwaysOnTop(false);
-      this.centerWindow(settingsWindow);
-      settingsWindow.show();
-      settingsWindow.focus();
+    if (!settingsWindow || settingsWindow.isDestroyed()) return;
 
-      // Notify that settings window is shown
-      setTimeout(() => {
-        if (!settingsWindow.isDestroyed()) {
-          settingsWindow.webContents.send('settings-window-shown');
-        }
-      }, 50);
+    // Suspend the floating overlay while Settings is active. This avoids
+    // z-order fights, flicker and focus-stealing when users open Settings or
+    // paste an API key into another app.
+    const mainWindow = this.windows.get('main');
+    const llmWindow = this.windows.get('llmResponse');
+    this.wasMainVisibleBeforeSettings = Boolean(
+      mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()
+    );
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide();
+    if (llmWindow && !llmWindow.isDestroyed()) llmWindow.hide();
 
-      logger.info('Settings window displayed as a normal focused window');
+    settingsWindow.setVisibleOnAllWorkspaces(false);
+    settingsWindow.setAlwaysOnTop(false);
+    // Center only when first shown; don't make the window jump every time the
+    // shortcut is pressed or the user returns to Settings.
+    if (!settingsWindow.isVisible()) this.centerWindow(settingsWindow);
+    settingsWindow.show();
+    settingsWindow.focus();
+
+    // Send after the renderer has had a chance to paint, without stacking
+    // multiple delayed focus/show operations.
+    if (settingsWindow.webContents && !settingsWindow.webContents.isDestroyed()) {
+      settingsWindow.webContents.send('settings-window-shown');
     }
+    logger.info('Settings opened; overlay temporarily suspended');
   }
 
   hideSettings() {
     const settingsWindow = this.windows.get('settings');
-    if (settingsWindow) {
-      settingsWindow.hide();
+    if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.hide();
+
+    // Restore the overlay only if it was visible before Settings opened.
+    if (this.wasMainVisibleBeforeSettings) {
+      const mainWindow = this.windows.get('main');
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        this.wasMainVisibleBeforeSettings = false;
+        this.showOnCurrentDesktop(mainWindow);
+      }
+    } else {
+      this.wasMainVisibleBeforeSettings = false;
     }
   }
 
