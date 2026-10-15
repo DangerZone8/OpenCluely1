@@ -106,8 +106,8 @@
           const assets = Array.isArray(release.assets) ? release.assets : [];
           const find = function (pattern) { return assets.find(function (asset) { return pattern.test(asset.name); }); };
           const windows = find(/^OpenCluely-Setup-.*\.exe$/i) || find(/\.exe$/i);
-          const macIntel = find(/^OpenCluely-.*\.dmg$/i) || find(/\.dmg$/i) || find(/\.zip$/i);
-          const macArm = find(/arm64.*\.dmg$/i) || find(/\.dmg$/i) || find(/\.zip$/i);
+          const macArm = find(/arm64.*\.dmg$/i) || find(/.*arm64.*\.zip$/i);
+          const macIntel = find(/^(?!.*arm64).*OpenCluely.*\.dmg$/i) || find(/^(?!.*arm64).*\.zip$/i);
           const linux = find(/\.AppImage$/i) || find(/_amd64\.deb$/i) || find(/\.deb$/i);
           activate(links.windows, windows, "Windows");
           const isAppleSilicon = /Macintosh|Mac OS X/i.test(navigator.userAgent || "") && /Apple/i.test(navigator.userAgent || "");
@@ -128,8 +128,10 @@
             recommended.removeAttribute("aria-disabled");
             recommended.textContent = "View latest release";
           }
-          status.textContent = (release.name || release.tag_name || "Latest release") + " · " +
-            (assets.length ? assets.length + " published asset(s) found." : "No installer assets were published.");
+          const publishedVersion = release.tag_name || release.name || "Latest release";
+          version.textContent = publishedVersion;
+          status.textContent = publishedVersion + " · " +
+            (assets.length ? assets.length + " published asset(s) found. Downloads point directly to release assets." : "No installer assets were published.");
         })
         .catch(function (error) {
           version.textContent = "Version lookup unavailable";\n          status.textContent = "Could not check the latest release automatically. Use the releases page to choose a published installer.";
