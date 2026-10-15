@@ -74,7 +74,7 @@ jobs:
           set -euo pipefail
           DEB_FILE="$(find dist -maxdepth 1 -type f -name 'opencluely_*_amd64.deb' -print -quit)"
           test -n "$DEB_FILE"
-          sudo apt-get install -y "$DEB_FILE"
+          sudo apt-get install -y "./$DEB_FILE"
           APP_BIN="$(dpkg -L opencluely | grep -E '/opencluely | head -n 1 || true)"
           if [ -z "$APP_BIN" ] || [ ! -x "$APP_BIN" ]; then
             APP_BIN="$(find /opt -type f -name opencluely -perm -111 -print -quit)"
