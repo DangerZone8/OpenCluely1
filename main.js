@@ -1821,7 +1821,14 @@ class ApplicationController {
     const newContent = outLines.join("\n");
     try {
       const tmpPath = envPath + ".tmp";
-      fs.writeFileSync(tmpPath, newContent, "utf8");
+      // API keys are stored here. Restrict the temporary file before rename
+      // so the final .env inherits private permissions on POSIX systems.
+      fs.writeFileSync(tmpPath, newContent, { encoding: "utf8", mode: 0o600 });
+      try {
+        fs.chmodSync(tmpPath, 0o600);
+      } catch (_) {
+        // Best effort on platforms where POSIX file modes are not supported.
+      }
       fs.renameSync(tmpPath, envPath);
     } catch (e) {
       logger.error("Failed to persist .env updates", {
