@@ -189,7 +189,7 @@ OpenCluely is under active development. The core is stable and improvements ship
 
 - **setup.sh will not run.** Make sure you are in the project folder (`cd OpenCluely1`) and that the script is executable (`chmod +x setup.sh`). On Windows, use Git Bash.
 - **Setup stops with exit code 130.** That means Ctrl+C was pressed. Run `./setup.sh` again.
-- **Node or npm not found.** Install Node.js 18 or newer from [nodejs.org](https://nodejs.org/), restart the terminal, and retry.
+- **Node or npm not found.** Install Node.js 20 or newer from [nodejs.org](https://nodejs.org/), restart the terminal, and retry.
 
 </details>
 
