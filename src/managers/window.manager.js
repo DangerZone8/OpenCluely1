@@ -352,9 +352,9 @@ class WindowManager {
     // Keep the original max width as cap; allow small min width so it can collapse to one icon
     minWidth: 60,
     maxWidth: this.windowConfigs.main.width,
-        minimizable: false,
+        minimizable: true,
         maximizable: false,
-        closable: false,
+        closable: true,
         hasShadow: false,
         useContentSize: windowConfig.useContentSize || false,
         thickFrame: false,

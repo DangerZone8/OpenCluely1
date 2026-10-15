@@ -281,6 +281,34 @@ class MainWindowUI {
             throw new Error('Required UI elements not found');
         }
 
+        // Overlay window controls. Minimize hides this overlay; close hides all assistant windows.
+        // Ctrl+Shift+V restores/toggles visibility when hidden.
+        const minimizeButton = document.getElementById('minimizeAssistant');
+        const closeButton = document.getElementById('closeAssistant');
+        if (minimizeButton) {
+            minimizeButton.addEventListener('click', async (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                try {
+                    if (window.electronAPI && window.electronAPI.closeWindow) await window.electronAPI.closeWindow();
+                } catch (error) {
+                    logger.error('Could not minimize assistant overlay', { error: error.message });
+                }
+            });
+        }
+        if (closeButton) {
+            closeButton.addEventListener('click', async (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                try {
+                    if (window.electronAPI && window.electronAPI.hideAllWindows) await window.electronAPI.hideAllWindows();
+                    else if (window.electronAPI && window.electronAPI.closeWindow) await window.electronAPI.closeWindow();
+                } catch (error) {
+                    logger.error('Could not close assistant overlay', { error: error.message });
+                }
+            });
+        }
+
         // Screenshot click handler
         this.screenshotButton.addEventListener('click', () => {
             if (this.isInteractive && window.electronAPI && window.electronAPI.takeScreenshot) {
