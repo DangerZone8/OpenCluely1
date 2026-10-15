@@ -46,6 +46,16 @@ function formatEnvValue(raw) {
   return `"${v.replace(/"/g, '\\"')}"`;
 }
 
+function redactSensitiveSettings(settings) {
+  if (!settings || typeof settings !== "object" || Array.isArray(settings)) return {};
+  return Object.fromEntries(Object.entries(settings).map(([key, value]) => {
+    if (/(api.?key|secret|token|password)/i.test(key)) {
+      return [key, value ? "[REDACTED]" : ""];
+    }
+    return [key, value];
+  }));
+}
+
 // ── Linux GPU process crash workaround ──
 // On many Linux setups (Wayland, X11 without GPU drivers, Docker, headless,
 // or systems with broken Mesa/NVIDIA stacks), Chromium's GPU process crashes
@@ -1734,7 +1744,7 @@ class ApplicationController {
       }
 
       logger.info("Settings saved successfully", {
-        ...settings,
+        ...redactSensitiveSettings(settings),
         persistedEnvKeys: persistedKeys
       });
       return { success: true, persistedEnvKeys: persistedKeys };
@@ -1747,7 +1757,7 @@ class ApplicationController {
   persistSettings(settings) {
     // You can extend this to save to a file or database
     // For now, we'll just keep them in memory
-    logger.debug("Settings persisted", settings);
+    logger.debug("Settings persisted", redactSensitiveSettings(settings));
   }
 
   /**
