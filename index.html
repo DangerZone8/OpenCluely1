@@ -24,7 +24,7 @@
           rgba(0, 0, 0, 0.4) 0%,
           rgba(20, 20, 20, 0.5) 100%
         );
-        backdrop-filter: blur(20px);
+        backdrop-filter: blur(8px);
         border-radius: 8px;
         display: flex;
         align-items: center;
@@ -52,7 +52,7 @@
         color: rgba(255, 255, 255, 0.9);
         font-size: 12px;
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
         -webkit-app-region: no-drag;
   /* Allow items to shrink so the bar can collapse to one icon width */
   flex-shrink: 1;
@@ -64,7 +64,7 @@
 
       .command-item i {
         font-size: 14px;
-        transition: all 0.3s ease;
+        transition: color 140ms ease, opacity 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
       }
 
       .command-item span {
@@ -121,7 +121,7 @@
         width: 8px;
         height: 8px;
         border-radius: 50%;
-        transition: all 0.3s ease;
+        transition: color 140ms ease, opacity 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
         position: relative;
   flex-shrink: 0;
       }
@@ -159,7 +159,7 @@
 
       #skillIndicator {
         color: #ffffff;
-        transition: all 0.3s ease;
+        transition: color 140ms ease, opacity 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
       }
 
       #skillIndicator:hover {
@@ -179,7 +179,7 @@
 
       #settingsIndicator {
         color: #ffffff;
-        transition: all 0.3s ease;
+        transition: color 140ms ease, opacity 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
       }
 
       #settingsIndicator:hover {
@@ -204,7 +204,7 @@
         padding: 4px 8px;
         min-width: 65px;
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
         -webkit-app-region: no-drag;
         -webkit-appearance: none;
         -moz-appearance: none;
@@ -265,7 +265,7 @@
           rgba(20, 20, 20, 0.7) 0%,
           rgba(10, 10, 10, 0.6) 100%
         );
-        backdrop-filter: blur(18px);
+        backdrop-filter: blur(8px);
         border: 1px solid rgba(255, 255, 255, 0.12);
         border-radius: 10px;
         color: rgba(255, 255, 255, 0.95);
@@ -358,6 +358,16 @@
       .window-control:hover { background:rgba(255,255,255,.18); }
       .window-control.close:hover { background:#dc3545; color:#fff; }
       .window-control i { font-size:11px; pointer-events:none; }
+      /* Keep the compact overlay responsive on lower-powered GPUs. */
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+
     </style>
   </head>
   <body>
