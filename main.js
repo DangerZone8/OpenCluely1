@@ -61,7 +61,6 @@ if (process.platform === "linux") {
   app.disableHardwareAcceleration();
   app.commandLine.appendSwitch("disable-gpu");
   app.commandLine.appendSwitch("disable-gpu-compositing");
-  app.commandLine.appendSwitch("disable-software-rasterizer");
   app.commandLine.appendSwitch("disable-gpu-sandbox");
   // On X11 only; harmless on Wayland. Prevents Chromium from spawning a
   // compositor process that adds another X11 client.
@@ -320,14 +319,9 @@ class ApplicationController {
       callback({ requestHeaders: details.requestHeaders });
     });
     
-    // Handle certificate errors for Google APIs
-    ses.setCertificateVerifyProc((request, callback) => {
-      if (request.hostname === 'generativelanguage.googleapis.com') {
-        callback(0); // Trust Google's certificates
-      } else {
-        callback(-2); // Use default verification
-      }
-    });
+    // Keep Electron's default TLS certificate verification enabled. Never
+    // bypass certificate validation for the AI provider: doing so can expose
+    // API keys and prompt contents to a man-in-the-middle.
     
     logger.debug('Network configuration applied for Gemini API');
   }
