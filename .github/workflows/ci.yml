@@ -59,3 +59,35 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npm run build:${{ matrix.script }} -- --dir --publish never
+
+      - name: Build Linux installer for runtime smoke test
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run build:linux -- --publish never
+
+      - name: Install and launch the packaged app in a virtual desktop
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEB_FILE="$(find dist -maxdepth 1 -type f -name 'opencluely_*_amd64.deb' -print -quit)"
+          test -n "$DEB_FILE"
+          sudo apt-get install -y "$DEB_FILE"
+          APP_BIN="$(dpkg -L opencluely | grep -E '/opencluely | head -n 1 || true)"
+          if [ -z "$APP_BIN" ] || [ ! -x "$APP_BIN" ]; then
+            APP_BIN="$(find /opt -type f -name opencluely -perm -111 -print -quit)"
+          fi
+          test -n "$APP_BIN"
+          test -x "$APP_BIN"
+          set +e
+          timeout --signal=TERM --kill-after=5s 20s xvfb-run -a "$APP_BIN" --no-sandbox --disable-gpu --user-data-dir=/tmp/opencluely-installed-smoke
+          APP_EXIT=$?
+          set -e
+          if [ "$APP_EXIT" -eq 124 ] || [ "$APP_EXIT" -eq 137 ] || [ "$APP_EXIT" -eq 143 ]; then
+            echo "PASS: installed Electron app stayed running for the 20-second virtual-desktop smoke test."
+          else
+            echo "FAIL: installed Electron app exited before the smoke-test timeout (exit $APP_EXIT)."
+            exit 1
+          fi
