@@ -75,11 +75,7 @@
   </main>
   <script>
     (function () {
-      const downloads = {
-        windows: { name: "OpenCluely-Setup-1.0.8.exe", url: "https://github.com/DangerZone8/OpenCluely1/releases/download/v1.0.8/OpenCluely-Setup-1.0.8.exe" },
-        mac: { name: "OpenCluely-1.0.8.dmg", url: "https://github.com/DangerZone8/OpenCluely1/releases/download/v1.0.8/OpenCluely-1.0.8.dmg" },
-        linux: { name: "OpenCluely-1.0.8.AppImage", url: "https://github.com/DangerZone8/OpenCluely1/releases/download/v1.0.8/OpenCluely-1.0.8.AppImage" }
-      };
+      const API = "https://api.github.com/repos/DangerZone8/OpenCluely1/releases/latest";
       const links = {
         windows: document.getElementById("windows-download"),
         mac: document.getElementById("mac-download"),
@@ -88,28 +84,64 @@
       const recommended = document.getElementById("recommended-download");
       const status = document.getElementById("release-status");
 
-      Object.keys(links).forEach((platform) => {
-        links[platform].href = downloads[platform].url;
-        links[platform].removeAttribute("aria-disabled");
-        links[platform].textContent = "Download " + downloads[platform].name;
-      });
-
-      const ua = navigator.userAgent || "";
-      let detected = null;
-      if (/Windows/i.test(ua)) detected = "windows";
-      else if (/Macintosh|Mac OS X/i.test(ua)) detected = "mac";
-      else if (/Linux|X11/i.test(ua)) detected = "linux";
-
-      if (detected) {
-        recommended.href = downloads[detected].url;
-        recommended.removeAttribute("aria-disabled");
-        recommended.textContent = "Download v1.0.8 for this device";
-      } else {
-        recommended.href = downloads.windows.url;
-        recommended.removeAttribute("aria-disabled");
-        recommended.textContent = "Download v1.0.8 for Windows";
+      function activate(link, asset, label) {
+        if (!asset) {
+          link.href = "https://github.com/DangerZone8/OpenCluely1/releases/latest";
+          link.removeAttribute("aria-disabled");
+          link.textContent = label + " installer unavailable — view release";
+          return;
+        }
+        link.href = asset.browser_download_url;
+        link.removeAttribute("aria-disabled");
+        link.textContent = "Download " + asset.name;
       }
-      status.textContent = "OpenCluely v1.0.8 is available now. Choose a direct installer below.";
+
+      fetch(API, { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" })
+        .then(function (response) {
+          if (!response.ok) throw new Error("GitHub release lookup failed (" + response.status + ")");
+          return response.json();
+        })
+        .then(function (release) {
+          const assets = Array.isArray(release.assets) ? release.assets : [];
+          const find = function (pattern) { return assets.find(function (asset) { return pattern.test(asset.name); }); };
+          const windows = find(/^OpenCluely-Setup-.*\.exe$/i) || find(/\.exe$/i);
+          const macIntel = find(/^OpenCluely-.*\.dmg$/i) || find(/\.dmg$/i) || find(/\.zip$/i);
+          const macArm = find(/arm64.*\.dmg$/i) || find(/\.dmg$/i) || find(/\.zip$/i);
+          const linux = find(/\.AppImage$/i) || find(/_amd64\.deb$/i) || find(/\.deb$/i);
+          activate(links.windows, windows, "Windows");
+          const isAppleSilicon = /Macintosh|Mac OS X/i.test(navigator.userAgent || "") && /Apple/i.test(navigator.userAgent || "");
+          activate(links.mac, isAppleSilicon ? macArm : macIntel, "macOS");
+          activate(links.linux, linux, "Linux");
+
+          const ua = navigator.userAgent || "";
+          let selected = null;
+          if (/Windows/i.test(ua)) selected = windows;
+          else if (/Macintosh|Mac OS X/i.test(ua)) selected = isAppleSilicon ? macArm : macIntel;
+          else if (/Linux|X11/i.test(ua)) selected = linux;
+          if (selected) {
+            recommended.href = selected.browser_download_url;
+            recommended.removeAttribute("aria-disabled");
+            recommended.textContent = "Download latest for this device";
+          } else {
+            recommended.href = release.html_url || "https://github.com/DangerZone8/OpenCluely1/releases/latest";
+            recommended.removeAttribute("aria-disabled");
+            recommended.textContent = "View latest release";
+          }
+          status.textContent = (release.name || release.tag_name || "Latest release") + " · " +
+            (assets.length ? assets.length + " published asset(s) found." : "No installer assets were published.");
+        })
+        .catch(function (error) {
+          status.textContent = "Could not check the latest release automatically. Use the releases page to choose a published installer.";
+          recommended.href = "https://github.com/DangerZone8/OpenCluely1/releases/latest";
+          recommended.removeAttribute("aria-disabled");
+          recommended.textContent = "Open latest release";
+          Object.keys(links).forEach(function (platform) {
+            links[platform].href = "https://github.com/DangerZone8/OpenCluely1/releases/latest";
+            links[platform].removeAttribute("aria-disabled");
+            links[platform].textContent = "View available " + platform + " downloads";
+          });
+          console.error(error);
+        });
     })();
   </script>
 </body>
