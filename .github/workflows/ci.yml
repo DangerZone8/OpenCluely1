@@ -65,7 +65,7 @@ jobs:
         shell: bash
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npm run build:linux -- --publish never
+        run: npx electron-builder --linux deb --publish never
 
       - name: Install and launch the packaged app in a virtual desktop
         if: matrix.os == 'ubuntu-latest'
