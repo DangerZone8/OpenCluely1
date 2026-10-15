@@ -279,7 +279,9 @@ class ApplicationController {
       }
       const isFirstRun = status.needsOnboarding;
 
-      await windowManager.initializeWindows({ showMainWindow: !isFirstRun });
+      // Keep the overlay opt-in on every launch. First-run onboarding and the
+      // global visibility shortcut can explicitly show it when the user chooses.
+      await windowManager.initializeWindows({ showMainWindow: false });
       this.setupGlobalShortcuts();
 
       // Initialize default stealth mode with terminal icon
