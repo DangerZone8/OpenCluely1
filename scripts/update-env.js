@@ -12,7 +12,8 @@ const value = String(rawValue).replace(/[\r\n]+/g, " ").trim();
 
 function encodeValue(input) {
   if (input === "") return "";
-  const needsQuotes = /[\\s]/.test(input) || input.includes("#") || /^[\x27\x22\x60]/.test(input);
+  const startsWithQuote = input[0] === "'" || input[0] === '"' || input[0] === String.fromCharCode(96);
+  const needsQuotes = /\s/.test(input) || input.includes("#") || startsWithQuote;
   if (!needsQuotes) return input;
 
   const delimiters = ["'", '"', String.fromCharCode(96)];
