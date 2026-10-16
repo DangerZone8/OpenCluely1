@@ -15,6 +15,14 @@ function forbidMatch(source, pattern, message) {
   if (pattern.test(source)) failures.push(message);
 }
 
+// Recoverable startup failures must not close a main window that already exists.
+requireMatch(main, /if\s*\(mainWindow\s*&&\s*!mainWindow\.isDestroyed\(\)\)\s*\{[\s\S]*?this\.isReady\s*=\s*true;[\s\S]*?windowManager\.showMainWindow\(\)/,
+  'A recoverable startup failure must preserve and re-show an existing main window.');
+requireMatch(manager, /const startupTasks = \[[\s\S]*?\['screen tracking',[\s\S]*?\['screen-capture watcher',[\s\S]*?\['interactive mode'/,
+  'Optional startup tasks must be isolated so one failure cannot block the main app.');
+requireMatch(manager, /for\s*\(const\s*\[task,\s*run\]\s*of\s*startupTasks\)\s*\{\s*try\s*\{\s*run\(\);\s*\}\s*catch\s*\(error\)\s*\{/,
+  'Each non-critical startup task must have its own error boundary.');
+
 // The overlay must not be shown as a side effect of app startup/window creation.
 requireMatch(main, /initializeWindows\(\s*\{\s*showMainWindow:\s*true\s*\}\s*\)/,
   'The main window must be shown on every launch, including first-run onboarding.');
