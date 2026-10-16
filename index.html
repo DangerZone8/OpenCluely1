@@ -278,14 +278,16 @@
         pointer-events: none;
         opacity: 0;
         visibility: hidden;
-        transition: opacity 120ms ease, visibility 120ms ease;
-        will-change: opacity;
+        transform: translateY(-3px);
+        transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+        will-change: opacity, transform;
       }
 
       /* Open state: visible and interactive */
       .shortcuts-popover.is-open {
         pointer-events: auto;
         opacity: 1;
+        transform: translateY(0);
         visibility: visible;
       }
 
