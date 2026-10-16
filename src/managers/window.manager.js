@@ -45,7 +45,7 @@ class WindowManager {
     this.windowConfigs = {
       main: {
         width: 520,
-        height: 35,
+        height: 600,
         useContentSize: true,
         file: 'index.html',
         title: 'OpenCluely'
@@ -275,11 +275,12 @@ class WindowManager {
         backgroundThrottling: false,
         devTools: true, // Enable DevTools for debugging
       },
-      show: false, // Never show during creation, use showOnCurrentDesktop instead
+      show: false, // Show only after the window has finished loading.
       title: windowConfig.title,
-      skipTaskbar: true,
-      alwaysOnTop: true,
-      visibleOnAllWorkspaces: true,
+      // Main app should be discoverable and accessible like a normal desktop app.
+      skipTaskbar: type !== 'main',
+      alwaysOnTop: type !== 'main',
+      visibleOnAllWorkspaces: type !== 'main',
       fullscreenable: false,
       // Platform-specific always-on-top settings
       ...(process.platform === 'darwin' && {
