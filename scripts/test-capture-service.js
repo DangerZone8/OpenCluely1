@@ -28,6 +28,7 @@ Module._load = function(request, parent, isMain) {
 };
 
 const captureService = require('../src/services/capture.service');
+const realCaptureScreenshot = captureService.captureScreenshot.bind(captureService);
 Module._load = originalLoad;
 
 function makeImage() {
@@ -64,10 +65,34 @@ async function run() {
   await pending;
   assert.equal(captureService.isProcessing, false, 'processing lock must clear after concurrent-call rejection');
 
-  electronMock.desktopCapturer.getSources = async () => [];
-  await assert.rejects(captureService.captureScreenshot(), /No screen sources available/);
+  // Explicit display_id must win when monitors have identical dimensions.
+  const wrongDisplay = makeImage();
+  const intendedDisplay = makeImage();
+  electronMock.desktopCapturer.getSources = async () => [
+    { name: 'unusable', display_id: '1', thumbnail: null },
+    { name: 'secondary', display_id: '2', thumbnail: wrongDisplay },
+    { name: 'primary', display_id: '1', thumbnail: intendedDisplay }
+  ];
+  const targeted = await realCaptureScreenshot({ displayId: 1 });
+  assert.equal(targeted.metadata.sourceName, 'primary');
+  assert.equal(targeted.image, intendedDisplay);
 
-  console.log('Capture service tests passed: area validation, crop/output, failure recovery, concurrency guard, and no-source handling.');
+  // Older platforms may not expose display_id; matching dimensions remains a fallback.
+  electronMock.desktopCapturer.getSources = async () => [
+    { name: 'wrong-size', thumbnail: { getSize: () => ({ width: 800, height: 600 }) } },
+    { name: 'size-match', thumbnail: makeImage() }
+  ];
+  const fallback = await realCaptureScreenshot({ displayId: 1 });
+  assert.equal(fallback.metadata.sourceName, 'size-match');
+
+  electronMock.desktopCapturer.getSources = async () => [];
+  await assert.rejects(realCaptureScreenshot(), /No screen sources available/);
+  electronMock.desktopCapturer.getSources = async () => [
+    { name: 'no-thumbnail', display_id: '1', thumbnail: null }
+  ];
+  await assert.rejects(realCaptureScreenshot(), /No usable screen thumbnails available/);
+
+  console.log('Capture service tests passed: area validation, crop/output, failure recovery, concurrency guard, display selection, fallback matching, and empty-source handling.');
 }
 
 run().catch(error => {
