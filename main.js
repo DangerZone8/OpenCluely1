@@ -180,11 +180,9 @@ class ApplicationController {
       process.title = config.get("app.processTitle");
     }
 
-    // Set default stealth app name early
-    if (app && typeof app.setName === 'function') {
-      app.setName("Terminal ");
-    }
-    process.title = "Terminal ";
+    // Keep the real product identity visible so users can find the app.
+    if (app && typeof app.setName === 'function') app.setName("OpenCluely");
+    process.title = "OpenCluely";
 
     if (
       process.platform === "darwin" &&
@@ -245,9 +243,9 @@ class ApplicationController {
     }
     this.starting = true;
 
-    // Force stealth mode IMMEDIATELY when app is ready
-    app.setName("Terminal ");
-    process.title = "Terminal ";
+    // Restore the real product identity at startup for discoverability.
+    app.setName("OpenCluely");
+    process.title = "OpenCluely";
 
     logger.info("Application starting", {
       version: config.get("app.version"),
@@ -279,13 +277,12 @@ class ApplicationController {
       }
       const isFirstRun = status.needsOnboarding;
 
-      // Keep the overlay opt-in on every launch. First-run onboarding and the
-      // global visibility shortcut can explicitly show it when the user chooses.
-      await windowManager.initializeWindows({ showMainWindow: !isFirstRun });
+      // Always show the main app window, including on first launch.
+      // Onboarding is secondary and must not leave the app with no visible UI.
+      await windowManager.initializeWindows({ showMainWindow: true });
       this.setupGlobalShortcuts();
 
-      // Initialize default stealth mode with terminal icon
-      this.updateAppIcon("terminal");
+      // Keep the packaged OpenCluely identity and icon; do not disguise it.
 
       this.starting = false;
       this.isReady = true;
