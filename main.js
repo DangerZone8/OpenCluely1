@@ -319,8 +319,34 @@ class ApplicationController {
       this.starting = false;
       logger.error("Application initialization failed", {
         error: error.message,
+        stack: error.stack,
       });
-      app.quit();
+
+      // If the main window was already created, preserve a usable app instead
+      // of quitting because a non-essential startup task failed.
+      let mainWindow = null;
+      try {
+        mainWindow = windowManager.getWindow("main");
+      } catch (lookupError) {
+        logger.warn("Could not inspect main window after startup failure", {
+          error: lookupError.message,
+        });
+      }
+
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        this.isReady = true;
+        try {
+          await windowManager.showMainWindow();
+          logger.warn("Keeping OpenCluely open after a non-fatal startup error");
+        } catch (showError) {
+          logger.error("Could not recover main window after startup failure", {
+            error: showError.message,
+          });
+        }
+      } else {
+        logger.error("No usable main window exists; exiting after startup failure");
+        app.quit();
+      }
     }
   }
 
