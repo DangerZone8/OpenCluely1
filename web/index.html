@@ -134,7 +134,8 @@
             (assets.length ? assets.length + " published asset(s) found. Downloads point directly to release assets." : "No installer assets were published.");
         })
         .catch(function (error) {
-          version.textContent = "Version lookup unavailable";\n          status.textContent = "Could not check the latest release automatically. Use the releases page to choose a published installer.";
+          version.textContent = "Version lookup unavailable";
+          status.textContent = "Could not check the latest release automatically. Use the releases page to choose a published installer.";
           recommended.href = "https://github.com/DangerZone8/OpenCluely1/releases/latest";
           recommended.removeAttribute("aria-disabled");
           recommended.textContent = "Open latest release";
