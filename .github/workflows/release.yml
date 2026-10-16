@@ -168,6 +168,26 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npm run build:${{ matrix.script }} -- --publish never
 
+      - name: Launch packaged Windows app smoke test
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = Join-Path $PWD 'dist/win-unpacked/OpenCluely.exe'
+          if (-not (Test-Path $app)) {
+            throw "Packaged executable not found: $app"
+          }
+          $userData = Join-Path $env:TEMP 'opencluely-release-windows-smoke'
+          if (Test-Path $userData) { Remove-Item $userData -Recurse -Force }
+          $proc = Start-Process -FilePath $app -ArgumentList @('--disable-gpu', "--user-data-dir=$userData") -PassThru
+          Start-Sleep -Seconds 15
+          $proc.Refresh()
+          if ($proc.HasExited) {
+            throw "OpenCluely exited during the 15-second Windows release smoke test (exit code $($proc.ExitCode))."
+          }
+          Stop-Process -Id $proc.Id -Force
+          Write-Host 'PASS: packaged Windows app remained running for 15 seconds.'
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
