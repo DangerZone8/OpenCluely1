@@ -77,16 +77,25 @@ class CaptureService {
       throw new Error('No screen sources available for capture');
     }
 
-    // Find source matching the target display by comparing sizes as heuristic
-    let source = sources[0];
-    const match = sources.find(s => {
-      const size = s.thumbnail.getSize();
-      return size.width === width && size.height === height;
-    });
-    if (match) source = match;
+    // Prefer Electron's explicit display mapping. Equal-sized monitors are common,
+    // so dimensions alone must not select a different display when display_id exists.
+    const usableSources = sources.filter(source =>
+      source && source.thumbnail && typeof source.thumbnail.getSize === 'function'
+    );
+    if (usableSources.length === 0) {
+      throw new Error('No usable screen thumbnails available for capture');
+    }
 
+    const displayMatch = usableSources.find(source =>
+      source.display_id != null && String(source.display_id) !== '' &&
+      String(source.display_id) === String(targetDisplay.id)
+    );
+    const sizeMatch = usableSources.find(source => {
+      const size = source.thumbnail.getSize();
+      return size && size.width === width && size.height === height;
+    });
+    const source = displayMatch || sizeMatch || usableSources[0];
     const image = source.thumbnail;
-    if (!image) throw new Error('Failed to capture screen thumbnail');
 
     logger.debug('Screenshot captured successfully', {
       sourceName: source.name,
