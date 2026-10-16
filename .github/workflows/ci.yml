@@ -77,8 +77,14 @@ jobs:
           if ($proc.HasExited) {
             throw "OpenCluely exited during the 15-second Windows launch smoke test (exit code $($proc.ExitCode))."
           }
+          if ($proc.MainWindowHandle -eq [IntPtr]::Zero) {
+            throw "OpenCluely stayed running but exposed no visible main window handle after 15 seconds."
+          }
+          if ([string]::IsNullOrWhiteSpace($proc.MainWindowTitle)) {
+            throw "OpenCluely main window has no visible title after 15 seconds."
+          }
+          Write-Host "PASS: packaged app stayed running and exposed a visible window: $($proc.MainWindowTitle)"
           Stop-Process -Id $proc.Id -Force
-          Write-Host 'PASS: packaged Windows app remained running for 15 seconds.'
 
       - name: Build Linux installer for runtime smoke test
         if: matrix.os == 'ubuntu-latest'
