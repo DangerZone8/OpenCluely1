@@ -155,35 +155,22 @@ class WindowManager {
     this.isVisible = true;
     const showGeneration = ++this.mainVisibilityGeneration;
     
-    // Immediate always-on-top enforcement for main window
-    if (process.platform === 'darwin') {
-      try {
-        mainWindow.setAlwaysOnTop(true, 'screen-saver', 2);
-      } catch (error) {
-        mainWindow.setAlwaysOnTop(true, 'floating', 2);
-      }
-    } else {
-      mainWindow.setAlwaysOnTop(true);
+    // Show the main window using standard desktop behavior so it reliably
+    // appears in the taskbar and can be focused by the user.
+    try {
+      mainWindow.setSkipTaskbar(false);
+      mainWindow.setAlwaysOnTop(false);
+      mainWindow.setVisibleOnAllWorkspaces(false);
+      mainWindow.setContentProtection(false);
+    } catch (error) {
+      logger.warn('Could not reset main-window visibility flags', { error: error.message });
     }
-    
-    // Wait for app to fully initialize and detect current desktop
+
     await new Promise((resolve) => setTimeout(resolve, 100));
     if (mainWindow.isDestroyed() || !this.isVisible || showGeneration !== this.mainVisibilityGeneration) return;
-    this.showOnCurrentDesktop(mainWindow);
-    
-    // Additional enforcement after showing
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    if (!mainWindow.isDestroyed()) {
-      if (process.platform === 'darwin') {
-        try {
-          mainWindow.setAlwaysOnTop(true, 'screen-saver', 2);
-        } catch (error) {
-          mainWindow.setAlwaysOnTop(true, 'floating', 2);
-        }
-      } else {
-        mainWindow.setAlwaysOnTop(true);
-      }
-    }
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
     
     if (!this.isVisible || showGeneration !== this.mainVisibilityGeneration || mainWindow.isDestroyed()) return;
     this.isVisible = true;
@@ -201,16 +188,15 @@ class WindowManager {
     const window = await this.createWindow('main', false); // Don't show during creation
     this.windows.set('main', window);
 
-    // Always-on-top must be set even when we're deferring the visual
-    // show — it persists into the future showOnCurrentDesktop call.
-    if (process.platform === 'darwin') {
-      try {
-        window.setAlwaysOnTop(true, 'screen-saver', 2);
-      } catch (error) {
-        window.setAlwaysOnTop(true, 'floating', 2);
-      }
-    } else {
-      window.setAlwaysOnTop(true);
+    // Main application window behaves like a normal desktop app:
+    // visible in the taskbar, movable, and not forced above other applications.
+    try {
+      window.setAlwaysOnTop(false);
+      window.setVisibleOnAllWorkspaces(false);
+      window.setSkipTaskbar(false);
+      window.setContentProtection(false);
+    } catch (error) {
+      logger.warn('Could not apply normal main-window behavior', { error: error.message });
     }
 
     // Visibility is controlled only by showMainWindow()/showAllWindows().
@@ -531,10 +517,9 @@ class WindowManager {
   }
 
   applyStealthMeasures(window, type) {
-    // Settings is a normal utility window: never apply overlay/topmost behavior.
-    // Applying the overlay policy to Settings caused it to jump above other apps
-    // again on blur and every few seconds, making the desktop feel broken.
-    if (type === 'settings') {
+    // Main and Settings are normal user-facing windows. Do not apply overlay
+    // policies that hide them from the taskbar or screen capture.
+    if (type === 'main' || type === 'settings') {
       try {
         window.setAlwaysOnTop(false);
         window.setVisibleOnAllWorkspaces(false);
