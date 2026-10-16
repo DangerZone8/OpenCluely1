@@ -358,6 +358,32 @@
       .window-control:hover { background:rgba(255,255,255,.18); }
       .window-control.close:hover { background:#dc3545; color:#fff; }
       .window-control i { font-size:11px; pointer-events:none; }
+
+      /* Refined, low-jank controls: clear hover/focus feedback without large layout shifts. */
+      .command-tab {
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.18);
+        isolation: isolate;
+      }
+      .command-item,
+      .window-control {
+        -webkit-tap-highlight-color: transparent;
+      }
+      .command-item:focus-visible,
+      .window-control:focus-visible,
+      .command-item select:focus-visible {
+        outline: 2px solid rgba(147, 197, 253, 0.95);
+        outline-offset: 2px;
+      }
+      .window-control {
+        transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+      }
+      .window-control:active {
+        background: rgba(255, 255, 255, 0.24);
+      }
+      .window-control.close:focus-visible {
+        outline-color: rgba(248, 113, 113, 0.95);
+      }
       /* Keep the compact overlay responsive on lower-powered GPUs. */
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after {
