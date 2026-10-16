@@ -31,11 +31,11 @@ const captureService = require('../src/services/capture.service');
 const realCaptureScreenshot = captureService.captureScreenshot.bind(captureService);
 Module._load = originalLoad;
 
-function makeImage() {
+function makeImage(width = 100, height = 50) {
   return {
     crop(area) { this.lastCrop = area; return this; },
     toPNG() { return Buffer.from('png-test'); },
-    getSize() { return { width: 100, height: 50 }; }
+    getSize() { return { width, height }; }
   };
 }
 
@@ -80,7 +80,7 @@ async function run() {
   // Older platforms may not expose display_id; matching dimensions remains a fallback.
   electronMock.desktopCapturer.getSources = async () => [
     { name: 'wrong-size', thumbnail: { getSize: () => ({ width: 800, height: 600 }) } },
-    { name: 'size-match', thumbnail: makeImage() }
+    { name: 'size-match', thumbnail: makeImage(1920, 1080) }
   ];
   const fallback = await realCaptureScreenshot({ displayId: 1 });
   assert.equal(fallback.metadata.sourceName, 'size-match');
