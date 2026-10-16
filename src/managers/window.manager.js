@@ -117,24 +117,33 @@ class WindowManager {
     logger.info('Initializing application windows', { showMainWindow });
     
     try {
-      // Pass autoShow so the main window doesn't flash visible during
-      // first-run onboarding before the user has configured API keys.
+      // Create and show the essential UI first. A helper window failing to
+      // load must not prevent the user from seeing or using the main app.
       await this.createMainWindow();
-      await this.createChatWindow();
-      await this.createLLMResponseWindow();
-      await this.createSettingsWindow();
-      
+      if (showMainWindow) await this.showMainWindow();
+
+      const optionalWindows = [
+        ['chat', () => this.createChatWindow()],
+        ['llmResponse', () => this.createLLMResponseWindow()],
+        ['settings', () => this.createSettingsWindow()]
+      ];
+      for (const [type, createWindow] of optionalWindows) {
+        try {
+          await createWindow();
+        } catch (error) {
+          logger.error('Optional window failed to initialize; continuing with main window', {
+            type,
+            error: error.message
+          });
+        }
+      }
+
       this.setupWindowEventHandlers();
       this.setupScreenTracking();
       this.setupScreenCaptureAvailabilityWatcher();
 
       // Make windows interactive by default so they are not click-through
       this.setInteractive(true);
-      
-      // Optionally show the main window (deferred during onboarding)
-      if (showMainWindow) {
-        await this.showMainWindow();
-      }
       
       this.isInitialized = true;
       this.isInitializing = false;
