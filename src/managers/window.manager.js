@@ -138,13 +138,25 @@ class WindowManager {
         }
       }
 
-      this.setupWindowEventHandlers();
-      this.setupScreenTracking();
-      this.setupScreenCaptureAvailabilityWatcher();
+      // Watchers and interaction helpers are non-essential. A platform API
+      // failing here must not take down an already-visible main window.
+      const startupTasks = [
+        ['window event handlers', () => this.setupWindowEventHandlers()],
+        ['screen tracking', () => this.setupScreenTracking()],
+        ['screen-capture watcher', () => this.setupScreenCaptureAvailabilityWatcher()],
+        ['interactive mode', () => this.setInteractive(true)]
+      ];
+      for (const [task, run] of startupTasks) {
+        try {
+          run();
+        } catch (error) {
+          logger.error('Non-critical startup task failed; continuing', {
+            task,
+            error: error.message
+          });
+        }
+      }
 
-      // Make windows interactive by default so they are not click-through
-      this.setInteractive(true);
-      
       this.isInitialized = true;
       this.isInitializing = false;
       logger.info('All windows initialized successfully');
