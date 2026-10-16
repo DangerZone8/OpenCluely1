@@ -24,7 +24,7 @@
           rgba(0, 0, 0, 0.4) 0%,
           rgba(20, 20, 20, 0.5) 100%
         );
-        backdrop-filter: blur(8px);
+        backdrop-filter: blur(4px);
         border-radius: 8px;
         display: flex;
         align-items: center;
@@ -265,7 +265,7 @@
           rgba(20, 20, 20, 0.7) 0%,
           rgba(10, 10, 10, 0.6) 100%
         );
-        backdrop-filter: blur(8px);
+        backdrop-filter: blur(4px);
         border: 1px solid rgba(255, 255, 255, 0.12);
         border-radius: 10px;
         color: rgba(255, 255, 255, 0.95);
@@ -279,6 +279,7 @@
         opacity: 0;
         visibility: hidden;
         transition: opacity 120ms ease, visibility 120ms ease;
+        will-change: opacity;
       }
 
       /* Open state: visible and interactive */
@@ -361,6 +362,7 @@
 
       /* Refined, low-jank controls: clear hover/focus feedback without large layout shifts. */
       .command-tab {
+        contain: layout paint;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.06);
         border-color: rgba(255, 255, 255, 0.18);
         isolation: isolate;
