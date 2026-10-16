@@ -16,8 +16,8 @@ function forbidMatch(source, pattern, message) {
 }
 
 // The overlay must not be shown as a side effect of app startup/window creation.
-requireMatch(main, /initializeWindows\(\s*\{\s*showMainWindow:\s*false\s*\}\s*\)/,
-  'App startup must initialize with the overlay hidden.');
+requireMatch(main, /initializeWindows\(\s*\{\s*showMainWindow:\s*!isFirstRun\s*\}\s*\)/,
+  'Returning users must see the main window on startup while first-run onboarding keeps the overlay hidden.');
 requireMatch(manager, /async initializeWindows\(options\s*=\s*\{\}\)\s*\{\s*const\s*\{\s*showMainWindow\s*=\s*false\s*\}\s*=\s*options;/,
   'initializeWindows must default to hidden.');
 requireMatch(manager, /async createMainWindow\(\)\s*\{/,
