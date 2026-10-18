@@ -389,6 +389,27 @@ class LLMService {
     }
   }
 
+  /** General-purpose chat without the selected skill's specialized prompt. */
+  async processGeneralAssistantStream(text, sessionMemory = [], onDelta = null) {
+    if (!this.isInitialized) throw new Error('LLM service not initialized. Check Gemini API key configuration.');
+    const startTime = Date.now();
+    this.requestCount++;
+    const request = {
+      systemInstruction: { parts: [{ text: "You are OpenCluely, a helpful general-purpose AI assistant. Respond naturally to everyday conversation, writing, explanations, brainstorming, technology, and programming questions. Do not assume every message is a data-structures-and-algorithms problem. Only provide code when relevant. Respond conversationally to greetings and informal phrases." }] },
+      contents: [{ role: 'user', parts: [{ text: String(text) }] }]
+    };
+    this.applyGenerationDefaults(request);
+    try {
+      const response = await this.executeStreamingRequest(request, (delta) => {
+        if (typeof onDelta === 'function' && delta) onDelta(delta);
+      });
+      return { response, metadata: { skill: 'general', programmingLanguage: null, processingTime: Date.now() - startTime, requestId: this.requestCount, usedFallback: false, streamed: true } };
+    } catch (error) {
+      this.errorCount++;
+      logger.error('General assistant chat failed', { error: error.message, requestId: this.requestCount });
+      throw error;
+    }
+  }
   async processTextWithSkillStream(text, activeSkill, sessionMemory = [], programmingLanguage = null, onDelta = null) {
     if (!this.isInitialized) {
       throw new Error('LLM service not initialized. Check Gemini API key configuration.');
