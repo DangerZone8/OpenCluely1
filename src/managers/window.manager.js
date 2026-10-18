@@ -437,7 +437,8 @@ class WindowManager {
         ...browserWindowOptions,
         parent: null,
         modal: false,
-        thickFrame: false,
+        // Keep a native caption/frame on the main window so Windows can move it normally.
+        thickFrame: type === 'main',
       };
     }
 
