@@ -394,9 +394,21 @@ class LLMService {
     if (!this.isInitialized) throw new Error('LLM service not initialized. Check Gemini API key configuration.');
     const startTime = Date.now();
     this.requestCount++;
+    const history = Array.isArray(sessionMemory) ? sessionMemory : [];
+    const contents = history
+      .filter((entry) => entry && ['user', 'model', 'assistant'].includes(entry.role) && typeof entry.content === 'string' && entry.content.trim())
+      .slice(-12)
+      .map((entry) => ({
+        role: entry.role === 'assistant' ? 'model' : entry.role,
+        parts: [{ text: entry.content }]
+      }));
+    // Keep the current message in context even if the caller has no history.
+    if (!contents.length || contents[contents.length - 1].role !== 'user' || contents[contents.length - 1].parts[0].text !== String(text)) {
+      contents.push({ role: 'user', parts: [{ text: String(text) }] });
+    }
     const request = {
-      systemInstruction: { parts: [{ text: "You are OpenCluely, a helpful general-purpose AI assistant. Respond naturally to everyday conversation, writing, explanations, brainstorming, technology, and programming questions. Do not assume every message is a data-structures-and-algorithms problem. Only provide code when relevant. Respond conversationally to greetings and informal phrases." }] },
-      contents: [{ role: 'user', parts: [{ text: String(text) }] }]
+      systemInstruction: { parts: [{ text: "You are OpenCluely, a helpful general-purpose AI assistant. Respond naturally to everyday conversation, writing, explanations, brainstorming, technology, and programming questions. Do not assume every message is a data-structures-and-algorithms problem. Only provide code when relevant. Respond conversationally to greetings and informal phrases. Use the conversation history to understand follow-up questions, avoid repeating questions already answered, and maintain context." }] },
+      contents
     };
     this.applyGenerationDefaults(request);
     try {
