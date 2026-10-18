@@ -3,6 +3,7 @@ const assert = require('assert');
 
 const html = fs.readFileSync('chat.html', 'utf8');
 const manager = fs.readFileSync('src/managers/window.manager.js', 'utf8');
+const onboarding = fs.readFileSync('onboarding.html', 'utf8');
 
 const containerRule = html.match(/\.chat-container\s*\{([^}]*)\}/s);
 assert(containerRule, 'Chat container CSS rule must exist');
@@ -24,4 +25,8 @@ assert.match(manager, /else if \(type === 'main'\)\s*\{[\s\S]*?frame:\s*true,[\s
   'Main app must use a native OS frame for normal window movement and controls');
 assert.match(manager, /thickFrame:\s*type === 'main'/,
   'Windows-specific options must preserve the main window native frame');
-console.log('Chat window drag-region checks passed.');
+assert.match(onboarding, /\.header\s*\{[^}]*-webkit-app-region:\s*drag/s,
+  'Welcome onboarding header must be draggable');
+assert.match(manager, /onboarding:\s*\{[\s\S]*?file:\s*'onboarding\.html'/,
+  'Welcome onboarding window must remain configured');
+console.log('Chat and onboarding window drag-region checks passed.');
