@@ -40,6 +40,7 @@ It is free and open source. Processing stays on your machine, and the only thing
 - **Session memory.** The whole conversation is remembered, so follow-ups, edge cases, and optimizations keep their context.
 - **Language aware.** Tailored answers for C++, C, Python, Java, and JavaScript.
 - **Stealthy by design.** Runs under ordinary system names, ships with no telemetry, and keeps your session local.
+- **Movable desktop windows.** The main app uses native OS window controls, and the AI chat panel can be dragged by its header while keeping its input and scrolling interactive.
 - **Cross platform.** Pre-built installers for Windows and Linux (.deb and AppImage). macOS runs from source in one command.
 
 ## Download
