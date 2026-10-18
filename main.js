@@ -673,10 +673,6 @@ class ApplicationController {
     });
 
     ipcMain.handle("send-chat-message", async (event, text) => {
-      // Add chat message to session memory
-      sessionManager.addUserInput(text, 'chat');
-      logger.debug('Chat message added to session memory', { textLength: text.length });
-
       // Typed messages need the full skill pipeline (with history context),
       // NOT the voice "intelligent filter" pipeline. Voice keeps its filter
       // behaviour; typed chat goes through processWithLLM so it gets real
@@ -1233,7 +1229,7 @@ class ApplicationController {
       // Typed chat is general-purpose; selected skill prompts remain for explicit
       // voice/transcription and screenshot workflows.
       const llmResult = options.generalAssistant
-        ? await llmService.processGeneralAssistantStream(text, sessionHistory.recent, onDelta)
+        ? await llmService.processGeneralAssistantStream(text, sessionManager.getConversationHistory(12), onDelta)
         : await llmService.processTextWithSkillStream(
             text,
             this.activeSkill,
