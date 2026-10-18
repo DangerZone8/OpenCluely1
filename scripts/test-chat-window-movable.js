@@ -16,4 +16,6 @@ assert.match(html, /\.icon-button\s*\{[^}]*-webkit-app-region:\s*no-drag/s,
   'Header buttons must remain clickable');
 assert.match(manager, /else if \(type === 'chat'\)\s*\{[\s\S]*?frame:\s*false,[\s\S]*?resizable:\s*true/,
   'Chat window must remain a frameless, resizable Electron window');
+assert.match(manager, /else if \(type === 'main'\)\s*\{[\s\S]*?frame:\s*true,[\s\S]*?transparent:\s*false/,
+  'Main app must use a native OS frame for normal window movement and controls');
 console.log('Chat window drag-region checks passed.');
