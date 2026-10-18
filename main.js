@@ -684,7 +684,7 @@ class ApplicationController {
       (async () => {
         try {
           const sessionHistory = sessionManager.getOptimizedHistory();
-          await this.processWithLLM(text, sessionHistory);
+          await this.processWithLLM(text, sessionHistory, { generalAssistant: true });
         } catch (error) {
           logger.error("Failed to process chat message with LLM", {
             error: error.message,
@@ -1207,7 +1207,7 @@ class ApplicationController {
     }
   }
 
-  async processWithLLM(text, sessionHistory) {
+  async processWithLLM(text, sessionHistory, options = {}) {
     try {
       // Add user input to session memory
       sessionManager.addUserInput(text, 'llm_input');
@@ -1224,18 +1224,23 @@ class ApplicationController {
       });
       windowManager.showLLMLoading();
 
-      const llmResult = await llmService.processTextWithSkillStream(
-        text,
-        this.activeSkill,
-        sessionHistory.recent,
-        needsProgrammingLanguage ? this.codingLanguage : null,
-        (delta) => {
-          windowManager.broadcastToAllWindows("transcription-llm-response-chunk", {
-            messageId,
-            delta
-          });
-        }
-      );
+      const onDelta = (delta) => {
+        windowManager.broadcastToAllWindows("transcription-llm-response-chunk", {
+          messageId,
+          delta
+        });
+      };
+      // Typed chat is general-purpose; selected skill prompts remain for explicit
+      // voice/transcription and screenshot workflows.
+      const llmResult = options.generalAssistant
+        ? await llmService.processGeneralAssistantStream(text, sessionHistory.recent, onDelta)
+        : await llmService.processTextWithSkillStream(
+            text,
+            this.activeSkill,
+            sessionHistory.recent,
+            needsProgrammingLanguage ? this.codingLanguage : null,
+            onDelta
+          );
       llmResult.metadata = { ...llmResult.metadata, messageId };
 
       logger.info("LLM processing completed, showing response", {
