@@ -339,14 +339,14 @@ class WindowManager {
         })
       };
   } else if (type === 'main') {
-      // Main window configuration - fit to content, completely frameless
+      // Main application uses the native OS title bar so users can move,
+      // minimize, and manage it exactly like a normal desktop application.
+      // Keep the compact content sizing and resize limits for the toolbar UI.
       browserWindowOptions = {
         ...baseOptions,
-        frame: false,
-        titleBarStyle: 'hidden',
-        titleBarOverlay: false,
-        transparent: true,
-        backgroundColor: '#00000000',
+        frame: true,
+        transparent: false,
+        backgroundColor: '#171923',
   // Allow resizing so users can adjust width; we will lock height in handlers
   resizable: true,
     // Keep the original max width as cap; allow small min width so it can collapse to one icon
