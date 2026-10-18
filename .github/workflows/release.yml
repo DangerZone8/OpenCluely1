@@ -16,13 +16,36 @@ on:
         description: 'Build only (skip release creation)'
         type: boolean
         required: false
-        default: false
+        default: true
 
 permissions:
   contents: write
 
 jobs:
+  test:
+    name: Test source before packaging or publishing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run repository checks
+        run: npm run check
+
+      - name: Verify package metadata
+        run: node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if (p.version !== l.version || p.name !== l.name) process.exit(1); console.log('package metadata matches')"
+
   preflight:
+    needs: [test]
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[release]'))
     name: Install and smoke-test packaged app
     runs-on: ubuntu-latest
@@ -75,6 +98,7 @@ jobs:
           fi
 
   build:
+    needs: [test]
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[release]'))
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -203,7 +227,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    needs: [preflight, build]
+    needs: [test, preflight, build]
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.dry_run != true) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[release]'))
     runs-on: ubuntu-latest
     steps:
