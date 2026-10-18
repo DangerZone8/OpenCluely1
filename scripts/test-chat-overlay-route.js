@@ -31,8 +31,8 @@ requireMatch(main, /transcription-received/,
 requireMatch(preload, /transcription-received/,
   'Preload must relay response events from main process.');
 assert.ok(renderers.length > 0, 'Could not find a renderer HTML file to trace chat UI.');
-requireMatch(allRendererText, /transcription-received/,
-  'Renderer must subscribe to the response event.');
+requireMatch(allRendererText, /onTranscriptionReceived|onLlmResponse|onTranscriptionLlmResponse/,
+  'Renderer must subscribe to a response event exposed by the preload bridge.');
 requireMatch(allRendererText, /sendMessage|process.*chat|chat.*message/i,
   'Renderer must have a chat send path.');
 
