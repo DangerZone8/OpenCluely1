@@ -767,6 +767,9 @@
       let rendererMicStream = null;
       let rendererMicAudioContext = null;
       let rendererMicProcessor = null;
+      let customAudioRecorder = null;
+      let customAudioStream = null;
+      let customAudioChunks = [];
       let pendingSystemAudioStream = null;
       let isListeningToSystemAudio = false;
       let screenRecorder = null;
@@ -837,9 +840,8 @@
       }
 
       function applyMicVisibility() {
-        if (micButton) {
-          micButton.style.display = speechAvailable ? '' : 'none';
-        }
+        // Built-in Gemini audio capture remains available without Whisper/Azure.
+        if (micButton) micButton.style.display = '';
       }
       
       async function initSpeechAvailability() {
@@ -865,9 +867,74 @@
         }
       }
 
-      // Windows/macOS Whisper capture is fed as 16 kHz mono signed 16-bit PCM.
-      // The main process owns transcription; this renderer only captures the
-      // user's explicitly enabled microphone and forwards audio chunks.
+      // Built-in audio path: capture locally with MediaRecorder and send the
+      // resulting clip to Gemini for transcription and answering. Whisper is optional.
+      async function analyzeCapturedAudioBlob(blob, sourceLabel) {
+        if (!blob || !blob.size) {
+          addMessage('No audio data was captured. Check the selected microphone/audio source.', 'error');
+          return;
+        }
+        if (blob.size > 20 * 1024 * 1024) {
+          addMessage('Audio clip is over 20 MB. Stop sooner and try a shorter clip.', 'error');
+          return;
+        }
+        addMessage('Audio captured (' + sourceLabel + '). Sending it to Gemini for transcription and analysis…', 'system');
+        try {
+          const bytes = new Uint8Array(await blob.arrayBuffer());
+          const result = await whysperAPI.analyzeCapturedAudio(bytes, blob.type || 'audio/webm');
+          if (result && result.response) renderAssistantResponse(result.response);
+          else addMessage('Gemini returned no audio analysis.', 'error');
+        } catch (error) {
+          addMessage('Audio analysis failed: ' + (error.message || String(error)), 'error');
+        }
+      }
+
+      async function startBuiltInAudioCapture(stream, sourceLabel, cleanupStream = stream) {
+        if (!window.MediaRecorder) throw new Error('Audio recording is not supported by this Electron build.');
+        if (!stream.getAudioTracks().length) throw new Error('The selected source did not provide an audio track.');
+        customAudioStream = cleanupStream;
+        customAudioChunks = [];
+        const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
+          .find(type => MediaRecorder.isTypeSupported(type));
+        customAudioRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+        customAudioRecorder.addEventListener('dataavailable', event => {
+          if (event.data && event.data.size) customAudioChunks.push(event.data);
+        });
+        customAudioRecorder.addEventListener('error', event => {
+          addMessage('Audio capture failed: ' + (event.error?.message || 'unknown error'), 'error');
+        });
+        customAudioRecorder.addEventListener('stop', async () => {
+          const recorder = customAudioRecorder;
+          const blob = new Blob(customAudioChunks, { type: recorder?.mimeType || mimeType || 'audio/webm' });
+          customAudioChunks = [];
+          if (customAudioStream) customAudioStream.getTracks().forEach(track => track.stop());
+          customAudioStream = null;
+          customAudioRecorder = null;
+          isRecording = false;
+          if (recordingIndicator) recordingIndicator.style.display = 'none';
+          if (micButton) micButton.classList.remove('recording');
+          if (systemAudioListenBtn) {
+            systemAudioListenBtn.title = 'Listen to audio from a selected screen or window';
+            systemAudioListenBtn.innerHTML = '<i class="fas fa-headphones"></i>';
+            systemAudioListenBtn.classList.remove('recording');
+          }
+          hideListeningAnimation();
+          await analyzeCapturedAudioBlob(blob, sourceLabel);
+        });
+        customAudioRecorder.start(500);
+        isRecording = true;
+        if (recordingIndicator) recordingIndicator.style.display = 'block';
+        if (micButton) micButton.classList.add('recording');
+        showListeningAnimation();
+        addMessage('Listening to ' + sourceLabel + '. Click the audio button again to stop and send the clip to Gemini.', 'system');
+      }
+
+      function stopBuiltInAudioCapture() {
+        if (customAudioRecorder && customAudioRecorder.state !== 'inactive') customAudioRecorder.stop();
+      }
+
+      // Legacy provider-driven PCM capture remains available for the existing
+      // speech-service path, but the chat's own audio controls use Gemini above.
       async function startRendererMicCapture() {
         if (!speechCaptureMode.rendererCaptureSupported || rendererMicStream) return;
         try {
@@ -1508,64 +1575,43 @@
 
       if (systemAudioListenBtn) {
         systemAudioListenBtn.addEventListener('click', async () => {
-          if (isListeningToSystemAudio) {
-            try {
-              await whysperAPI.stopSpeechRecognition();
-            } catch (error) {
-              addMessage('Could not stop system-audio listening: ' + error.message, 'error');
-            }
+          if (!isInteractive) {
+            addMessage('Window is in non-interactive mode. Press Alt+A to enable interaction.', 'error');
             return;
           }
-          if (!speechAvailable) {
-            addMessage('Configure Whisper speech recognition before listening to screen audio.', 'error');
-            return;
-          }
-          await initSpeechCaptureMode();
-          if (!speechCaptureMode.rendererCaptureSupported) {
-            addMessage('Live screen-audio transcription currently requires Whisper on Windows or macOS. Screen recording remains available where supported.', 'system');
-            return;
-          }
-          if (isRecording) {
-            addMessage('Stop microphone listening before switching to screen audio.', 'system');
+          if (customAudioRecorder) {
+            stopBuiltInAudioCapture();
             return;
           }
           systemAudioListenBtn.disabled = true;
+          let displayStream = null;
           try {
             if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-              throw new Error('Screen audio capture is not supported in this build.');
+              throw new Error('Screen/window audio capture is not supported in this build.');
             }
-            const stream = await navigator.mediaDevices.getDisplayMedia({
-              video: true,
-              audio: true
-            });
-            if (!stream.getAudioTracks().length) {
-              stream.getTracks().forEach(track => track.stop());
-              throw new Error('The selected source did not provide system audio. Choose a display/window and enable audio if the picker offers that option.');
+            displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+            if (!displayStream.getAudioTracks().length) {
+              throw new Error('The selected source provided no system-audio track. On Windows, choose a screen/window and allow system audio when prompted.');
             }
-            pendingSystemAudioStream = stream;
-            isListeningToSystemAudio = true;
-            await whysperAPI.startSpeechRecognition();
+            // The display picker requires video, but only audio is sent to Gemini.
+            const audioOnlyStream = new MediaStream(displayStream.getAudioTracks());
+            const fullDisplayStream = displayStream;
+            displayStream.getVideoTracks().forEach(track => track.addEventListener('ended', () => {
+              if (customAudioRecorder) stopBuiltInAudioCapture();
+            }, { once: true }));
+            await startBuiltInAudioCapture(audioOnlyStream, 'selected screen/window audio', fullDisplayStream);
             systemAudioListenBtn.title = 'Stop listening to screen audio';
-            systemAudioListenBtn.setAttribute('aria-label', systemAudioListenBtn.title);
             systemAudioListenBtn.innerHTML = '<i class="fas fa-stop"></i>';
             systemAudioListenBtn.classList.add('recording');
-            addMessage('Listening to audio from the selected screen/window. Audio is transcribed locally through the configured Whisper service; click Stop to end.', 'system');
-            const videoTrack = stream.getVideoTracks()[0];
-            if (videoTrack) videoTrack.addEventListener('ended', () => {
-              if (isListeningToSystemAudio) whysperAPI.stopSpeechRecognition().catch(() => {});
-            }, { once: true });
+            displayStream = null;
           } catch (error) {
-            if (pendingSystemAudioStream) pendingSystemAudioStream.getTracks().forEach(track => track.stop());
-            pendingSystemAudioStream = null;
-            isListeningToSystemAudio = false;
-            addMessage('Could not start screen-audio listening: ' + error.message, 'error');
+            if (displayStream) displayStream.getTracks().forEach(track => track.stop());
+            addMessage('Could not start screen-audio capture: ' + (error.message || String(error)), 'error');
           } finally {
             systemAudioListenBtn.disabled = false;
           }
         });
       }
-
-
 
       // Explicit pointer-drag fallback: native app-region dragging can be
       // unreliable for transparent frameless windows on some Windows builds.
@@ -1625,24 +1671,21 @@
             addMessage('Window is in non-interactive mode. Press Alt+A to enable interaction.', 'error');
             return;
           }
-          if (!speechAvailable) {
-            addMessage('Speech recognition is not configured.', 'system');
+          if (customAudioRecorder) {
+            stopBuiltInAudioCapture();
             return;
           }
-
           try {
-            if (isRecording) {
-              if (whysperAPI) {
-                const result = await whysperAPI.stopSpeechRecognition();
-              }
-            } else {
-              if (whysperAPI) {
-                await initSpeechCaptureMode();
-                const result = await whysperAPI.startSpeechRecognition();
-              }
-            }
+            const stream = await navigator.mediaDevices.getUserMedia({
+              audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+              video: false
+            });
+            await startBuiltInAudioCapture(stream, 'microphone audio');
           } catch (error) {
-            addMessage("Error in recognizing speech", 'error');
+            if (customAudioStream) customAudioStream.getTracks().forEach(track => track.stop());
+            customAudioStream = null;
+            customAudioRecorder = null;
+            addMessage('Could not start microphone capture: ' + (error.message || String(error)), 'error');
           }
         });
       }
@@ -1711,7 +1754,7 @@
       document.addEventListener('keydown', (e) => {
         if (e.altKey && e.key === 'r') {
           e.preventDefault();
-          if (!isInteractive || !speechAvailable) return;
+          if (!isInteractive) return;
           micButton && micButton.click();
         }
       });
