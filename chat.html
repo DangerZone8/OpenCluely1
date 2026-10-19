@@ -759,6 +759,10 @@
       let listeningStartTime = null;
       let listeningTimer = null;
       let speechAvailable = false;
+      let speechCaptureMode = { rendererCaptureSupported: false };
+      let rendererMicStream = null;
+      let rendererMicAudioContext = null;
+      let rendererMicProcessor = null;
       let screenRecorder = null;
       let screenRecordingStream = null;
       let screenRecordingChunks = [];
@@ -843,6 +847,76 @@
           applyMicVisibility();
         }
       }
+
+      async function initSpeechCaptureMode() {
+        try {
+          if (whysperAPI && whysperAPI.getSpeechCaptureMode) {
+            speechCaptureMode = await whysperAPI.getSpeechCaptureMode();
+          }
+        } catch (error) {
+          speechCaptureMode = { rendererCaptureSupported: false };
+          console.warn('Speech capture mode unavailable:', error);
+        }
+      }
+
+      // Windows/macOS Whisper capture is fed as 16 kHz mono signed 16-bit PCM.
+      // The main process owns transcription; this renderer only captures the
+      // user's explicitly enabled microphone and forwards audio chunks.
+      async function startRendererMicCapture() {
+        if (!speechCaptureMode.rendererCaptureSupported || rendererMicStream) return;
+        try {
+          rendererMicStream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            video: false
+          });
+          rendererMicAudioContext = new AudioContext();
+          const source = rendererMicAudioContext.createMediaStreamSource(rendererMicStream);
+          rendererMicProcessor = rendererMicAudioContext.createScriptProcessor(4096, 1, 1);
+          const silentOutput = rendererMicAudioContext.createGain();
+          silentOutput.gain.value = 0;
+          rendererMicProcessor.onaudioprocess = event => {
+            if (!isRecording || !whysperAPI || !whysperAPI.sendAudioChunk) return;
+            const input = event.inputBuffer.getChannelData(0);
+            const ratio = rendererMicAudioContext.sampleRate / 16000;
+            const outputLength = Math.floor(input.length / ratio);
+            if (!outputLength) return;
+            const pcm = new Int16Array(outputLength);
+            for (let i = 0; i < outputLength; i++) {
+              const sourcePosition = i * ratio;
+              const left = Math.floor(sourcePosition);
+              const fraction = sourcePosition - left;
+              const a = input[Math.min(left, input.length - 1)] || 0;
+              const b = input[Math.min(left + 1, input.length - 1)] || 0;
+              const sample = Math.max(-1, Math.min(1, a + (b - a) * fraction));
+              pcm[i] = sample < 0 ? sample * 32768 : sample * 32767;
+            }
+            whysperAPI.sendAudioChunk(pcm.buffer);
+          };
+          source.connect(rendererMicProcessor);
+          rendererMicProcessor.connect(silentOutput);
+          silentOutput.connect(rendererMicAudioContext.destination);
+          await rendererMicAudioContext.resume();
+        } catch (error) {
+          stopRendererMicCapture();
+          addMessage('Could not access the microphone for transcription: ' + error.message, 'error');
+        }
+      }
+
+      function stopRendererMicCapture() {
+        if (rendererMicProcessor) {
+          rendererMicProcessor.onaudioprocess = null;
+          try { rendererMicProcessor.disconnect(); } catch (_) {}
+          rendererMicProcessor = null;
+        }
+        if (rendererMicStream) {
+          rendererMicStream.getTracks().forEach(track => track.stop());
+          rendererMicStream = null;
+        }
+        if (rendererMicAudioContext) {
+          rendererMicAudioContext.close().catch(() => {});
+          rendererMicAudioContext = null;
+        }
+      }
       
       // Listen for availability changes
       if (whysperAPI && whysperAPI.onSpeechAvailability) {
@@ -872,6 +946,7 @@
       // Initialize availability and history
       loadHistory();
       initSpeechAvailability();
+      initSpeechCaptureMode();
 
       // Basic message function with markdown support for assistant messages
       function addMessage(text, type = 'user', skipPersist = false) {
@@ -1009,6 +1084,7 @@
       // Recording Event Handlers
       function handleRecordingStarted() {
         isRecording = true;
+        startRendererMicCapture();
 
         if (recordingIndicator) {
           recordingIndicator.style.display = 'block';
@@ -1022,6 +1098,7 @@
 
       function handleRecordingStopped() {
         isRecording = false;
+        stopRendererMicCapture();
 
         if (recordingIndicator) {
           recordingIndicator.style.display = 'none';
