@@ -629,8 +629,8 @@ class ApplicationController {
     });
 
     ipcMain.handle("toggle-overlay", () => {
-      const visible = windowManager.toggleVisibility();
-      return { success: true, visible };
+      const enabled = windowManager.setOverlayMode(!windowManager.getOverlayMode());
+      return { success: true, enabled };
     });
 
     ipcMain.handle("switch-to-chat", () => {
