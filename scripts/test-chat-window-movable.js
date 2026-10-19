@@ -5,6 +5,8 @@ const html = fs.readFileSync('chat.html', 'utf8');
 const manager = fs.readFileSync('src/managers/window.manager.js', 'utf8');
 const onboarding = fs.readFileSync('onboarding.html', 'utf8');
 const onboardingScript = fs.readFileSync('onboarding.js', 'utf8');
+const main = fs.readFileSync('main.js', 'utf8');
+const preload = fs.readFileSync('preload.js', 'utf8');
 
 const containerRule = html.match(/\.chat-container\s*\{([^}]*)\}/s);
 assert(containerRule, 'Chat container CSS rule must exist');
@@ -46,6 +48,16 @@ assert.match(html, /id="screenCaptureBtn"/,
   'Chat must expose the existing screenshot/OCR capture workflow');
 assert.match(html, /id="screenRecordBtn"/,
   'Chat must expose an actual screen-recording control');
+assert.match(html, /chatHeader\.addEventListener\('pointermove'/,
+  'Chat must have an explicit pointer-based drag fallback');
+assert.match(preload, /moveChatWindow:\s*\(deltaX, deltaY\)\s*=>\s*ipcRenderer\.send\('move-chat-window'/,
+  'Chat movement must be exposed through a dedicated preload IPC method');
+assert.match(main, /ipcMain\.on\("move-chat-window"[\s\S]*?chatWindow\.setPosition/,
+  'Main process must move only the chat window receiving the drag event');
+assert.match(preload, /saveScreenRecording:\s*\(bytes\)\s*=>\s*ipcRenderer\.invoke\('save-screen-recording'/,
+  'Screen recording must be saved through a dedicated preload IPC method');
+assert.match(main, /ipcMain\.handle\("save-screen-recording"[\s\S]*?dialog\.showSaveDialog[\s\S]*?fs\.promises\.writeFile/,
+  'Screen recording must use a native save dialog and write the chosen file');
 assert.match(html, /getDisplayMedia\(\s*\{[\s\S]*?audio:\s*true/,
   'Screen recording must request display audio where the platform supports it');
 assert.match(html, /getUserMedia\(\{\s*audio:\s*true/,
