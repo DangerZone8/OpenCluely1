@@ -867,6 +867,53 @@
         }
       }
 
+      // Convert the captured clip to standard 16 kHz mono PCM WAV in the renderer.
+      // Gemini accepts WAV directly, so this path doesn't depend on a Whisper install
+      // or on Gemini accepting the browser's WebM/Opus container.
+      async function convertAudioBlobToWav(blob) {
+        const decodeContext = new AudioContext();
+        try {
+          const decoded = await decodeContext.decodeAudioData(await blob.arrayBuffer());
+          const targetRate = 16000;
+          const frameCount = Math.max(1, Math.ceil(decoded.duration * targetRate));
+          const pcmBytes = frameCount * 2;
+          const wav = new ArrayBuffer(44 + pcmBytes);
+          const view = new DataView(wav);
+          const writeText = (offset, value) => {
+            for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i));
+          };
+          writeText(0, 'RIFF');
+          view.setUint32(4, 36 + pcmBytes, true);
+          writeText(8, 'WAVE');
+          writeText(12, 'fmt ');
+          view.setUint32(16, 16, true);
+          view.setUint16(20, 1, true);
+          view.setUint16(22, 1, true);
+          view.setUint32(24, targetRate, true);
+          view.setUint32(28, targetRate * 2, true);
+          view.setUint16(32, 2, true);
+          view.setUint16(34, 16, true);
+          writeText(36, 'data');
+          view.setUint32(40, pcmBytes, true);
+          const channels = Array.from({ length: decoded.numberOfChannels }, (_, i) => decoded.getChannelData(i));
+          for (let i = 0; i < frameCount; i++) {
+            const sourcePosition = i * decoded.sampleRate / targetRate;
+            const left = Math.min(Math.floor(sourcePosition), decoded.length - 1);
+            const right = Math.min(left + 1, decoded.length - 1);
+            const fraction = sourcePosition - left;
+            let sample = 0;
+            channels.forEach(channel => {
+              sample += channel[left] + (channel[right] - channel[left]) * fraction;
+            });
+            sample = Math.max(-1, Math.min(1, sample / channels.length));
+            view.setInt16(44 + i * 2, sample < 0 ? sample * 32768 : sample * 32767, true);
+          }
+          return new Blob([wav], { type: 'audio/wav' });
+        } finally {
+          await decodeContext.close().catch(() => {});
+        }
+      }
+
       // Built-in audio path: capture locally with MediaRecorder and send the
       // resulting clip to Gemini for transcription and answering. Whisper is optional.
       async function analyzeCapturedAudioBlob(blob, sourceLabel) {
@@ -880,8 +927,9 @@
         }
         addMessage('Audio captured (' + sourceLabel + '). Sending it to Gemini for transcription and analysis…', 'system');
         try {
-          const bytes = new Uint8Array(await blob.arrayBuffer());
-          const result = await whysperAPI.analyzeCapturedAudio(bytes, blob.type || 'audio/webm');
+          const wavBlob = await convertAudioBlobToWav(blob);
+          const bytes = new Uint8Array(await wavBlob.arrayBuffer());
+          const result = await whysperAPI.analyzeCapturedAudio(bytes, 'audio/wav');
           if (result && result.response) renderAssistantResponse(result.response);
           else addMessage('Gemini returned no audio analysis.', 'error');
         } catch (error) {
