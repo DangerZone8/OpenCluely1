@@ -763,6 +763,7 @@
       let screenRecordingChunks = [];
       let screenRecordingBytes = 0;
       let screenRecordingAudioContext = null;
+      let screenRecordingSourceStreams = [];
       const MAX_SCREEN_RECORDING_BYTES = 250 * 1024 * 1024;
 
       // Chat persistence and deduplication
@@ -1289,6 +1290,8 @@
           if (screenRecordingStream) {
             screenRecordingStream.getTracks().forEach(track => track.stop());
           }
+          screenRecordingSourceStreams.forEach(stream => stream.getTracks().forEach(track => track.stop()));
+          screenRecordingSourceStreams = [];
           screenRecordingStream = null;
           if (screenRecordingAudioContext) {
             screenRecordingAudioContext.close().catch(() => {});
@@ -1322,12 +1325,14 @@
           const videoTracks = displayStream.getVideoTracks();
           if (!videoTracks.length) throw new Error('No screen video track was selected.');
           const audioTracks = [...displayStream.getAudioTracks()];
+          screenRecordingSourceStreams = [displayStream];
           // Ask separately before recording microphone audio. This is optional
           // and never enabled silently.
           if (confirm('Include microphone audio in this recording? Choose Cancel for screen/system audio only.')) {
             try {
               microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
               audioTracks.push(...microphoneStream.getAudioTracks());
+              screenRecordingSourceStreams.push(microphoneStream);
             } catch (error) {
               addMessage('Microphone permission was not granted; continuing without microphone audio.', 'system');
             }
@@ -1344,10 +1349,11 @@
               });
             });
             destination.stream.getAudioTracks().forEach(track => tracks.push(track));
-            displayStream.getTracks().filter(track => !videoTracks.includes(track)).forEach(track => track.stop());
-            if (microphoneStream) microphoneStream.getTracks().forEach(track => track.stop());
-            // Keep the audio context alive until recording ends.
+            // Keep original audio source tracks alive while the mixed track is recorded.
             screenRecordingAudioContext = audioContext;
+          }
+          if (!audioTracks.length) {
+            addMessage('This display source does not provide system audio. Video will still be recorded; microphone audio can be enabled separately.', 'system');
           }
           screenRecordingStream = new MediaStream(tracks);
           const mimeType = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
@@ -1380,6 +1386,7 @@
         } catch (error) {
           if (displayStream) displayStream.getTracks().forEach(track => track.stop());
           if (microphoneStream) microphoneStream.getTracks().forEach(track => track.stop());
+          screenRecordingSourceStreams = [];
           screenRecordingStream = null;
           screenRecorder = null;
           addMessage('Could not start screen recording: ' + error.message, 'error');
