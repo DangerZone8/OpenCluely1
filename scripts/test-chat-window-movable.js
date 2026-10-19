@@ -68,6 +68,18 @@ assert.match(html, /saveScreenRecording\(new Uint8Array\(bytes\)\)/,
   'Screen recordings must be saved through the preload IPC bridge');
 assert.match(html, /id="micButton"[^>]*title="Start or stop microphone listening"/,
   'Chat must label microphone listening explicitly');
+assert.match(preload, /getSpeechCaptureMode:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('get-speech-capture-mode'/,
+  'Renderer must be told whether it owns microphone capture');
+assert.match(main, /ipcMain\.handle\("get-speech-capture-mode"[\s\S]*?rendererCaptureSupported/,
+  'Main process must expose supported speech capture mode');
+assert.match(html, /getUserMedia\(\s*\{[\s\S]*?echoCancellation:\s*true/,
+  'Microphone listening must request permission and capture real audio');
+assert.match(html, /createScriptProcessor\(4096,\s*1,\s*1\)/,
+  'Renderer must process captured microphone audio into transcription chunks');
+assert.match(html, /whysperAPI\.sendAudioChunk\(pcm\.buffer\)/,
+  'Captured PCM audio must be forwarded to the Whisper transcription service');
+assert.match(html, /stopRendererMicCapture\(\)/,
+  'Microphone capture must be stopped and released when listening stops');
 assert.match(html, /id="overlayToggleBtn"/,
   'Chat must expose overlay visibility control');
 assert.match(onboarding, /id="openAiNowBtn"/,
