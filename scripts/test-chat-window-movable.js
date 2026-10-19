@@ -44,6 +44,18 @@ assert.match(manager, /showLLMResponse\(content, metadata = \{\}\)\s*\{[\s\S]*?c
   'AI responses must be routed to the chat renderer');
 assert.match(html, /id="screenCaptureBtn"/,
   'Chat must expose the existing screenshot/OCR capture workflow');
+assert.match(html, /id="screenRecordBtn"/,
+  'Chat must expose an actual screen-recording control');
+assert.match(html, /getDisplayMedia\(\s*\{[\s\S]*?audio:\s*true/,
+  'Screen recording must request display audio where the platform supports it');
+assert.match(html, /getUserMedia\(\{\s*audio:\s*true/,
+  'Screen recording must request microphone permission only through an explicit opt-in');
+assert.match(html, /MAX_SCREEN_RECORDING_BYTES\s*=\s*250\s*\*\s*1024\s*\*\s*1024/,
+  'Screen recording must have a bounded memory/file size limit');
+assert.match(html, /saveScreenRecording\(new Uint8Array\(bytes\)\)/,
+  'Screen recordings must be saved through the preload IPC bridge');
+assert.match(html, /id="micButton"[^>]*title="Start or stop microphone listening"/,
+  'Chat must label microphone listening explicitly');
 assert.match(html, /id="overlayToggleBtn"/,
   'Chat must expose overlay visibility control');
 assert.match(onboarding, /id="openAiNowBtn"/,
