@@ -547,6 +547,12 @@ class ApplicationController {
       return speechService.isAvailable ? speechService.isAvailable() : false;
     });
 
+    ipcMain.handle("get-speech-capture-mode", () => ({
+      provider: speechService.provider || 'disabled',
+      rendererCaptureSupported: speechService.provider === 'whisper' &&
+        (process.platform === 'win32' || process.platform === 'darwin')
+    }));
+
     ipcMain.handle("start-speech-recognition", () => {
       speechService.startRecording();
       return speechService.getStatus();
