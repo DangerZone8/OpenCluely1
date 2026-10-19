@@ -752,6 +752,7 @@
       const screenCaptureBtn = document.getElementById('screenCaptureBtn');
       const screenRecordBtn = document.getElementById('screenRecordBtn');
       const overlayToggleBtn = document.getElementById('overlayToggleBtn');
+      const chatHeader = document.querySelector('.chat-header');
 
       let isRecording = false;
       let isInteractive = true;
@@ -1406,6 +1407,36 @@
             }
           }
         });
+      }
+
+      // Explicit pointer-drag fallback: native app-region dragging can be
+      // unreliable for transparent frameless windows on some Windows builds.
+      // Ignore buttons so recording/overlay/clear controls stay clickable.
+      if (chatHeader && whysperAPI && whysperAPI.moveChatWindow) {
+        let dragPointer = null;
+        chatHeader.addEventListener('pointerdown', event => {
+          if (event.button !== 0 || event.target.closest('button, input, textarea, a, select')) return;
+          dragPointer = { id: event.pointerId, x: event.screenX, y: event.screenY };
+          try { chatHeader.setPointerCapture(event.pointerId); } catch (_) {}
+          event.preventDefault();
+        });
+        chatHeader.addEventListener('pointermove', event => {
+          if (!dragPointer || event.pointerId !== dragPointer.id) return;
+          const deltaX = event.screenX - dragPointer.x;
+          const deltaY = event.screenY - dragPointer.y;
+          if (!deltaX && !deltaY) return;
+          dragPointer.x = event.screenX;
+          dragPointer.y = event.screenY;
+          whysperAPI.moveChatWindow(deltaX, deltaY);
+        });
+        const finishDrag = event => {
+          if (dragPointer && event.pointerId === dragPointer.id) {
+            try { chatHeader.releasePointerCapture(event.pointerId); } catch (_) {}
+            dragPointer = null;
+          }
+        };
+        chatHeader.addEventListener('pointerup', finishDrag);
+        chatHeader.addEventListener('pointercancel', finishDrag);
       }
 
       // Turning the overlay off hides its windows, including this chat. The
