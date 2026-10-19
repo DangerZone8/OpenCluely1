@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron')
 contextBridge.exposeInMainWorld('electronAPI', {
   // Screenshot and OCR
   takeScreenshot: () => ipcRenderer.invoke('take-screenshot'),
+  saveScreenRecording: (bytes) => ipcRenderer.invoke('save-screen-recording', bytes),
   
   // Speech recognition
   startSpeechRecognition: () => ipcRenderer.invoke('start-speech-recognition'),
