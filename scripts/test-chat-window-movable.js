@@ -4,6 +4,9 @@ const assert = require('assert');
 const html = fs.readFileSync('chat.html', 'utf8');
 const manager = fs.readFileSync('src/managers/window.manager.js', 'utf8');
 const onboarding = fs.readFileSync('onboarding.html', 'utf8');
+const onboardingScript = fs.readFileSync('onboarding.js', 'utf8');
+const main = fs.readFileSync('main.js', 'utf8');
+const preload = fs.readFileSync('preload.js', 'utf8');
 
 const containerRule = html.match(/\.chat-container\s*\{([^}]*)\}/s);
 assert(containerRule, 'Chat container CSS rule must exist');
@@ -29,4 +32,70 @@ assert.match(onboarding, /\.header\s*\{[^}]*-webkit-app-region:\s*drag/s,
   'Welcome onboarding header must be draggable');
 assert.match(manager, /onboarding:\s*\{[\s\S]*?file:\s*'onboarding\.html'/,
   'Welcome onboarding window must remain configured');
-console.log('Chat and onboarding window drag-region checks passed.');
+
+// Runtime interaction must be restored on every explicit chat open, not just
+// declared in CSS; click-through mode otherwise leaves the chat visible but stuck.
+assert.match(manager, /showChatWindow\(\)\s*\{[\s\S]*?setIgnoreMouseEvents\(false\)[\s\S]*?setFocusable\(true\)/,
+  'Showing chat must restore mouse interaction and focusability');
+assert.match(manager, /windowType === 'chat'[\s\S]*?this\.showChatWindow\(\)/,
+  'Shortcut/onboarding chat opens must use the interactive showChatWindow path');
+
+// All AI responses should render into chat; the legacy response window must
+// no longer be shown as the destination for new assistant answers.
+assert.match(manager, /showLLMResponse\(content, metadata = \{\}\)\s*\{[\s\S]*?chatWindow\.webContents\.send\('llm-response'/,
+  'AI responses must be routed to the chat renderer');
+assert.match(html, /id="screenCaptureBtn"/,
+  'Chat must expose the existing screenshot/OCR capture workflow');
+assert.match(html, /id="screenRecordBtn"/,
+  'Chat must expose an actual screen-recording control');
+assert.match(html, /chatHeader\.addEventListener\('pointermove'/,
+  'Chat must have an explicit pointer-based drag fallback');
+assert.match(preload, /moveChatWindow:\s*\(deltaX, deltaY\)\s*=>\s*ipcRenderer\.send\('move-chat-window'/,
+  'Chat movement must be exposed through a dedicated preload IPC method');
+assert.match(main, /ipcMain\.on\("move-chat-window"[\s\S]*?chatWindow\.setPosition/,
+  'Main process must move only the chat window receiving the drag event');
+assert.match(preload, /saveScreenRecording:\s*\(bytes\)\s*=>\s*ipcRenderer\.invoke\('save-screen-recording'/,
+  'Screen recording must be saved through a dedicated preload IPC method');
+assert.match(main, /ipcMain\.handle\("save-screen-recording"[\s\S]*?dialog\.showSaveDialog[\s\S]*?fs\.promises\.writeFile/,
+  'Screen recording must use a native save dialog and write the chosen file');
+assert.match(html, /getDisplayMedia\(\s*\{[\s\S]*?audio:\s*true/,
+  'Screen recording must request display audio where the platform supports it');
+assert.match(html, /getUserMedia\(\{\s*audio:\s*true/,
+  'Screen recording must request microphone permission only through an explicit opt-in');
+assert.match(html, /MAX_SCREEN_RECORDING_BYTES\s*=\s*250\s*\*\s*1024\s*\*\s*1024/,
+  'Screen recording must have a bounded memory/file size limit');
+assert.match(html, /saveScreenRecording\(new Uint8Array\(bytes\)\)/,
+  'Screen recordings must be saved through the preload IPC bridge');
+assert.match(html, /id="micButton"[^>]*title="Start or stop microphone listening"/,
+  'Chat must label microphone listening explicitly');
+assert.match(preload, /getSpeechCaptureMode:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('get-speech-capture-mode'/,
+  'Renderer must be told whether it owns microphone capture');
+assert.match(main, /ipcMain\.handle\("get-speech-capture-mode"[\s\S]*?rendererCaptureSupported/,
+  'Main process must expose supported speech capture mode');
+assert.match(html, /getUserMedia\(\s*\{[\s\S]*?echoCancellation:\s*true/,
+  'Microphone listening must request permission and capture real audio');
+assert.match(html, /createScriptProcessor\(4096,\s*1,\s*1\)/,
+  'Renderer must process captured microphone audio into transcription chunks');
+assert.match(html, /whysperAPI\.sendAudioChunk\(pcm\.buffer\)/,
+  'Captured PCM audio must be forwarded to the Whisper transcription service');
+assert.match(html, /stopRendererMicCapture\(\)/,
+  'Microphone capture must be stopped and released when listening stops');
+assert.match(html, /id="systemAudioListenBtn"/,
+  'Chat must expose a separate system-audio listening control');
+assert.match(html, /getDisplayMedia\(\s*\{\s*video:\s*true,\s*audio:\s*true\s*\}\)/,
+  'Live system-audio listening must use an explicit display/window picker');
+assert.match(html, /pendingSystemAudioStream/,
+  'Selected system audio must feed the renderer audio transcription pipeline');
+assert.match(html, /Stop listening to screen audio/,
+  'System-audio listening must have an explicit stop control');
+assert.match(html, /id="overlayToggleBtn"/,
+  'Chat must expose overlay visibility control');
+assert.match(manager, /setOverlayMode\(enabled\)[\s\S]*?setAlwaysOnTop\(this\.overlayModeEnabled\)[\s\S]*?return this\.overlayModeEnabled/,
+  'Overlay mode must be reversible without hiding the chat control');
+assert.match(html, /result\.enabled[\s\S]*?Turn overlay off[\s\S]*?Turn overlay on/,
+  'Overlay control must visibly expose both on and off states');
+assert.match(onboarding, /id="openAiNowBtn"/,
+  'Welcome screen must expose direct AI chat access');
+assert.match(onboardingScript, /openAiNowBtn\.addEventListener/,
+  'Welcome screen direct AI action must be wired');
+console.log('Chat drag, unified response routing, controls, and welcome shortcut checks passed.');

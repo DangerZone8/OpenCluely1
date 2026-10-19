@@ -13,6 +13,7 @@ class WindowManager {
     this.activeWindow = 'main';
     this.isInteractive = true; // default to interactive so windows are clickable/drag-able
     this.isVisible = false;
+    this.overlayModeEnabled = true;
     // Invalidates delayed show callbacks when the user explicitly hides the overlay.
     this.mainVisibilityGeneration = 0;
     this.currentDisplay = null;
@@ -798,6 +799,7 @@ class WindowManager {
     // macOS requires a deferred show to avoid desktop/Space flicker. Keep
     // that timer cancellable so a later hide always wins over an older show.
     const isMainOverlay = win === this.windows.get('main');
+    const chatOverlayDisabled = win === this.windows.get('chat') && !this.overlayModeEnabled;
     const showGeneration = isMainOverlay ? this.mainVisibilityGeneration : null;
     const mainShowIsCurrent = () => !isMainOverlay || (
       this.isVisible && showGeneration === this.mainVisibilityGeneration
@@ -809,10 +811,14 @@ class WindowManager {
     if (process.platform === 'darwin') {
       // macOS: prevent space switching and keep visibility stable
       win.hide();
-      win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+      win.setVisibleOnAllWorkspaces(!chatOverlayDisabled, { visibleOnFullScreen: true });
 
       const setMacOSAlwaysOnTop = () => {
         if (win.isDestroyed()) return;
+        if (chatOverlayDisabled) {
+          win.setAlwaysOnTop(false);
+          return;
+        }
         try {
           win.setAlwaysOnTop(true, 'screen-saver', 2);
         } catch {
@@ -841,8 +847,8 @@ class WindowManager {
       }, 50);
     } else {
       // Linux/Windows
-      win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-      win.setAlwaysOnTop(true);
+      win.setVisibleOnAllWorkspaces(!chatOverlayDisabled, { visibleOnFullScreen: true });
+      win.setAlwaysOnTop(!chatOverlayDisabled);
       win.show();
       win.focus();
       setTimeout(() => {
@@ -850,7 +856,7 @@ class WindowManager {
         if (!isLLM) {
           win.setVisibleOnAllWorkspaces(false);
         }
-        win.setAlwaysOnTop(true);
+        win.setAlwaysOnTop(!chatOverlayDisabled);
       }, 500);
     }
 
@@ -1034,6 +1040,14 @@ class WindowManager {
       return;
     }
 
+    // Opening chat through a shortcut or onboarding must restore interaction
+    // as well as visibility; otherwise a previous click-through mode can make
+    // the visible chat impossible to drag or type into.
+    if (windowType === 'chat') {
+      this.showChatWindow();
+      return;
+    }
+
     const targetWindow = this.windows.get(windowType);
     if (targetWindow) {
       this.showOnCurrentDesktop(targetWindow);
@@ -1085,6 +1099,35 @@ class WindowManager {
     
     this.isVisible = false;
     logger.info('All windows hidden');
+  }
+
+  getOverlayMode() {
+    return this.overlayModeEnabled;
+  }
+
+  setOverlayMode(enabled) {
+    if (this.isScreenBeingShared) {
+      return this.overlayModeEnabled;
+    }
+
+    this.overlayModeEnabled = Boolean(enabled);
+    const chatWindow = this.windows.get('chat');
+    if (chatWindow && !chatWindow.isDestroyed()) {
+      try {
+        chatWindow.setAlwaysOnTop(this.overlayModeEnabled);
+        chatWindow.setFocusable(true);
+        chatWindow.setIgnoreMouseEvents(false);
+        if (typeof chatWindow.setVisibleOnAllWorkspaces === 'function') {
+          chatWindow.setVisibleOnAllWorkspaces(this.overlayModeEnabled);
+        }
+      } catch (error) {
+        logger.warn('Could not update chat overlay mode', { error: error.message });
+      }
+      this.showOnCurrentDesktop(chatWindow);
+      chatWindow.focus();
+    }
+    logger.info('Chat overlay mode changed', { enabled: this.overlayModeEnabled });
+    return this.overlayModeEnabled;
   }
 
   toggleVisibility() {
@@ -1257,49 +1300,28 @@ class WindowManager {
   }
 
   showLLMResponse(content, metadata = {}) {
-    logger.debug('showLLMResponse called', {
-      isScreenBeingShared: this.isScreenBeingShared,
-      contentLength: content.length,
-      skill: metadata.skill
-    });
-
     if (this.isScreenBeingShared) {
       logger.warn('LLM response blocked due to screen sharing mode');
       return;
     }
 
-    const llmWindow = this.windows.get('llmResponse');
-    if (!llmWindow) {
-      logger.error('LLM response window not available');
+    // All assistant answers belong in the conversation window. The old
+    // llmResponse window duplicated the chat experience and stole focus.
+    const chatWindow = this.windows.get('chat');
+    if (!chatWindow || chatWindow.isDestroyed()) {
+      logger.error('Chat window unavailable for assistant response');
       return;
     }
 
-    // Ensure window is not destroyed before use
-    if (llmWindow.isDestroyed()) {
-      logger.error('LLM response window is destroyed');
-      return;
-    }
-
-    logger.debug('Sending display-llm-response event to window');
-    llmWindow.webContents.send('display-llm-response', {
-      content,
+    chatWindow.webContents.send('llm-response', {
+      response: content,
       metadata,
       timestamp: new Date().toISOString()
     });
-    
-    logger.debug('Showing and focusing LLM window');
-    this.showOnCurrentDesktop(llmWindow);
-    
-    // Position bound windows when LLM response is shown
-    if (this.bindWindows) {
-      this.positionBoundWindows();
-    }
-        
-    logger.info('LLM response displayed', {
-      contentLength: content.length,
-      skill: metadata.skill,
-      windowVisible: llmWindow.isVisible(),
-      boundWindows: this.bindWindows
+    this.showChatWindow();
+    logger.info('Assistant response routed to the unified chat window', {
+      contentLength: String(content || '').length,
+      skill: metadata.skill
     });
   }
 
@@ -1309,21 +1331,9 @@ class WindowManager {
       return;
     }
 
-    const llmWindow = this.windows.get('llmResponse');
-    if (llmWindow) {
-      logger.debug('Showing LLM loading state');
-      llmWindow.webContents.send('show-loading');
-      this.showOnCurrentDesktop(llmWindow);
-      
-      // Position bound windows when LLM loading is shown
-      if (this.bindWindows) {
-        this.positionBoundWindows();
-      }
-      
-      logger.debug('LLM loading window shown');
-    } else {
-      logger.error('LLM window not available for loading state');
-    }
+    // Do not show the legacy second response window. Typed chat already owns
+    // its thinking indicator; for capture/voice requests, focus the same chat.
+    this.showChatWindow();
   }
 
   hideLLMResponse() {
@@ -1804,8 +1814,18 @@ class WindowManager {
   showChatWindow() {
     const chatWindow = this.windows.get('chat');
     if (chatWindow && !chatWindow.isDestroyed()) {
+      // The global click-through shortcut affects every overlay window. Always
+      // restore interaction when explicitly opening chat so its header can
+      // drag and its controls/input remain usable.
+      try {
+        chatWindow.setIgnoreMouseEvents(false);
+        chatWindow.setFocusable(true);
+      } catch (error) {
+        logger.warn('Could not restore chat window interaction', { error: error.message });
+      }
       this.showOnCurrentDesktop(chatWindow);
-      logger.debug('Chat window shown');
+      chatWindow.focus();
+      logger.debug('Chat window shown interactively');
     }
   }
 

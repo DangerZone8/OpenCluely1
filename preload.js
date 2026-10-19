@@ -5,22 +5,26 @@ const { contextBridge, ipcRenderer } = require('electron')
 contextBridge.exposeInMainWorld('electronAPI', {
   // Screenshot and OCR
   takeScreenshot: () => ipcRenderer.invoke('take-screenshot'),
+  saveScreenRecording: (bytes) => ipcRenderer.invoke('save-screen-recording', bytes),
   
   // Speech recognition
   startSpeechRecognition: () => ipcRenderer.invoke('start-speech-recognition'),
   stopSpeechRecognition: () => ipcRenderer.invoke('stop-speech-recognition'),
   sendAudioChunk: (buffer) => ipcRenderer.send('audio-chunk', { buffer }),
   getSpeechAvailability: () => ipcRenderer.invoke('get-speech-availability'),
+  getSpeechCaptureMode: () => ipcRenderer.invoke('get-speech-capture-mode'),
   
   // Window management
   showAllWindows: () => ipcRenderer.invoke('show-all-windows'),
   hideAllWindows: () => ipcRenderer.invoke('hide-all-windows'),
+  toggleOverlay: () => ipcRenderer.invoke('toggle-overlay'),
   enableWindowInteraction: () => ipcRenderer.invoke('enable-window-interaction'),
   disableWindowInteraction: () => ipcRenderer.invoke('disable-window-interaction'),
   switchToChat: () => ipcRenderer.invoke('switch-to-chat'),
   switchToSkills: () => ipcRenderer.invoke('switch-to-skills'),
   resizeWindow: (width, height) => ipcRenderer.invoke('resize-window', { width, height }),
   moveWindow: (deltaX, deltaY) => ipcRenderer.invoke('move-window', { deltaX, deltaY }),
+  moveChatWindow: (deltaX, deltaY) => ipcRenderer.send('move-chat-window', { deltaX, deltaY }),
   getWindowStats: () => ipcRenderer.invoke('get-window-stats'),
   
   // Session memory

@@ -509,6 +509,24 @@
     heroCtaBtn.addEventListener('click', () => nextBtn.click());
   }
 
+  // Let users open the conversation directly instead of relying on the
+  // Ctrl+Shift+V shortcut. Setup can be completed later from Settings.
+  const openAiNowBtn = $('#openAiNowBtn');
+  if (openAiNowBtn) {
+    openAiNowBtn.addEventListener('click', async () => {
+      try {
+        if (window.electronAPI && window.electronAPI.closeOnboarding) {
+          await window.electronAPI.closeOnboarding();
+        }
+        if (window.electronAPI && window.electronAPI.switchToChat) {
+          await window.electronAPI.switchToChat();
+        }
+      } catch (error) {
+        console.error('Could not open AI chat from welcome screen:', error);
+      }
+    });
+  }
+
   // ── Wire up: nav buttons ──────────────────────────────────────────
   nextBtn.addEventListener('click', async () => {
     const name = currentScreenName();

@@ -1,7 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const { fileURLToPath } = require("url");
-const { app, BrowserWindow, globalShortcut, session, ipcMain } = require("electron");
+const { app, BrowserWindow, globalShortcut, session, ipcMain, dialog } = require("electron");
 
 // ── Resolve a stable .env location ──
 // In packaged builds process.cwd() is unstable and frequently read-only
@@ -496,6 +496,37 @@ class ApplicationController {
   }
 
   setupIPCHandlers() {
+  ipcMain.on("move-chat-window", (event, movement = {}) => {
+    const chatWindow = BrowserWindow.fromWebContents(event.sender);
+    if (!chatWindow || chatWindow.isDestroyed()) return;
+    const deltaX = Number(movement.deltaX);
+    const deltaY = Number(movement.deltaY);
+    if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return;
+    const [x, y] = chatWindow.getPosition();
+    chatWindow.setPosition(Math.round(x + deltaX), Math.round(y + deltaY));
+  });
+
+  ipcMain.handle("save-screen-recording", async (event, bytes) => {
+    if (!(bytes instanceof Uint8Array) && !Buffer.isBuffer(bytes)) {
+      throw new TypeError("Recording data must be binary.");
+    }
+    const buffer = Buffer.from(bytes);
+    if (!buffer.length || buffer.length > 250 * 1024 * 1024) {
+      throw new Error("Recording is empty or exceeds the 250 MB safety limit.");
+    }
+    const parentWindow = BrowserWindow.fromWebContents(event.sender);
+    const result = await dialog.showSaveDialog(parentWindow || undefined, {
+      title: "Save OpenCluely screen recording",
+      defaultPath: path.join(app.getPath("videos"), `OpenCluely-Recording-${new Date().toISOString().replace(/[:.]/g, "-")}.webm`),
+      buttonLabel: "Save recording",
+      filters: [{ name: "WebM video", extensions: ["webm"] }]
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    await fs.promises.writeFile(result.filePath, buffer, { flag: "w" });
+    logger.info("Screen recording saved", { bytes: buffer.length });
+    return { savedPath: result.filePath, bytes: buffer.length };
+  });
+
   ipcMain.handle("take-screenshot", () => this.triggerScreenshotOCR());
   ipcMain.handle("list-displays", () => captureService.listDisplays());
   ipcMain.handle("capture-area", (event, options) => captureService.captureAndProcess(options));
@@ -515,6 +546,12 @@ class ApplicationController {
     ipcMain.handle("get-speech-availability", () => {
       return speechService.isAvailable ? speechService.isAvailable() : false;
     });
+
+    ipcMain.handle("get-speech-capture-mode", () => ({
+      provider: speechService.provider || 'disabled',
+      rendererCaptureSupported: speechService.provider === 'whisper' &&
+        (process.platform === 'win32' || process.platform === 'darwin')
+    }));
 
     ipcMain.handle("start-speech-recognition", () => {
       speechService.startRecording();
@@ -589,6 +626,11 @@ class ApplicationController {
     ipcMain.handle("disable-window-interaction", () => {
       windowManager.setInteractive(false);
       return windowManager.getWindowStats();
+    });
+
+    ipcMain.handle("toggle-overlay", () => {
+      const enabled = windowManager.setOverlayMode(!windowManager.getOverlayMode());
+      return { success: true, enabled };
     });
 
     ipcMain.handle("switch-to-chat", () => {

@@ -688,6 +688,18 @@
           <div class="recording-indicator" id="recordingIndicator"></div>
         </div>
         <div class="header-actions">
+          <button class="icon-button" id="screenCaptureBtn" title="Capture screen and ask AI">
+            <i class="fas fa-camera"></i>
+          </button>
+          <button class="icon-button" id="screenRecordBtn" title="Start screen recording with optional system audio">
+            <i class="fas fa-circle"></i>
+          </button>
+          <button class="icon-button" id="systemAudioListenBtn" title="Listen to audio from a selected screen or window">
+            <i class="fas fa-headphones"></i>
+          </button>
+          <button class="icon-button" id="overlayToggleBtn" title="Turn overlay off">
+            <i class="fas fa-eye-slash"></i>
+          </button>
           <button class="icon-button" id="clearHistoryBtn" title="Clear chat history">
             <i class="fas fa-trash"></i>
           </button>
@@ -707,7 +719,7 @@
             id="messageInput"
             rows="1"
           ></textarea>
-          <button class="mic-button" id="micButton">
+          <button class="mic-button" id="micButton" title="Start or stop microphone listening" aria-label="Start or stop microphone listening">
             <i class="fas fa-microphone"></i>
           </button>
           <button class="send-button" id="sendButton">
@@ -740,12 +752,30 @@
       const listeningDuration = document.getElementById('listeningDuration');
       const interimOverlay = document.getElementById('interimOverlay');
       const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+      const screenCaptureBtn = document.getElementById('screenCaptureBtn');
+      const screenRecordBtn = document.getElementById('screenRecordBtn');
+      const systemAudioListenBtn = document.getElementById('systemAudioListenBtn');
+      const overlayToggleBtn = document.getElementById('overlayToggleBtn');
+      const chatHeader = document.querySelector('.chat-header');
 
       let isRecording = false;
       let isInteractive = true;
       let listeningStartTime = null;
       let listeningTimer = null;
       let speechAvailable = false;
+      let speechCaptureMode = { rendererCaptureSupported: false };
+      let rendererMicStream = null;
+      let rendererMicAudioContext = null;
+      let rendererMicProcessor = null;
+      let pendingSystemAudioStream = null;
+      let isListeningToSystemAudio = false;
+      let screenRecorder = null;
+      let screenRecordingStream = null;
+      let screenRecordingChunks = [];
+      let screenRecordingBytes = 0;
+      let screenRecordingAudioContext = null;
+      let screenRecordingSourceStreams = [];
+      const MAX_SCREEN_RECORDING_BYTES = 250 * 1024 * 1024;
 
       // Chat persistence and deduplication
       const CHAT_HISTORY_KEY = 'opencluely_chat_history_v1';
@@ -823,6 +853,81 @@
           applyMicVisibility();
         }
       }
+
+      async function initSpeechCaptureMode() {
+        try {
+          if (whysperAPI && whysperAPI.getSpeechCaptureMode) {
+            speechCaptureMode = await whysperAPI.getSpeechCaptureMode();
+          }
+        } catch (error) {
+          speechCaptureMode = { rendererCaptureSupported: false };
+          console.warn('Speech capture mode unavailable:', error);
+        }
+      }
+
+      // Windows/macOS Whisper capture is fed as 16 kHz mono signed 16-bit PCM.
+      // The main process owns transcription; this renderer only captures the
+      // user's explicitly enabled microphone and forwards audio chunks.
+      async function startRendererMicCapture() {
+        if (!speechCaptureMode.rendererCaptureSupported || rendererMicStream) return;
+        try {
+          if (pendingSystemAudioStream) {
+            rendererMicStream = pendingSystemAudioStream;
+            pendingSystemAudioStream = null;
+          } else {
+            rendererMicStream = await navigator.mediaDevices.getUserMedia({
+              audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+              video: false
+            });
+          }
+          rendererMicAudioContext = new AudioContext();
+          const source = rendererMicAudioContext.createMediaStreamSource(rendererMicStream);
+          rendererMicProcessor = rendererMicAudioContext.createScriptProcessor(4096, 1, 1);
+          const silentOutput = rendererMicAudioContext.createGain();
+          silentOutput.gain.value = 0;
+          rendererMicProcessor.onaudioprocess = event => {
+            if (!isRecording || !whysperAPI || !whysperAPI.sendAudioChunk) return;
+            const input = event.inputBuffer.getChannelData(0);
+            const ratio = rendererMicAudioContext.sampleRate / 16000;
+            const outputLength = Math.floor(input.length / ratio);
+            if (!outputLength) return;
+            const pcm = new Int16Array(outputLength);
+            for (let i = 0; i < outputLength; i++) {
+              const sourcePosition = i * ratio;
+              const left = Math.floor(sourcePosition);
+              const fraction = sourcePosition - left;
+              const a = input[Math.min(left, input.length - 1)] || 0;
+              const b = input[Math.min(left + 1, input.length - 1)] || 0;
+              const sample = Math.max(-1, Math.min(1, a + (b - a) * fraction));
+              pcm[i] = sample < 0 ? sample * 32768 : sample * 32767;
+            }
+            whysperAPI.sendAudioChunk(pcm.buffer);
+          };
+          source.connect(rendererMicProcessor);
+          rendererMicProcessor.connect(silentOutput);
+          silentOutput.connect(rendererMicAudioContext.destination);
+          await rendererMicAudioContext.resume();
+        } catch (error) {
+          stopRendererMicCapture();
+          addMessage('Could not access the microphone for transcription: ' + error.message, 'error');
+        }
+      }
+
+      function stopRendererMicCapture() {
+        if (rendererMicProcessor) {
+          rendererMicProcessor.onaudioprocess = null;
+          try { rendererMicProcessor.disconnect(); } catch (_) {}
+          rendererMicProcessor = null;
+        }
+        if (rendererMicStream) {
+          rendererMicStream.getTracks().forEach(track => track.stop());
+          rendererMicStream = null;
+        }
+        if (rendererMicAudioContext) {
+          rendererMicAudioContext.close().catch(() => {});
+          rendererMicAudioContext = null;
+        }
+      }
       
       // Listen for availability changes
       if (whysperAPI && whysperAPI.onSpeechAvailability) {
@@ -852,6 +957,7 @@
       // Initialize availability and history
       loadHistory();
       initSpeechAvailability();
+      initSpeechCaptureMode();
 
       // Basic message function with markdown support for assistant messages
       function addMessage(text, type = 'user', skipPersist = false) {
@@ -989,6 +1095,7 @@
       // Recording Event Handlers
       function handleRecordingStarted() {
         isRecording = true;
+        startRendererMicCapture();
 
         if (recordingIndicator) {
           recordingIndicator.style.display = 'block';
@@ -1002,6 +1109,16 @@
 
       function handleRecordingStopped() {
         isRecording = false;
+        stopRendererMicCapture();
+        isListeningToSystemAudio = false;
+        pendingSystemAudioStream = null;
+        if (systemAudioListenBtn) {
+          systemAudioListenBtn.disabled = false;
+          systemAudioListenBtn.title = 'Listen to audio from a selected screen or window';
+          systemAudioListenBtn.setAttribute('aria-label', systemAudioListenBtn.title);
+          systemAudioListenBtn.innerHTML = '<i class="fas fa-headphones"></i>';
+          systemAudioListenBtn.classList.remove('recording');
+        }
 
         if (recordingIndicator) {
           recordingIndicator.style.display = 'none';
@@ -1221,6 +1338,287 @@
         clearHistoryBtn.addEventListener('click', () => clearChatHistory());
       }
 
+      // Reuse the existing, permission-aware screenshot/OCR pipeline.
+      if (screenCaptureBtn) {
+        screenCaptureBtn.addEventListener('click', async () => {
+          screenCaptureBtn.disabled = true;
+          try {
+            if (whysperAPI && whysperAPI.takeScreenshot) {
+              await whysperAPI.takeScreenshot();
+            } else {
+              addMessage('Screen capture is unavailable in this build.', 'error');
+            }
+          } catch (error) {
+            addMessage('Could not capture the screen. Check screen-capture permissions.', 'error');
+          } finally {
+            screenCaptureBtn.disabled = false;
+          }
+        });
+      }
+
+      // Screen recording is opt-in and stays local until the user chooses a
+      // save path. Chromium/Electron provides the native display picker; system
+      // audio availability depends on OS and the selected display source.
+      async function stopScreenRecording(save = true) {
+        const recorder = screenRecorder;
+        if (!recorder) return;
+        screenRecordBtn.disabled = true;
+        try {
+          if (recorder.state !== 'inactive') {
+            await new Promise(resolve => {
+              recorder.addEventListener('stop', resolve, { once: true });
+              recorder.stop();
+            });
+          }
+          if (save && screenRecordingChunks.length) {
+            const blob = new Blob(screenRecordingChunks, { type: recorder.mimeType || 'video/webm' });
+            const bytes = await blob.arrayBuffer();
+            const result = await whysperAPI.saveScreenRecording(new Uint8Array(bytes));
+            if (result && result.savedPath) {
+              addMessage('Screen recording saved locally: ' + result.savedPath, 'system');
+            } else if (result && result.canceled) {
+              addMessage('Recording stopped. Saving was canceled; the recording was discarded.', 'system');
+            } else {
+              addMessage('Recording stopped, but the file could not be saved.', 'error');
+            }
+          }
+        } catch (error) {
+          addMessage('Could not save the screen recording: ' + error.message, 'error');
+        } finally {
+          if (screenRecordingStream) {
+            screenRecordingStream.getTracks().forEach(track => track.stop());
+          }
+          screenRecordingSourceStreams.forEach(stream => stream.getTracks().forEach(track => track.stop()));
+          screenRecordingSourceStreams = [];
+          screenRecordingStream = null;
+          if (screenRecordingAudioContext) {
+            screenRecordingAudioContext.close().catch(() => {});
+            screenRecordingAudioContext = null;
+          }
+          screenRecordingChunks = [];
+          screenRecordingBytes = 0;
+          screenRecorder = null;
+          if (screenRecordBtn) {
+            screenRecordBtn.disabled = false;
+            screenRecordBtn.title = 'Start screen recording with optional system audio';
+            screenRecordBtn.innerHTML = '<i class="fas fa-circle"></i>';
+            screenRecordBtn.classList.remove('recording');
+          }
+          if (recordingIndicator) recordingIndicator.style.display = isRecording ? 'block' : 'none';
+        }
+      }
+
+      async function startScreenRecording() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia || !window.MediaRecorder) {
+          addMessage('Screen recording is not supported by this build of Electron.', 'error');
+          return;
+        }
+        let displayStream;
+        let microphoneStream;
+        try {
+          displayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { frameRate: { ideal: 15, max: 30 } },
+            audio: true
+          });
+          const videoTracks = displayStream.getVideoTracks();
+          if (!videoTracks.length) throw new Error('No screen video track was selected.');
+          const audioTracks = [...displayStream.getAudioTracks()];
+          screenRecordingSourceStreams = [displayStream];
+          // Ask separately before recording microphone audio. This is optional
+          // and never enabled silently.
+          if (confirm('Include microphone audio in this recording? Choose Cancel for screen/system audio only.')) {
+            try {
+              microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+              audioTracks.push(...microphoneStream.getAudioTracks());
+              screenRecordingSourceStreams.push(microphoneStream);
+            } catch (error) {
+              addMessage('Microphone permission was not granted; continuing without microphone audio.', 'system');
+            }
+          }
+          const tracks = [...videoTracks];
+          if (audioTracks.length) {
+            const audioContext = new AudioContext();
+            const destination = audioContext.createMediaStreamDestination();
+            const sourceStreams = [displayStream, microphoneStream].filter(Boolean);
+            sourceStreams.forEach(stream => {
+              stream.getAudioTracks().forEach(track => {
+                const oneTrackStream = new MediaStream([track]);
+                audioContext.createMediaStreamSource(oneTrackStream).connect(destination);
+              });
+            });
+            destination.stream.getAudioTracks().forEach(track => tracks.push(track));
+            // Keep original audio source tracks alive while the mixed track is recorded.
+            screenRecordingAudioContext = audioContext;
+          }
+          if (!audioTracks.length) {
+            addMessage('This display source does not provide system audio. Video will still be recorded; microphone audio can be enabled separately.', 'system');
+          }
+          screenRecordingStream = new MediaStream(tracks);
+          const mimeType = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
+            .find(type => MediaRecorder.isTypeSupported(type));
+          screenRecordingChunks = [];
+          screenRecordingBytes = 0;
+          screenRecorder = new MediaRecorder(screenRecordingStream, mimeType ? { mimeType } : undefined);
+          screenRecorder.addEventListener('dataavailable', event => {
+            if (!event.data || !event.data.size) return;
+            screenRecordingBytes += event.data.size;
+            if (screenRecordingBytes > MAX_SCREEN_RECORDING_BYTES) {
+              addMessage('Recording reached the 250 MB safety limit and will stop.', 'system');
+              stopScreenRecording(true);
+              return;
+            }
+            screenRecordingChunks.push(event.data);
+          });
+          screenRecorder.addEventListener('error', event => {
+            addMessage('Screen recording error: ' + (event.error?.message || 'unknown error'), 'error');
+            stopScreenRecording(false);
+          });
+          videoTracks[0].addEventListener('ended', () => {
+            if (screenRecorder) stopScreenRecording(true);
+          }, { once: true });
+          screenRecorder.start(1000);
+          screenRecordBtn.title = 'Stop and save screen recording';
+          screenRecordBtn.innerHTML = '<i class="fas fa-stop"></i>';
+          screenRecordBtn.classList.add('recording');
+          addMessage('Screen recording started. Video and any permitted audio are being recorded locally; click Stop to save.', 'system');
+        } catch (error) {
+          if (displayStream) displayStream.getTracks().forEach(track => track.stop());
+          if (microphoneStream) microphoneStream.getTracks().forEach(track => track.stop());
+          screenRecordingSourceStreams = [];
+          screenRecordingStream = null;
+          screenRecorder = null;
+          addMessage('Could not start screen recording: ' + error.message, 'error');
+        }
+      }
+
+      if (screenRecordBtn) {
+        screenRecordBtn.addEventListener('click', async () => {
+          if (screenRecorder) {
+            await stopScreenRecording(true);
+          } else {
+            screenRecordBtn.disabled = true;
+            try {
+              await startScreenRecording();
+            } finally {
+              if (screenRecordBtn) screenRecordBtn.disabled = false;
+            }
+          }
+        });
+      }
+
+      if (systemAudioListenBtn) {
+        systemAudioListenBtn.addEventListener('click', async () => {
+          if (isListeningToSystemAudio) {
+            try {
+              await whysperAPI.stopSpeechRecognition();
+            } catch (error) {
+              addMessage('Could not stop system-audio listening: ' + error.message, 'error');
+            }
+            return;
+          }
+          if (!speechAvailable) {
+            addMessage('Configure Whisper speech recognition before listening to screen audio.', 'error');
+            return;
+          }
+          await initSpeechCaptureMode();
+          if (!speechCaptureMode.rendererCaptureSupported) {
+            addMessage('Live screen-audio transcription currently requires Whisper on Windows or macOS. Screen recording remains available where supported.', 'system');
+            return;
+          }
+          if (isRecording) {
+            addMessage('Stop microphone listening before switching to screen audio.', 'system');
+            return;
+          }
+          systemAudioListenBtn.disabled = true;
+          try {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+              throw new Error('Screen audio capture is not supported in this build.');
+            }
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+              video: true,
+              audio: true
+            });
+            if (!stream.getAudioTracks().length) {
+              stream.getTracks().forEach(track => track.stop());
+              throw new Error('The selected source did not provide system audio. Choose a display/window and enable audio if the picker offers that option.');
+            }
+            pendingSystemAudioStream = stream;
+            isListeningToSystemAudio = true;
+            await whysperAPI.startSpeechRecognition();
+            systemAudioListenBtn.title = 'Stop listening to screen audio';
+            systemAudioListenBtn.setAttribute('aria-label', systemAudioListenBtn.title);
+            systemAudioListenBtn.innerHTML = '<i class="fas fa-stop"></i>';
+            systemAudioListenBtn.classList.add('recording');
+            addMessage('Listening to audio from the selected screen/window. Audio is transcribed locally through the configured Whisper service; click Stop to end.', 'system');
+            const videoTrack = stream.getVideoTracks()[0];
+            if (videoTrack) videoTrack.addEventListener('ended', () => {
+              if (isListeningToSystemAudio) whysperAPI.stopSpeechRecognition().catch(() => {});
+            }, { once: true });
+          } catch (error) {
+            if (pendingSystemAudioStream) pendingSystemAudioStream.getTracks().forEach(track => track.stop());
+            pendingSystemAudioStream = null;
+            isListeningToSystemAudio = false;
+            addMessage('Could not start screen-audio listening: ' + error.message, 'error');
+          } finally {
+            systemAudioListenBtn.disabled = false;
+          }
+        });
+      }
+
+
+
+      // Explicit pointer-drag fallback: native app-region dragging can be
+      // unreliable for transparent frameless windows on some Windows builds.
+      // Ignore buttons so recording/overlay/clear controls stay clickable.
+      if (chatHeader && whysperAPI && whysperAPI.moveChatWindow) {
+        let dragPointer = null;
+        chatHeader.addEventListener('pointerdown', event => {
+          if (event.button !== 0 || event.target.closest('button, input, textarea, a, select')) return;
+          dragPointer = { id: event.pointerId, x: event.screenX, y: event.screenY };
+          try { chatHeader.setPointerCapture(event.pointerId); } catch (_) {}
+          event.preventDefault();
+        });
+        chatHeader.addEventListener('pointermove', event => {
+          if (!dragPointer || event.pointerId !== dragPointer.id) return;
+          const deltaX = event.screenX - dragPointer.x;
+          const deltaY = event.screenY - dragPointer.y;
+          if (!deltaX && !deltaY) return;
+          dragPointer.x = event.screenX;
+          dragPointer.y = event.screenY;
+          whysperAPI.moveChatWindow(deltaX, deltaY);
+        });
+        const finishDrag = event => {
+          if (dragPointer && event.pointerId === dragPointer.id) {
+            try { chatHeader.releasePointerCapture(event.pointerId); } catch (_) {}
+            dragPointer = null;
+          }
+        };
+        chatHeader.addEventListener('pointerup', finishDrag);
+        chatHeader.addEventListener('pointercancel', finishDrag);
+      }
+
+      // Turning the overlay off hides its windows, including this chat. The
+      // existing Ctrl+Shift+V shortcut and main toolbar remain available to
+      // bring the overlay back.
+      if (overlayToggleBtn) {
+        overlayToggleBtn.addEventListener('click', async () => {
+          try {
+            if (whysperAPI && whysperAPI.toggleOverlay) {
+              const result = await whysperAPI.toggleOverlay();
+              const enabled = !!(result && result.enabled);
+              overlayToggleBtn.title = enabled ? 'Turn overlay off' : 'Turn overlay on';
+              overlayToggleBtn.setAttribute('aria-label', overlayToggleBtn.title);
+              overlayToggleBtn.innerHTML = enabled
+                ? '<i class="fas fa-eye-slash"></i>'
+                : '<i class="fas fa-eye"></i>';
+              overlayToggleBtn.classList.toggle('overlay-disabled', !enabled);
+            }
+          } catch (error) {
+            addMessage('Could not change overlay visibility.', 'error');
+          }
+        });
+      }
+
       if (micButton) {
         micButton.addEventListener('click', async () => {
           if (!isInteractive) {
@@ -1239,6 +1637,7 @@
               }
             } else {
               if (whysperAPI) {
+                await initSpeechCaptureMode();
                 const result = await whysperAPI.startSpeechRecognition();
               }
             }
