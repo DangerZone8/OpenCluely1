@@ -1221,6 +1221,39 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
     });
   }
 
+  /**
+   * Analyze a clip captured by OpenCluely's built-in MediaRecorder pipeline.
+   * This uses the existing Gemini connection; it does not require a Whisper
+   * installation or a separate speech-provider configuration.
+   */
+  async processAudioWithGemini(audioBuffer, mimeType = 'audio/webm') {
+    if (!this.isInitialized || !this.client) {
+      throw new Error('Gemini is not configured. Add your Gemini API key in OpenCluely settings.');
+    }
+    if (!Buffer.isBuffer(audioBuffer) || audioBuffer.length === 0) {
+      throw new TypeError('Audio data is empty or invalid.');
+    }
+    if (audioBuffer.length > 20 * 1024 * 1024) {
+      throw new Error('Audio clip exceeds the 20 MB analysis limit. Record a shorter clip.');
+    }
+    if (!/^audio\/(webm|wav|mpeg|mp4|ogg|flac|aiff|aac)(?:;[^\r\n]*)?$/i.test(mimeType)) {
+      throw new Error('Unsupported audio format: ' + mimeType);
+    }
+    const request = {
+      contents: [{
+        role: 'user',
+        parts: [
+          { text: 'Listen to this audio. First provide a faithful transcript of the audible speech, marking unclear words rather than inventing them. Then, if the speaker asks a question or gives a request, answer it helpfully. Keep the transcript and answer clearly separated. If there is no speech, briefly describe the audible sound.' },
+          { inlineData: { mimeType, data: audioBuffer.toString('base64') } }
+        ]
+      }]
+    };
+    this.applyGenerationDefaults(request, { maxOutputTokens: 2048 });
+    const text = await this.executeRequest(request);
+    if (!text || !text.trim()) throw new Error('Gemini returned no analysis for the captured audio.');
+    return { response: text.trim(), mimeType, bytes: audioBuffer.length };
+  }
+
   async performPreflightCheck() {
     // Quick connectivity check
     try {

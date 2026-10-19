@@ -113,14 +113,19 @@ async function run() {
     assert.match(recordingStopped.messages, /Synthetic UI test stop/, 'Recording stop path must reach the save/cleanup handler');
     await cdp.evaluate("window.__openCluelyLiveTestRestore(); delete window.__openCluelyLiveTestRestore;");
 
-    // Audio controls must respond safely when the runner has no configured
-    // speech backend or physical capture device; do not trigger OS pickers.
+    // Exercise the built-in audio controls without opening OS pickers or
+    // requiring a physical microphone on the hosted runner. Simulate a denied
+    // mic permission and a display source without audio; neither path should
+    // demand Whisper configuration.
+    await cdp.evaluate("(() => { const old = { getUserMedia: Object.getOwnPropertyDescriptor(navigator.mediaDevices, 'getUserMedia'), getDisplayMedia: Object.getOwnPropertyDescriptor(navigator.mediaDevices, 'getDisplayMedia') }; Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { configurable: true, writable: true, value: async () => { throw new Error('Synthetic microphone permission denial'); } }); const videoTrack = { kind: 'video', stop() {}, addEventListener() {} }; Object.defineProperty(navigator.mediaDevices, 'getDisplayMedia', { configurable: true, writable: true, value: async () => ({ getTracks: () => [videoTrack], getVideoTracks: () => [videoTrack], getAudioTracks: () => [] }) }); Object.defineProperty(window, '__openCluelyAudioTestRestore', { configurable: true, value: () => { if (old.getUserMedia) Object.defineProperty(navigator.mediaDevices, 'getUserMedia', old.getUserMedia); else delete navigator.mediaDevices.getUserMedia; if (old.getDisplayMedia) Object.defineProperty(navigator.mediaDevices, 'getDisplayMedia', old.getDisplayMedia); else delete navigator.mediaDevices.getDisplayMedia; } }); return true; })()");
     await cdp.evaluate("document.querySelector('#micButton').click()");
     await cdp.evaluate("document.querySelector('#systemAudioListenBtn').click()");
-    await sleep(200);
+    await sleep(300);
     const audioState = await cdp.evaluate("document.querySelector('#chatMessages').textContent");
-    assert.match(audioState, /Speech recognition is not configured\./, 'Microphone control must explain unavailable speech recognition');
-    assert.match(audioState, /Configure Whisper speech recognition before listening to screen audio\./, 'System-audio control must explain missing Whisper setup');
+    assert.match(audioState, /Could not start microphone capture: Synthetic microphone permission denial/, 'Built-in microphone control must request capture without requiring Whisper');
+    assert.match(audioState, /selected source provided no system-audio track/i, 'System-audio control must validate the selected source without requiring Whisper');
+    assert.doesNotMatch(audioState, /Speech recognition is not configured\.|Configure Whisper speech recognition/, 'Built-in audio controls must not gate capture on Whisper setup');
+    await cdp.evaluate("window.__openCluelyAudioTestRestore(); delete window.__openCluelyAudioTestRestore;");
 
     const targetsBeforeSend = await getTargets();
     const responseTargetsBefore = targetsBeforeSend.filter((target) => target.type === 'page' && /AI Response/i.test(target.title || '')).length;

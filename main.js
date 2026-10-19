@@ -1,7 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const { fileURLToPath } = require("url");
-const { app, BrowserWindow, globalShortcut, session, ipcMain, dialog } = require("electron");
+const { app, BrowserWindow, globalShortcut, session, ipcMain, dialog, desktopCapturer } = require("electron");
 
 // ── Resolve a stable .env location ──
 // In packaged builds process.cwd() is unstable and frequently read-only
@@ -426,6 +426,57 @@ class ApplicationController {
         callback(granted);
       }
     );
+
+    // Packaged Electron apps need an explicit display-media handler for getDisplayMedia().
+    // Show the user a source picker; without this handler screen recording reports
+    // that no screen-recording configuration exists.
+    appSession.setDisplayMediaRequestHandler(async (request, callback) => {
+      try {
+        let framePath = "";
+        try { framePath = path.resolve(fileURLToPath(request.frame.url)); } catch (_) {}
+        const appRoot = path.resolve(__dirname) + path.sep;
+        const normalizedFrame = process.platform === "win32" ? framePath.toLowerCase() : framePath;
+        const normalizedRoot = process.platform === "win32" ? appRoot.toLowerCase() : appRoot;
+        if (!normalizedFrame.startsWith(normalizedRoot)) {
+          logger.warn("Rejected display capture request from an untrusted frame");
+          callback({});
+          return;
+        }
+        const sources = await desktopCapturer.getSources({
+          types: ["screen", "window"],
+          thumbnailSize: { width: 320, height: 180 },
+          fetchWindowIcons: true
+        });
+        if (!sources.length) {
+          logger.warn("Screen capture requested but no display sources were found");
+          callback({});
+          return;
+        }
+        const buttons = sources.slice(0, 20).map(source => source.name || source.id);
+        buttons.push("Cancel");
+        const choice = await dialog.showMessageBox({
+          type: "question",
+          title: "OpenCluely screen capture",
+          message: "Choose the screen or window to capture.",
+          buttons,
+          cancelId: buttons.length - 1,
+          defaultId: 0,
+          noLink: true
+        });
+        const selectedIndex = choice.response;
+        if (selectedIndex < 0 || selectedIndex >= Math.min(sources.length, 20)) {
+          callback({});
+          return;
+        }
+        const selected = sources[selectedIndex];
+        const capture = { video: selected };
+        if (request.audioRequested && process.platform === "win32") capture.audio = "loopback";
+        callback(capture);
+      } catch (error) {
+        logger.error("Display-media request failed", { error: error.message });
+        callback({});
+      }
+    });
   }
 
   setupGlobalShortcuts() {
@@ -525,6 +576,20 @@ class ApplicationController {
     await fs.promises.writeFile(result.filePath, buffer, { flag: "w" });
     logger.info("Screen recording saved", { bytes: buffer.length });
     return { savedPath: result.filePath, bytes: buffer.length };
+  });
+
+  ipcMain.handle("analyze-captured-audio", async (_event, payload) => {
+    if (!payload || (!(payload.bytes instanceof Uint8Array) && !Buffer.isBuffer(payload.bytes))) {
+      throw new TypeError("Captured audio must be binary.");
+    }
+    const audio = Buffer.from(payload.bytes);
+    if (!audio.length || audio.length > 20 * 1024 * 1024) {
+      throw new Error("Audio is empty or exceeds the 20 MB analysis limit.");
+    }
+    const mimeType = typeof payload.mimeType === "string" && /^audio\/[a-z0-9.+-]+(?:;[^\r\n]*)?$/i.test(payload.mimeType)
+      ? payload.mimeType
+      : "audio/webm";
+    return llmService.processAudioWithGemini(audio, mimeType);
   });
 
   ipcMain.handle("take-screenshot", () => this.triggerScreenshotOCR());
