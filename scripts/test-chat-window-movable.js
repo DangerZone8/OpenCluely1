@@ -82,6 +82,10 @@ assert.match(html, /stopRendererMicCapture\(\)/,
   'Microphone capture must be stopped and released when listening stops');
 assert.match(html, /id="overlayToggleBtn"/,
   'Chat must expose overlay visibility control');
+assert.match(manager, /setOverlayMode\(enabled\)[\s\S]*?setAlwaysOnTop\(this\.overlayModeEnabled\)[\s\S]*?return this\.overlayModeEnabled/,
+  'Overlay mode must be reversible without hiding the chat control');
+assert.match(html, /result\.enabled[\s\S]*?Turn overlay on[\s\S]*?Turn overlay off/,
+  'Overlay control must visibly expose both on and off states');
 assert.match(onboarding, /id="openAiNowBtn"/,
   'Welcome screen must expose direct AI chat access');
 assert.match(onboardingScript, /openAiNowBtn\.addEventListener/,
