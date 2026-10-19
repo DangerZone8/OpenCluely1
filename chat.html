@@ -688,6 +688,12 @@
           <div class="recording-indicator" id="recordingIndicator"></div>
         </div>
         <div class="header-actions">
+          <button class="icon-button" id="screenCaptureBtn" title="Capture screen and ask AI">
+            <i class="fas fa-camera"></i>
+          </button>
+          <button class="icon-button" id="overlayToggleBtn" title="Turn overlay off">
+            <i class="fas fa-eye-slash"></i>
+          </button>
           <button class="icon-button" id="clearHistoryBtn" title="Clear chat history">
             <i class="fas fa-trash"></i>
           </button>
@@ -740,6 +746,8 @@
       const listeningDuration = document.getElementById('listeningDuration');
       const interimOverlay = document.getElementById('interimOverlay');
       const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+      const screenCaptureBtn = document.getElementById('screenCaptureBtn');
+      const overlayToggleBtn = document.getElementById('overlayToggleBtn');
 
       let isRecording = false;
       let isInteractive = true;
@@ -1219,6 +1227,39 @@
       // UI Event Listeners
       if (clearHistoryBtn) {
         clearHistoryBtn.addEventListener('click', () => clearChatHistory());
+      }
+
+      // Reuse the existing, permission-aware screenshot/OCR pipeline.
+      if (screenCaptureBtn) {
+        screenCaptureBtn.addEventListener('click', async () => {
+          screenCaptureBtn.disabled = true;
+          try {
+            if (whysperAPI && whysperAPI.takeScreenshot) {
+              await whysperAPI.takeScreenshot();
+            } else {
+              addMessage('Screen capture is unavailable in this build.', 'error');
+            }
+          } catch (error) {
+            addMessage('Could not capture the screen. Check screen-capture permissions.', 'error');
+          } finally {
+            screenCaptureBtn.disabled = false;
+          }
+        });
+      }
+
+      // Turning the overlay off hides its windows, including this chat. The
+      // existing Ctrl+Shift+V shortcut and main toolbar remain available to
+      // bring the overlay back.
+      if (overlayToggleBtn) {
+        overlayToggleBtn.addEventListener('click', async () => {
+          try {
+            if (whysperAPI && whysperAPI.toggleOverlay) {
+              await whysperAPI.toggleOverlay();
+            }
+          } catch (error) {
+            addMessage('Could not change overlay visibility.', 'error');
+          }
+        });
       }
 
       if (micButton) {
