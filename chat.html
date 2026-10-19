@@ -691,6 +691,9 @@
           <button class="icon-button" id="screenCaptureBtn" title="Capture screen and ask AI">
             <i class="fas fa-camera"></i>
           </button>
+          <button class="icon-button" id="screenRecordBtn" title="Start screen recording with optional system audio">
+            <i class="fas fa-circle"></i>
+          </button>
           <button class="icon-button" id="overlayToggleBtn" title="Turn overlay off">
             <i class="fas fa-eye-slash"></i>
           </button>
@@ -713,7 +716,7 @@
             id="messageInput"
             rows="1"
           ></textarea>
-          <button class="mic-button" id="micButton">
+          <button class="mic-button" id="micButton" title="Start or stop microphone listening" aria-label="Start or stop microphone listening">
             <i class="fas fa-microphone"></i>
           </button>
           <button class="send-button" id="sendButton">
@@ -747,6 +750,7 @@
       const interimOverlay = document.getElementById('interimOverlay');
       const clearHistoryBtn = document.getElementById('clearHistoryBtn');
       const screenCaptureBtn = document.getElementById('screenCaptureBtn');
+      const screenRecordBtn = document.getElementById('screenRecordBtn');
       const overlayToggleBtn = document.getElementById('overlayToggleBtn');
 
       let isRecording = false;
@@ -754,6 +758,12 @@
       let listeningStartTime = null;
       let listeningTimer = null;
       let speechAvailable = false;
+      let screenRecorder = null;
+      let screenRecordingStream = null;
+      let screenRecordingChunks = [];
+      let screenRecordingBytes = 0;
+      let screenRecordingAudioContext = null;
+      const MAX_SCREEN_RECORDING_BYTES = 250 * 1024 * 1024;
 
       // Chat persistence and deduplication
       const CHAT_HISTORY_KEY = 'opencluely_chat_history_v1';
@@ -1243,6 +1253,150 @@
             addMessage('Could not capture the screen. Check screen-capture permissions.', 'error');
           } finally {
             screenCaptureBtn.disabled = false;
+          }
+        });
+      }
+
+      // Screen recording is opt-in and stays local until the user chooses a
+      // save path. Chromium/Electron provides the native display picker; system
+      // audio availability depends on OS and the selected display source.
+      async function stopScreenRecording(save = true) {
+        const recorder = screenRecorder;
+        if (!recorder) return;
+        screenRecordBtn.disabled = true;
+        try {
+          if (recorder.state !== 'inactive') {
+            await new Promise(resolve => {
+              recorder.addEventListener('stop', resolve, { once: true });
+              recorder.stop();
+            });
+          }
+          if (save && screenRecordingChunks.length) {
+            const blob = new Blob(screenRecordingChunks, { type: recorder.mimeType || 'video/webm' });
+            const bytes = await blob.arrayBuffer();
+            const result = await whysperAPI.saveScreenRecording(new Uint8Array(bytes));
+            if (result && result.savedPath) {
+              addMessage('Screen recording saved locally: ' + result.savedPath, 'system');
+            } else if (result && result.canceled) {
+              addMessage('Recording stopped. Saving was canceled; the recording was discarded.', 'system');
+            } else {
+              addMessage('Recording stopped, but the file could not be saved.', 'error');
+            }
+          }
+        } catch (error) {
+          addMessage('Could not save the screen recording: ' + error.message, 'error');
+        } finally {
+          if (screenRecordingStream) {
+            screenRecordingStream.getTracks().forEach(track => track.stop());
+          }
+          screenRecordingStream = null;
+          if (screenRecordingAudioContext) {
+            screenRecordingAudioContext.close().catch(() => {});
+            screenRecordingAudioContext = null;
+          }
+          screenRecordingChunks = [];
+          screenRecordingBytes = 0;
+          screenRecorder = null;
+          if (screenRecordBtn) {
+            screenRecordBtn.disabled = false;
+            screenRecordBtn.title = 'Start screen recording with optional system audio';
+            screenRecordBtn.innerHTML = '<i class="fas fa-circle"></i>';
+            screenRecordBtn.classList.remove('recording');
+          }
+          if (recordingIndicator) recordingIndicator.style.display = isRecording ? 'block' : 'none';
+        }
+      }
+
+      async function startScreenRecording() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia || !window.MediaRecorder) {
+          addMessage('Screen recording is not supported by this build of Electron.', 'error');
+          return;
+        }
+        let displayStream;
+        let microphoneStream;
+        try {
+          displayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { frameRate: { ideal: 15, max: 30 } },
+            audio: true
+          });
+          const videoTracks = displayStream.getVideoTracks();
+          if (!videoTracks.length) throw new Error('No screen video track was selected.');
+          const audioTracks = [...displayStream.getAudioTracks()];
+          // Ask separately before recording microphone audio. This is optional
+          // and never enabled silently.
+          if (confirm('Include microphone audio in this recording? Choose Cancel for screen/system audio only.')) {
+            try {
+              microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+              audioTracks.push(...microphoneStream.getAudioTracks());
+            } catch (error) {
+              addMessage('Microphone permission was not granted; continuing without microphone audio.', 'system');
+            }
+          }
+          const tracks = [...videoTracks];
+          if (audioTracks.length) {
+            const audioContext = new AudioContext();
+            const destination = audioContext.createMediaStreamDestination();
+            const sourceStreams = [displayStream, microphoneStream].filter(Boolean);
+            sourceStreams.forEach(stream => {
+              stream.getAudioTracks().forEach(track => {
+                const oneTrackStream = new MediaStream([track]);
+                audioContext.createMediaStreamSource(oneTrackStream).connect(destination);
+              });
+            });
+            destination.stream.getAudioTracks().forEach(track => tracks.push(track));
+            displayStream.getTracks().filter(track => !videoTracks.includes(track)).forEach(track => track.stop());
+            if (microphoneStream) microphoneStream.getTracks().forEach(track => track.stop());
+            // Keep the audio context alive until recording ends.
+            screenRecordingAudioContext = audioContext;
+          }
+          screenRecordingStream = new MediaStream(tracks);
+          const mimeType = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
+            .find(type => MediaRecorder.isTypeSupported(type));
+          screenRecordingChunks = [];
+          screenRecordingBytes = 0;
+          screenRecorder = new MediaRecorder(screenRecordingStream, mimeType ? { mimeType } : undefined);
+          screenRecorder.addEventListener('dataavailable', event => {
+            if (!event.data || !event.data.size) return;
+            screenRecordingBytes += event.data.size;
+            if (screenRecordingBytes > MAX_SCREEN_RECORDING_BYTES) {
+              addMessage('Recording reached the 250 MB safety limit and will stop.', 'system');
+              stopScreenRecording(true);
+              return;
+            }
+            screenRecordingChunks.push(event.data);
+          });
+          screenRecorder.addEventListener('error', event => {
+            addMessage('Screen recording error: ' + (event.error?.message || 'unknown error'), 'error');
+            stopScreenRecording(false);
+          });
+          videoTracks[0].addEventListener('ended', () => {
+            if (screenRecorder) stopScreenRecording(true);
+          }, { once: true });
+          screenRecorder.start(1000);
+          screenRecordBtn.title = 'Stop and save screen recording';
+          screenRecordBtn.innerHTML = '<i class="fas fa-stop"></i>';
+          screenRecordBtn.classList.add('recording');
+          addMessage('Screen recording started. Video and any permitted audio are being recorded locally; click Stop to save.', 'system');
+        } catch (error) {
+          if (displayStream) displayStream.getTracks().forEach(track => track.stop());
+          if (microphoneStream) microphoneStream.getTracks().forEach(track => track.stop());
+          screenRecordingStream = null;
+          screenRecorder = null;
+          addMessage('Could not start screen recording: ' + error.message, 'error');
+        }
+      }
+
+      if (screenRecordBtn) {
+        screenRecordBtn.addEventListener('click', async () => {
+          if (screenRecorder) {
+            await stopScreenRecording(true);
+          } else {
+            screenRecordBtn.disabled = true;
+            try {
+              await startScreenRecording();
+            } finally {
+              if (screenRecordBtn) screenRecordBtn.disabled = false;
+            }
           }
         });
       }
