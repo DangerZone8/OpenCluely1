@@ -496,6 +496,16 @@ class ApplicationController {
   }
 
   setupIPCHandlers() {
+  ipcMain.on("move-chat-window", (event, movement = {}) => {
+    const chatWindow = BrowserWindow.fromWebContents(event.sender);
+    if (!chatWindow || chatWindow.isDestroyed()) return;
+    const deltaX = Number(movement.deltaX);
+    const deltaY = Number(movement.deltaY);
+    if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return;
+    const [x, y] = chatWindow.getPosition();
+    chatWindow.setPosition(Math.round(x + deltaX), Math.round(y + deltaY));
+  });
+
   ipcMain.handle("save-screen-recording", async (event, bytes) => {
     if (!(bytes instanceof Uint8Array) && !Buffer.isBuffer(bytes)) {
       throw new TypeError("Recording data must be binary.");
