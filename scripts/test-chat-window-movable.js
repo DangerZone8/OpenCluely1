@@ -4,6 +4,7 @@ const assert = require('assert');
 const html = fs.readFileSync('chat.html', 'utf8');
 const manager = fs.readFileSync('src/managers/window.manager.js', 'utf8');
 const onboarding = fs.readFileSync('onboarding.html', 'utf8');
+const onboardingScript = fs.readFileSync('onboarding.js', 'utf8');
 
 const containerRule = html.match(/\.chat-container\s*\{([^}]*)\}/s);
 assert(containerRule, 'Chat container CSS rule must exist');
@@ -47,6 +48,6 @@ assert.match(html, /id="overlayToggleBtn"/,
   'Chat must expose overlay visibility control');
 assert.match(onboarding, /id="openAiNowBtn"/,
   'Welcome screen must expose direct AI chat access');
-assert.match(onboarding, /openAiNowBtn\.addEventListener/,
+assert.match(onboardingScript, /openAiNowBtn\.addEventListener/,
   'Welcome screen direct AI action must be wired');
 console.log('Chat drag, unified response routing, controls, and welcome shortcut checks passed.');
