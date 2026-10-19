@@ -95,6 +95,33 @@ async function run() {
     const restoredTitle = await cdp.evaluate("document.querySelector('#overlayToggleBtn').title");
     assert.equal(restoredTitle, oldTitle, 'Overlay button must toggle back to its original state');
 
+    // Exercise the actual screen-recording button with a deterministic fake
+    // capture source. Stop-save is intentionally forced to fail before the
+    // native file dialog so CI never opens a user-facing save prompt.
+    await cdp.evaluate("(() => { const old = { MediaRecorder: Object.getOwnPropertyDescriptor(window, 'MediaRecorder'), MediaStream: Object.getOwnPropertyDescriptor(window, 'MediaStream'), confirm: Object.getOwnPropertyDescriptor(window, 'confirm'), getDisplayMedia: Object.getOwnPropertyDescriptor(navigator.mediaDevices, 'getDisplayMedia'), blobArrayBuffer: Object.getOwnPropertyDescriptor(Blob.prototype, 'arrayBuffer') }; const track = { kind: 'video', stop() {}, addEventListener() {} }; class FakeStream { constructor(tracks) { this.tracks = tracks || []; } getTracks() { return this.tracks; } getVideoTracks() { return this.tracks.filter(t => t.kind === 'video'); } getAudioTracks() { return this.tracks.filter(t => t.kind === 'audio'); } } class FakeRecorder { static isTypeSupported() { return true; } constructor() { this.state = 'inactive'; this.mimeType = 'video/webm'; this.listeners = {}; } addEventListener(type, callback, options) { (this.listeners[type] ||= []).push({ callback, once: !!(options && options.once) }); } dispatch(type, event) { const listeners = this.listeners[type] || []; this.listeners[type] = listeners.filter(item => !item.once); for (const item of listeners) item.callback(event || { type }); } start() { this.state = 'recording'; setTimeout(() => this.dispatch('dataavailable', { type: 'dataavailable', data: new Blob([new Uint8Array([1,2,3])], { type: this.mimeType }) }), 0); } stop() { this.state = 'inactive'; this.dispatch('stop'); } } Object.defineProperty(window, 'MediaRecorder', { configurable: true, writable: true, value: FakeRecorder }); Object.defineProperty(window, 'MediaStream', { configurable: true, writable: true, value: FakeStream }); Object.defineProperty(navigator.mediaDevices, 'getDisplayMedia', { configurable: true, writable: true, value: async () => new FakeStream([track]) }); window.confirm = () => false; Blob.prototype.arrayBuffer = async function() { throw new Error('Synthetic UI test stop'); }; Object.defineProperty(window, '__openCluelyLiveTestRestore', { configurable: true, value: () => { if (old.MediaRecorder) Object.defineProperty(window, 'MediaRecorder', old.MediaRecorder); else delete window.MediaRecorder; if (old.MediaStream) Object.defineProperty(window, 'MediaStream', old.MediaStream); else delete window.MediaStream; if (old.confirm) Object.defineProperty(window, 'confirm', old.confirm); else delete window.confirm; if (old.getDisplayMedia) Object.defineProperty(navigator.mediaDevices, 'getDisplayMedia', old.getDisplayMedia); else delete navigator.mediaDevices.getDisplayMedia; if (old.blobArrayBuffer) Object.defineProperty(Blob.prototype, 'arrayBuffer', old.blobArrayBuffer); else delete Blob.prototype.arrayBuffer; }; return true; })()");
+    await cdp.evaluate("document.querySelector('#screenRecordBtn').click()");
+    await sleep(250);
+    const recordingStarted = await cdp.evaluate("({ title: document.querySelector('#screenRecordBtn').title, active: document.querySelector('#screenRecordBtn').classList.contains('recording') })");
+    assert.equal(recordingStarted.active, true, 'Screen recording button must start a recording session');
+    assert.equal(recordingStarted.title, 'Stop and save screen recording', 'Recording control must expose a stop action while recording');
+    await cdp.evaluate("document.querySelector('#screenRecordBtn').click()");
+    await sleep(300);
+    const recordingStopped = await cdp.evaluate("({ disabled: document.querySelector('#screenRecordBtn').disabled, active: document.querySelector('#screenRecordBtn').classList.contains('recording'), title: document.querySelector('#screenRecordBtn').title, messages: document.querySelector('#chatMessages').textContent })");
+    assert.equal(recordingStopped.disabled, false, 'Recording control must be re-enabled after stop');
+    assert.equal(recordingStopped.active, false, 'Recording state must clear after stop');
+    assert.equal(recordingStopped.title, 'Start screen recording with optional system audio', 'Recording control must return to its start state');
+    assert.match(recordingStopped.messages, /Synthetic UI test stop/, 'Recording stop path must reach the save/cleanup handler');
+    await cdp.evaluate("window.__openCluelyLiveTestRestore(); delete window.__openCluelyLiveTestRestore;");
+
+    // Audio controls must respond safely when the runner has no configured
+    // speech backend or physical capture device; do not trigger OS pickers.
+    await cdp.evaluate("document.querySelector('#micButton').click()");
+    await cdp.evaluate("document.querySelector('#systemAudioListenBtn').click()");
+    await sleep(200);
+    const audioState = await cdp.evaluate("document.querySelector('#chatMessages').textContent");
+    assert.match(audioState, /Speech recognition is not configured\\./, 'Microphone control must explain unavailable speech recognition');
+    assert.match(audioState, /Configure Whisper speech recognition before listening to screen audio\\./, 'System-audio control must explain missing Whisper setup');
+
     const targetsBeforeSend = await getTargets();
     const responseTargetsBefore = targetsBeforeSend.filter((target) => target.type === 'page' && /AI Response/i.test(target.title || '')).length;
     const marker = 'UI-INTEGRATION-' + Date.now();
