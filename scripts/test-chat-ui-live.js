@@ -119,8 +119,8 @@ async function run() {
     await cdp.evaluate("document.querySelector('#systemAudioListenBtn').click()");
     await sleep(200);
     const audioState = await cdp.evaluate("document.querySelector('#chatMessages').textContent");
-    assert.match(audioState, /Speech recognition is not configured\\./, 'Microphone control must explain unavailable speech recognition');
-    assert.match(audioState, /Configure Whisper speech recognition before listening to screen audio\\./, 'System-audio control must explain missing Whisper setup');
+    assert.match(audioState, /Speech recognition is not configured\./, 'Microphone control must explain unavailable speech recognition');
+    assert.match(audioState, /Configure Whisper speech recognition before listening to screen audio\./, 'System-audio control must explain missing Whisper setup');
 
     const targetsBeforeSend = await getTargets();
     const responseTargetsBefore = targetsBeforeSend.filter((target) => target.type === 'page' && /AI Response/i.test(target.title || '')).length;
