@@ -95,6 +95,8 @@ async function run() {
     const restoredTitle = await cdp.evaluate("document.querySelector('#overlayToggleBtn').title");
     assert.equal(restoredTitle, oldTitle, 'Overlay button must toggle back to its original state');
 
+    const targetsBeforeSend = await getTargets();
+    const responseTargetsBefore = targetsBeforeSend.filter((target) => target.type === 'page' && /AI Response/i.test(target.title || '')).length;
     const marker = 'UI-INTEGRATION-' + Date.now();
     await cdp.evaluate("(() => { const input = document.querySelector('#messageInput'); input.value = " + JSON.stringify(marker) + "; document.querySelector('#sendButton').click(); return true; })()");
     await sleep(700);
@@ -102,8 +104,9 @@ async function run() {
     assert.equal(messageState.rendered, true, 'Submitted message must render in the existing chat window');
     assert.equal(messageState.value, '', 'Sending a message must clear the input');
     const refreshedTargets = await getTargets();
-    assert.equal(refreshedTargets.some((target) => target.type === 'page' && /AI Response/i.test(target.title || '')), false,
-      'Sending a chat message must not create a separate AI Response window');
+    const responseTargetsAfter = refreshedTargets.filter((target) => target.type === 'page' && /AI Response/i.test(target.title || '')).length;
+    assert.equal(responseTargetsAfter, responseTargetsBefore,
+      'Sending a chat message must not spawn a separate AI Response window');
 
     console.log('PASS: live Electron chat DOM, native window drag IPC, reversible overlay toggle, and same-window message submission.');
   } finally { cdp.close(); }
