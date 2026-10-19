@@ -1523,7 +1523,14 @@
         overlayToggleBtn.addEventListener('click', async () => {
           try {
             if (whysperAPI && whysperAPI.toggleOverlay) {
-              await whysperAPI.toggleOverlay();
+              const result = await whysperAPI.toggleOverlay();
+              const enabled = !!(result && result.enabled);
+              overlayToggleBtn.title = enabled ? 'Turn overlay off' : 'Turn overlay on';
+              overlayToggleBtn.setAttribute('aria-label', overlayToggleBtn.title);
+              overlayToggleBtn.innerHTML = enabled
+                ? '<i class="fas fa-eye-slash"></i>'
+                : '<i class="fas fa-eye"></i>';
+              overlayToggleBtn.classList.toggle('overlay-disabled', !enabled);
             }
           } catch (error) {
             addMessage('Could not change overlay visibility.', 'error');
