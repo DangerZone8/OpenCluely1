@@ -1,7 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const { fileURLToPath } = require("url");
-const { app, BrowserWindow, globalShortcut, session, ipcMain } = require("electron");
+const { app, BrowserWindow, globalShortcut, session, ipcMain, dialog } = require("electron");
 
 // ── Resolve a stable .env location ──
 // In packaged builds process.cwd() is unstable and frequently read-only
@@ -496,6 +496,27 @@ class ApplicationController {
   }
 
   setupIPCHandlers() {
+  ipcMain.handle("save-screen-recording", async (event, bytes) => {
+    if (!(bytes instanceof Uint8Array) && !Buffer.isBuffer(bytes)) {
+      throw new TypeError("Recording data must be binary.");
+    }
+    const buffer = Buffer.from(bytes);
+    if (!buffer.length || buffer.length > 250 * 1024 * 1024) {
+      throw new Error("Recording is empty or exceeds the 250 MB safety limit.");
+    }
+    const parentWindow = BrowserWindow.fromWebContents(event.sender);
+    const result = await dialog.showSaveDialog(parentWindow || undefined, {
+      title: "Save OpenCluely screen recording",
+      defaultPath: path.join(app.getPath("videos"), `OpenCluely-Recording-${new Date().toISOString().replace(/[:.]/g, "-")}.webm`),
+      buttonLabel: "Save recording",
+      filters: [{ name: "WebM video", extensions: ["webm"] }]
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    await fs.promises.writeFile(result.filePath, buffer, { flag: "w" });
+    logger.info("Screen recording saved", { bytes: buffer.length });
+    return { savedPath: result.filePath, bytes: buffer.length };
+  });
+
   ipcMain.handle("take-screenshot", () => this.triggerScreenshotOCR());
   ipcMain.handle("list-displays", () => captureService.listDisplays());
   ipcMain.handle("capture-area", (event, options) => captureService.captureAndProcess(options));
