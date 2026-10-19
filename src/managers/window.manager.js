@@ -13,6 +13,7 @@ class WindowManager {
     this.activeWindow = 'main';
     this.isInteractive = true; // default to interactive so windows are clickable/drag-able
     this.isVisible = false;
+    this.overlayModeEnabled = true;
     // Invalidates delayed show callbacks when the user explicitly hides the overlay.
     this.mainVisibilityGeneration = 0;
     this.currentDisplay = null;
@@ -1093,6 +1094,35 @@ class WindowManager {
     
     this.isVisible = false;
     logger.info('All windows hidden');
+  }
+
+  getOverlayMode() {
+    return this.overlayModeEnabled;
+  }
+
+  setOverlayMode(enabled) {
+    if (this.isScreenBeingShared) {
+      return this.overlayModeEnabled;
+    }
+
+    this.overlayModeEnabled = Boolean(enabled);
+    const chatWindow = this.windows.get('chat');
+    if (chatWindow && !chatWindow.isDestroyed()) {
+      try {
+        chatWindow.setAlwaysOnTop(this.overlayModeEnabled);
+        chatWindow.setFocusable(true);
+        chatWindow.setIgnoreMouseEvents(false);
+        if (typeof chatWindow.setVisibleOnAllWorkspaces === 'function') {
+          chatWindow.setVisibleOnAllWorkspaces(this.overlayModeEnabled);
+        }
+      } catch (error) {
+        logger.warn('Could not update chat overlay mode', { error: error.message });
+      }
+      this.showOnCurrentDesktop(chatWindow);
+      chatWindow.focus();
+    }
+    logger.info('Chat overlay mode changed', { enabled: this.overlayModeEnabled });
+    return this.overlayModeEnabled;
   }
 
   toggleVisibility() {
