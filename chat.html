@@ -1549,6 +1549,7 @@
               }
             } else {
               if (whysperAPI) {
+                await initSpeechCaptureMode();
                 const result = await whysperAPI.startSpeechRecognition();
               }
             }
