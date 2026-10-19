@@ -799,6 +799,7 @@ class WindowManager {
     // macOS requires a deferred show to avoid desktop/Space flicker. Keep
     // that timer cancellable so a later hide always wins over an older show.
     const isMainOverlay = win === this.windows.get('main');
+    const chatOverlayDisabled = win === this.windows.get('chat') && !this.overlayModeEnabled;
     const showGeneration = isMainOverlay ? this.mainVisibilityGeneration : null;
     const mainShowIsCurrent = () => !isMainOverlay || (
       this.isVisible && showGeneration === this.mainVisibilityGeneration
@@ -810,10 +811,14 @@ class WindowManager {
     if (process.platform === 'darwin') {
       // macOS: prevent space switching and keep visibility stable
       win.hide();
-      win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+      win.setVisibleOnAllWorkspaces(!chatOverlayDisabled, { visibleOnFullScreen: true });
 
       const setMacOSAlwaysOnTop = () => {
         if (win.isDestroyed()) return;
+        if (chatOverlayDisabled) {
+          win.setAlwaysOnTop(false);
+          return;
+        }
         try {
           win.setAlwaysOnTop(true, 'screen-saver', 2);
         } catch {
@@ -842,8 +847,8 @@ class WindowManager {
       }, 50);
     } else {
       // Linux/Windows
-      win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-      win.setAlwaysOnTop(true);
+      win.setVisibleOnAllWorkspaces(!chatOverlayDisabled, { visibleOnFullScreen: true });
+      win.setAlwaysOnTop(!chatOverlayDisabled);
       win.show();
       win.focus();
       setTimeout(() => {
@@ -851,7 +856,7 @@ class WindowManager {
         if (!isLLM) {
           win.setVisibleOnAllWorkspaces(false);
         }
-        win.setAlwaysOnTop(true);
+        win.setAlwaysOnTop(!chatOverlayDisabled);
       }, 500);
     }
 
