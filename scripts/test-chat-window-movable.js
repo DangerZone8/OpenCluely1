@@ -80,6 +80,14 @@ assert.match(html, /whysperAPI\.sendAudioChunk\(pcm\.buffer\)/,
   'Captured PCM audio must be forwarded to the Whisper transcription service');
 assert.match(html, /stopRendererMicCapture\(\)/,
   'Microphone capture must be stopped and released when listening stops');
+assert.match(html, /id="systemAudioListenBtn"/,
+  'Chat must expose a separate system-audio listening control');
+assert.match(html, /getDisplayMedia\(\s*\{\s*video:\s*true,\s*audio:\s*true\s*\}\)/,
+  'Live system-audio listening must use an explicit display/window picker');
+assert.match(html, /pendingSystemAudioStream/,
+  'Selected system audio must feed the renderer audio transcription pipeline');
+assert.match(html, /Stop listening to screen audio/,
+  'System-audio listening must have an explicit stop control');
 assert.match(html, /id="overlayToggleBtn"/,
   'Chat must expose overlay visibility control');
 assert.match(manager, /setOverlayMode\(enabled\)[\s\S]*?setAlwaysOnTop\(this\.overlayModeEnabled\)[\s\S]*?return this\.overlayModeEnabled/,
