@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stopSpeechRecognition: () => ipcRenderer.invoke('stop-speech-recognition'),
   sendAudioChunk: (buffer) => ipcRenderer.send('audio-chunk', { buffer }),
   getSpeechAvailability: () => ipcRenderer.invoke('get-speech-availability'),
+  getSpeechCaptureMode: () => ipcRenderer.invoke('get-speech-capture-mode'),
   
   // Window management
   showAllWindows: () => ipcRenderer.invoke('show-all-windows'),
