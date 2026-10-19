@@ -1257,49 +1257,28 @@ class WindowManager {
   }
 
   showLLMResponse(content, metadata = {}) {
-    logger.debug('showLLMResponse called', {
-      isScreenBeingShared: this.isScreenBeingShared,
-      contentLength: content.length,
-      skill: metadata.skill
-    });
-
     if (this.isScreenBeingShared) {
       logger.warn('LLM response blocked due to screen sharing mode');
       return;
     }
 
-    const llmWindow = this.windows.get('llmResponse');
-    if (!llmWindow) {
-      logger.error('LLM response window not available');
+    // All assistant answers belong in the conversation window. The old
+    // llmResponse window duplicated the chat experience and stole focus.
+    const chatWindow = this.windows.get('chat');
+    if (!chatWindow || chatWindow.isDestroyed()) {
+      logger.error('Chat window unavailable for assistant response');
       return;
     }
 
-    // Ensure window is not destroyed before use
-    if (llmWindow.isDestroyed()) {
-      logger.error('LLM response window is destroyed');
-      return;
-    }
-
-    logger.debug('Sending display-llm-response event to window');
-    llmWindow.webContents.send('display-llm-response', {
-      content,
+    chatWindow.webContents.send('llm-response', {
+      response: content,
       metadata,
       timestamp: new Date().toISOString()
     });
-    
-    logger.debug('Showing and focusing LLM window');
-    this.showOnCurrentDesktop(llmWindow);
-    
-    // Position bound windows when LLM response is shown
-    if (this.bindWindows) {
-      this.positionBoundWindows();
-    }
-        
-    logger.info('LLM response displayed', {
-      contentLength: content.length,
-      skill: metadata.skill,
-      windowVisible: llmWindow.isVisible(),
-      boundWindows: this.bindWindows
+    this.showChatWindow();
+    logger.info('Assistant response routed to the unified chat window', {
+      contentLength: String(content || '').length,
+      skill: metadata.skill
     });
   }
 
@@ -1309,21 +1288,9 @@ class WindowManager {
       return;
     }
 
-    const llmWindow = this.windows.get('llmResponse');
-    if (llmWindow) {
-      logger.debug('Showing LLM loading state');
-      llmWindow.webContents.send('show-loading');
-      this.showOnCurrentDesktop(llmWindow);
-      
-      // Position bound windows when LLM loading is shown
-      if (this.bindWindows) {
-        this.positionBoundWindows();
-      }
-      
-      logger.debug('LLM loading window shown');
-    } else {
-      logger.error('LLM window not available for loading state');
-    }
+    // Do not show the legacy second response window. Typed chat already owns
+    // its thinking indicator; for capture/voice requests, focus the same chat.
+    this.showChatWindow();
   }
 
   hideLLMResponse() {
@@ -1804,8 +1771,18 @@ class WindowManager {
   showChatWindow() {
     const chatWindow = this.windows.get('chat');
     if (chatWindow && !chatWindow.isDestroyed()) {
+      // The global click-through shortcut affects every overlay window. Always
+      // restore interaction when explicitly opening chat so its header can
+      // drag and its controls/input remain usable.
+      try {
+        chatWindow.setIgnoreMouseEvents(false);
+        chatWindow.setFocusable(true);
+      } catch (error) {
+        logger.warn('Could not restore chat window interaction', { error: error.message });
+      }
       this.showOnCurrentDesktop(chatWindow);
-      logger.debug('Chat window shown');
+      chatWindow.focus();
+      logger.debug('Chat window shown interactively');
     }
   }
 
