@@ -29,4 +29,24 @@ assert.match(onboarding, /\.header\s*\{[^}]*-webkit-app-region:\s*drag/s,
   'Welcome onboarding header must be draggable');
 assert.match(manager, /onboarding:\s*\{[\s\S]*?file:\s*'onboarding\.html'/,
   'Welcome onboarding window must remain configured');
-console.log('Chat and onboarding window drag-region checks passed.');
+
+// Runtime interaction must be restored on every explicit chat open, not just
+// declared in CSS; click-through mode otherwise leaves the chat visible but stuck.
+assert.match(manager, /showChatWindow\(\)\s*\{[\s\S]*?setIgnoreMouseEvents\(false\)[\s\S]*?setFocusable\(true\)/,
+  'Showing chat must restore mouse interaction and focusability');
+assert.match(manager, /windowType === 'chat'[\s\S]*?this\.showChatWindow\(\)/,
+  'Shortcut/onboarding chat opens must use the interactive showChatWindow path');
+
+// All AI responses should render into chat; the legacy response window must
+// no longer be shown as the destination for new assistant answers.
+assert.match(manager, /showLLMResponse\(content, metadata = \{\}\)\s*\{[\s\S]*?chatWindow\.webContents\.send\('llm-response'/,
+  'AI responses must be routed to the chat renderer');
+assert.match(html, /id="screenCaptureBtn"/,
+  'Chat must expose the existing screenshot/OCR capture workflow');
+assert.match(html, /id="overlayToggleBtn"/,
+  'Chat must expose overlay visibility control');
+assert.match(onboarding, /id="openAiNowBtn"/,
+  'Welcome screen must expose direct AI chat access');
+assert.match(onboarding, /openAiNowBtn\.addEventListener/,
+  'Welcome screen direct AI action must be wired');
+console.log('Chat drag, unified response routing, controls, and welcome shortcut checks passed.');
