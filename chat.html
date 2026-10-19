@@ -694,6 +694,9 @@
           <button class="icon-button" id="screenRecordBtn" title="Start screen recording with optional system audio">
             <i class="fas fa-circle"></i>
           </button>
+          <button class="icon-button" id="systemAudioListenBtn" title="Listen to audio from a selected screen or window">
+            <i class="fas fa-headphones"></i>
+          </button>
           <button class="icon-button" id="overlayToggleBtn" title="Turn overlay off">
             <i class="fas fa-eye-slash"></i>
           </button>
@@ -751,6 +754,7 @@
       const clearHistoryBtn = document.getElementById('clearHistoryBtn');
       const screenCaptureBtn = document.getElementById('screenCaptureBtn');
       const screenRecordBtn = document.getElementById('screenRecordBtn');
+      const systemAudioListenBtn = document.getElementById('systemAudioListenBtn');
       const overlayToggleBtn = document.getElementById('overlayToggleBtn');
       const chatHeader = document.querySelector('.chat-header');
 
@@ -763,6 +767,8 @@
       let rendererMicStream = null;
       let rendererMicAudioContext = null;
       let rendererMicProcessor = null;
+      let pendingSystemAudioStream = null;
+      let isListeningToSystemAudio = false;
       let screenRecorder = null;
       let screenRecordingStream = null;
       let screenRecordingChunks = [];
@@ -865,10 +871,15 @@
       async function startRendererMicCapture() {
         if (!speechCaptureMode.rendererCaptureSupported || rendererMicStream) return;
         try {
-          rendererMicStream = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-            video: false
-          });
+          if (pendingSystemAudioStream) {
+            rendererMicStream = pendingSystemAudioStream;
+            pendingSystemAudioStream = null;
+          } else {
+            rendererMicStream = await navigator.mediaDevices.getUserMedia({
+              audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+              video: false
+            });
+          }
           rendererMicAudioContext = new AudioContext();
           const source = rendererMicAudioContext.createMediaStreamSource(rendererMicStream);
           rendererMicProcessor = rendererMicAudioContext.createScriptProcessor(4096, 1, 1);
@@ -1099,6 +1110,15 @@
       function handleRecordingStopped() {
         isRecording = false;
         stopRendererMicCapture();
+        isListeningToSystemAudio = false;
+        pendingSystemAudioStream = null;
+        if (systemAudioListenBtn) {
+          systemAudioListenBtn.disabled = false;
+          systemAudioListenBtn.title = 'Listen to audio from a selected screen or window';
+          systemAudioListenBtn.setAttribute('aria-label', systemAudioListenBtn.title);
+          systemAudioListenBtn.innerHTML = '<i class="fas fa-headphones"></i>';
+          systemAudioListenBtn.classList.remove('recording');
+        }
 
         if (recordingIndicator) {
           recordingIndicator.style.display = 'none';
@@ -1485,6 +1505,67 @@
           }
         });
       }
+
+      if (systemAudioListenBtn) {
+        systemAudioListenBtn.addEventListener('click', async () => {
+          if (isListeningToSystemAudio) {
+            try {
+              await whysperAPI.stopSpeechRecognition();
+            } catch (error) {
+              addMessage('Could not stop system-audio listening: ' + error.message, 'error');
+            }
+            return;
+          }
+          if (!speechAvailable) {
+            addMessage('Configure Whisper speech recognition before listening to screen audio.', 'error');
+            return;
+          }
+          await initSpeechCaptureMode();
+          if (!speechCaptureMode.rendererCaptureSupported) {
+            addMessage('Live screen-audio transcription currently requires Whisper on Windows or macOS. Screen recording remains available where supported.', 'system');
+            return;
+          }
+          if (isRecording) {
+            addMessage('Stop microphone listening before switching to screen audio.', 'system');
+            return;
+          }
+          systemAudioListenBtn.disabled = true;
+          try {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+              throw new Error('Screen audio capture is not supported in this build.');
+            }
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+              video: true,
+              audio: true
+            });
+            if (!stream.getAudioTracks().length) {
+              stream.getTracks().forEach(track => track.stop());
+              throw new Error('The selected source did not provide system audio. Choose a display/window and enable audio if the picker offers that option.');
+            }
+            pendingSystemAudioStream = stream;
+            isListeningToSystemAudio = true;
+            await whysperAPI.startSpeechRecognition();
+            systemAudioListenBtn.title = 'Stop listening to screen audio';
+            systemAudioListenBtn.setAttribute('aria-label', systemAudioListenBtn.title);
+            systemAudioListenBtn.innerHTML = '<i class="fas fa-stop"></i>';
+            systemAudioListenBtn.classList.add('recording');
+            addMessage('Listening to audio from the selected screen/window. Audio is transcribed locally through the configured Whisper service; click Stop to end.', 'system');
+            const videoTrack = stream.getVideoTracks()[0];
+            if (videoTrack) videoTrack.addEventListener('ended', () => {
+              if (isListeningToSystemAudio) whysperAPI.stopSpeechRecognition().catch(() => {});
+            }, { once: true });
+          } catch (error) {
+            if (pendingSystemAudioStream) pendingSystemAudioStream.getTracks().forEach(track => track.stop());
+            pendingSystemAudioStream = null;
+            isListeningToSystemAudio = false;
+            addMessage('Could not start screen-audio listening: ' + error.message, 'error');
+          } finally {
+            systemAudioListenBtn.disabled = false;
+          }
+        });
+      }
+
+
 
       // Explicit pointer-drag fallback: native app-region dragging can be
       // unreliable for transparent frameless windows on some Windows builds.
