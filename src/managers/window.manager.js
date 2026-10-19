@@ -1034,6 +1034,14 @@ class WindowManager {
       return;
     }
 
+    // Opening chat through a shortcut or onboarding must restore interaction
+    // as well as visibility; otherwise a previous click-through mode can make
+    // the visible chat impossible to drag or type into.
+    if (windowType === 'chat') {
+      this.showChatWindow();
+      return;
+    }
+
     const targetWindow = this.windows.get(windowType);
     if (targetWindow) {
       this.showOnCurrentDesktop(targetWindow);
