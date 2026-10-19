@@ -591,6 +591,11 @@ class ApplicationController {
       return windowManager.getWindowStats();
     });
 
+    ipcMain.handle("toggle-overlay", () => {
+      const visible = windowManager.toggleVisibility();
+      return { success: true, visible };
+    });
+
     ipcMain.handle("switch-to-chat", () => {
       windowManager.switchToWindow("chat");
       return windowManager.getWindowStats();
