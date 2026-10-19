@@ -71,7 +71,7 @@ jobs:
           }
           $userData = Join-Path $env:TEMP 'opencluely-windows-smoke'
           if (Test-Path $userData) { Remove-Item $userData -Recurse -Force }
-          $proc = Start-Process -FilePath $app -ArgumentList @('--disable-gpu', "--user-data-dir=$userData") -PassThru
+          $proc = Start-Process -FilePath $app -ArgumentList @('--disable-gpu', "--user-data-dir=$userData", '--remote-debugging-port=9222') -PassThru
           Start-Sleep -Seconds 15
           $proc.Refresh()
           if ($proc.HasExited) {
@@ -84,6 +84,11 @@ jobs:
             throw "OpenCluely main window has no visible title after 15 seconds."
           }
           Write-Host "PASS: packaged app stayed running and exposed a visible window: $($proc.MainWindowTitle)"
+          node scripts/test-chat-ui-live.js
+          if ($LASTEXITCODE -ne 0) {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            throw "Live Electron chat UI integration test failed (exit $LASTEXITCODE)."
+          }
           Stop-Process -Id $proc.Id -Force
 
       - name: Build Linux installer for runtime smoke test
