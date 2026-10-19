@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Window management
   showAllWindows: () => ipcRenderer.invoke('show-all-windows'),
   hideAllWindows: () => ipcRenderer.invoke('hide-all-windows'),
+  toggleOverlay: () => ipcRenderer.invoke('toggle-overlay'),
   enableWindowInteraction: () => ipcRenderer.invoke('enable-window-interaction'),
   disableWindowInteraction: () => ipcRenderer.invoke('disable-window-interaction'),
   switchToChat: () => ipcRenderer.invoke('switch-to-chat'),
