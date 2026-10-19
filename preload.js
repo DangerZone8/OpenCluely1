@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   switchToSkills: () => ipcRenderer.invoke('switch-to-skills'),
   resizeWindow: (width, height) => ipcRenderer.invoke('resize-window', { width, height }),
   moveWindow: (deltaX, deltaY) => ipcRenderer.invoke('move-window', { deltaX, deltaY }),
+  moveChatWindow: (deltaX, deltaY) => ipcRenderer.send('move-chat-window', { deltaX, deltaY }),
   getWindowStats: () => ipcRenderer.invoke('get-window-stats'),
   
   // Session memory
