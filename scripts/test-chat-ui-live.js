@@ -67,7 +67,7 @@ async function connect(target) {
 async function run() {
   const targets = await getTargets();
   const chatTarget = targets.find((target) =>
-    target.type === 'page' && /(?:^|\\/)chat\\.html(?:[?#]|$)/i.test(target.url || '')
+    target.type === 'page' && (target.url || '').toLowerCase().includes('/chat.html')
   );
   assert.ok(chatTarget, 'A real chat.html renderer target must be open in the packaged app');
   const cdp = await connect(chatTarget);
