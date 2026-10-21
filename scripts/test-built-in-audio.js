@@ -13,6 +13,14 @@ const llm = read('src/services/llm.service.js');
 const chat = read('chat.html');
 
 assert.match(main, /setDisplayMediaRequestHandler/);
+assert.match(main, /analyze-live-screen-frame/);
+assert.match(preload, /analyzeScreenFrame:.*analyze-live-screen-frame/);
+assert.match(llm, /async analyzeScreenFrame\(/);
+assert.match(chat, /async function startLiveScreenMode\(/);
+assert.match(chat, /async function askAIAboutScreen\(/);
+assert.match(chat, /setInterval\(sendFrame, 3000\)/);
+assert.match(chat, /Live screen AI is on/);
+assert.match(chat, /no video file is being saved/);
 assert.match(main, /desktopCapturer\.getSources/);
 assert.match(main, /capture\.audio = "loopback"/);
 assert.match(main, /analyze-captured-audio/);
