@@ -1592,33 +1592,50 @@
           screenRecordBtn.classList.add('recording');
         }
         addMessage('Live screen AI is on. OpenCluely is sending fresh screen frames for analysis; no video file is being saved. Click Stop to end.', 'system');
+        // Keep the capture loop responsive, but never overlap model requests.
+        // Each request contains a fresh frame from the active display stream;
+        // the AI is therefore observing ongoing work, not a saved video file.
+        const LIVE_FRAME_INTERVAL_MS = 1500;
         const sendFrame = async () => {
-          if (!liveScreenStream || liveScreenFrameInFlight || !liveScreenVideo || !liveScreenVideo.videoWidth) return;
+          if (!liveScreenStream || !liveScreenVideo || !liveScreenVideo.videoWidth) return;
+          if (liveScreenFrameInFlight) {
+            if (liveScreenStream) liveScreenTimer = setTimeout(sendFrame, 250);
+            return;
+          }
           liveScreenFrameInFlight = true;
+          const streamAtStart = liveScreenStream;
           try {
             const canvas = document.createElement('canvas');
             canvas.width = Math.min(liveScreenVideo.videoWidth, 1280);
             canvas.height = Math.max(1, Math.round(canvas.width * liveScreenVideo.videoHeight / liveScreenVideo.videoWidth));
-            canvas.getContext('2d').drawImage(liveScreenVideo, 0, 0, canvas.width, canvas.height);
-            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.68));
-            if (!blob || !liveScreenStream) return;
+            const context = canvas.getContext('2d');
+            if (!context) throw new Error('Could not initialize live screen frame capture.');
+            context.drawImage(liveScreenVideo, 0, 0, canvas.width, canvas.height);
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.72));
+            if (!blob || liveScreenStream !== streamAtStart) return;
             const bytes = new Uint8Array(await blob.arrayBuffer());
             const result = await whysperAPI.analyzeScreenFrame(bytes, 'image/jpeg',
-              'This is a live screen update. Identify important visible changes, read relevant on-screen text, and answer any question or task visible. Previous observation: ' + (lastLiveScreenAnswer || 'none yet') + '. If there is no meaningful new information, respond exactly NO_UPDATE. Be concise.');
+              'You are observing a live desktop session. Compare this frame with the previous observation. Prior observation: ' + (lastLiveScreenAnswer || 'none yet') + '. Prioritize newly changed content, visible errors, code edits, dialogs, and anything that needs attention. If nothing useful changed, respond exactly NO_UPDATE. Do not repeat the previous answer.');
             const answer = result?.response?.trim();
-            if (answer && answer !== 'NO_UPDATE' && liveScreenStream) {
+            if (answer && answer !== 'NO_UPDATE' && liveScreenStream === streamAtStart) {
               lastLiveScreenAnswer = answer.slice(0, 1200);
               renderAssistantResponse(answer);
             }
           } catch (error) {
-            addMessage('Live screen AI error: ' + (error.message || String(error)), 'error');
-            stopLiveScreenMode();
+            if (liveScreenStream === streamAtStart) {
+              addMessage('Live screen AI error: ' + (error.message || String(error)), 'error');
+              stopLiveScreenMode();
+            }
           } finally {
             liveScreenFrameInFlight = false;
+            // Schedule from completion, not with setInterval, to guarantee
+            // backpressure and avoid piling up expensive Gemini requests.
+            if (liveScreenStream === streamAtStart) {
+              liveScreenTimer = setTimeout(sendFrame, LIVE_FRAME_INTERVAL_MS);
+            }
           }
         };
         await sendFrame();
-        if (liveScreenStream) liveScreenTimer = setInterval(sendFrame, 3000);
       }
 
       function stopLiveScreenMode() {
