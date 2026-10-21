@@ -8,6 +8,9 @@ class LLMService {
     this.client = null;
     this.model = null;
     this.isInitialized = false;
+    this.remoteOnly = false;
+    this.remoteEndpoint = process.env.OPENCLUELY_AI_ENDPOINT || 'https://opencluely-iota.vercel.app/api/gemini';
+    this.installationId = null;
     this.requestCount = 0;
     this.errorCount = 0;
     
@@ -18,10 +21,10 @@ class LLMService {
     const apiKey = config.getApiKey('GEMINI');
     
     if (!apiKey || apiKey === 'your-api-key-here') {
-      logger.warn('Gemini API key not configured', { 
-        keyExists: !!apiKey,
-        isPlaceholder: apiKey === 'your-api-key-here'
-      });
+      this.model = config.get('llm.gemini.model');
+      this.remoteOnly = true;
+      this.isInitialized = true;
+      logger.info('No local Gemini key found; using the hosted OpenCluely AI service.');
       return;
     }
 
@@ -39,6 +42,62 @@ class LLMService {
       logger.error('Failed to initialize Gemini client', { 
         error: error.message 
       });
+    }
+  }
+
+  getRemoteInstallationId() {
+    if (this.installationId) return this.installationId;
+    const crypto = require('crypto');
+    const fs = require('fs');
+    const path = require('path');
+    const directory = config.get('app.dataDir');
+    const idPath = path.join(directory, '.remote-install-id');
+    try {
+      fs.mkdirSync(directory, { recursive: true });
+      const existing = fs.readFileSync(idPath, 'utf8').trim();
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(existing)) {
+        this.installationId = existing;
+        return existing;
+      }
+    } catch {}
+    const id = crypto.randomUUID();
+    try {
+      fs.mkdirSync(directory, { recursive: true });
+      fs.writeFileSync(idPath, id, { mode: 0o600 });
+    } catch (error) {
+      logger.warn('Could not persist anonymous AI installation ID', { error: error.message });
+    }
+    this.installationId = id;
+    return id;
+  }
+
+  async executeRemoteRequest(geminiRequest, modelName = this.model) {
+    const timeout = config.get('llm.gemini.timeout') || 30000;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+    try {
+      const response = await fetch(this.remoteEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-opencluely-install-id': this.getRemoteInstallationId()
+        },
+        body: JSON.stringify({ model: modelName, request: geminiRequest }),
+        signal: controller.signal
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(typeof result.error === 'string' ? result.error : 'Hosted OpenCluely AI request failed (' + response.status + ').');
+      }
+      if (typeof result.text !== 'string' || !result.text.trim()) {
+        throw new Error('Hosted OpenCluely AI returned an empty response.');
+      }
+      return result.text.trim();
+    } catch (error) {
+      if (error.name === 'AbortError') throw new Error('Hosted OpenCluely AI timed out. Please try again.');
+      throw error;
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -872,6 +931,9 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
   }
 
   async executeRequest(geminiRequest) {
+    if (this.remoteOnly) {
+      return this.executeRemoteRequest(geminiRequest);
+    }
     const maxRetries = config.get('llm.gemini.maxRetries');
     const timeout = config.get('llm.gemini.timeout');
     const primaryModel = this.model;
@@ -1087,6 +1149,11 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
    * for each chunk.
    */
   async executeStreamingRequest(geminiRequest, onDelta) {
+    if (this.remoteOnly) {
+      const fullText = await this.executeRemoteRequest(geminiRequest);
+      if (typeof onDelta === 'function') onDelta(fullText);
+      return fullText;
+    }
     const maxRetries = config.get('llm.gemini.maxRetries');
     const apiKey = config.getApiKey('GEMINI');
     const primaryModel = this.model;
@@ -1226,8 +1293,8 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
    * The frame is handled in memory and is never saved as a recording.
    */
   async analyzeScreenFrame(imageBuffer, mimeType = 'image/jpeg', instruction = '') {
-    if (!this.isInitialized || !this.client) {
-      throw new Error('Gemini is unavailable in this installation. A configured OpenCluely AI service is required.');
+    if (!this.isInitialized) {
+      throw new Error('OpenCluely AI is unavailable. Please try again later.');
     }
     if (!Buffer.isBuffer(imageBuffer) || imageBuffer.length === 0) {
       throw new TypeError('Screen image data is empty or invalid.');
@@ -1260,8 +1327,8 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
    * installation or a separate speech-provider configuration.
    */
   async processAudioWithGemini(audioBuffer, mimeType = 'audio/webm') {
-    if (!this.isInitialized || !this.client) {
-      throw new Error('Gemini is not configured. Add your Gemini API key in OpenCluely settings.');
+    if (!this.isInitialized) {
+      throw new Error('OpenCluely AI is unavailable. Please try again later.');
     }
     if (!Buffer.isBuffer(audioBuffer) || audioBuffer.length === 0) {
       throw new TypeError('Audio data is empty or invalid.');
@@ -1491,6 +1558,18 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
   async testConnection() {
     if (!this.isInitialized) {
       return { success: false, error: 'Service not initialized' };
+    }
+    if (this.remoteOnly) {
+      try {
+        const startTime = Date.now();
+        const response = await this.executeRemoteRequest({
+          contents: [{ role: 'user', parts: [{ text: 'Reply with OK.' }] }],
+          generationConfig: this.getGenerationConfig({ temperature: 0, maxOutputTokens: 32 })
+        });
+        return { success: true, response, latency: Date.now() - startTime, model: this.model, provider: 'OpenCluely hosted AI service' };
+      } catch (error) {
+        return { success: false, error: error.message, provider: 'OpenCluely hosted AI service' };
+      }
     }
 
     try {
