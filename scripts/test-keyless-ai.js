@@ -40,13 +40,15 @@ async function testHostedClient() {
       'Desktop must never send a provider key to the hosted proxy');
 
     const frame = Buffer.from('fake jpeg bytes');
-    const originalScreenAnalysis = llm.analyzeScreenFrame;
-    llm.analyzeScreenFrame = async () => ({ response: await llm.executeRequest(request) });
     const screen = await llm.analyzeScreenFrame(frame, 'image/jpeg', 'Look at this');
     assert.equal(screen.response, 'Hosted AI response works.');
-    llm.analyzeScreenFrame = originalScreenAnalysis;
+    assert.match(seen.body.request.contents[0].parts[0].text, /Look at this/);
 
-    console.log('PASS: keyless hosted AI client sends requests without exposing a Gemini key.');
+    const audio = await llm.processAudioWithGemini(Buffer.from('fake webm bytes'), 'audio/webm');
+    assert.equal(audio.response, 'Hosted AI response works.');
+    assert.match(seen.body.request.contents[0].parts[0].text, /Listen to this audio/);
+
+    console.log('PASS: keyless hosted AI supports chat, screen vision, and audio analysis without exposing a Gemini key.');
   } finally {
     global.fetch = originalFetch;
     llm.remoteEndpoint = originalEndpoint;
