@@ -1522,24 +1522,6 @@
         clearHistoryBtn.addEventListener('click', () => clearChatHistory());
       }
 
-      // Reuse the existing, permission-aware screenshot/OCR pipeline.
-      if (screenCaptureBtn) {
-        screenCaptureBtn.addEventListener('click', async () => {
-          screenCaptureBtn.disabled = true;
-          try {
-            if (whysperAPI && whysperAPI.takeScreenshot) {
-              await whysperAPI.takeScreenshot();
-            } else {
-              addMessage('Screen capture is unavailable in this build.', 'error');
-            }
-          } catch (error) {
-            addMessage('Could not capture the screen. Check screen-capture permissions.', 'error');
-          } finally {
-            screenCaptureBtn.disabled = false;
-          }
-        });
-      }
-
       // Screen mode sends live screen frames to the AI. It does not create or save a video file.
       let liveScreenStream = null;
       let liveScreenVideo = null;
