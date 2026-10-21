@@ -24,15 +24,13 @@ class FirstRunManager {
   }
 
   /**
-   * Returns true if this looks like a fresh install — no .env, no
-   * sentinel file, or .env exists but has no Gemini key.
+   * Returns true only for a fresh install. A local Gemini key is optional
+   * because OpenCluely can use its hosted AI service.
    */
   needsOnboarding() {
     if (!fs.existsSync(this.sentinelPath)) return true;
     if (!fs.existsSync(this.envPath)) return true;
-    const content = this._readEnv();
-    const gemini = (content.GEMINI_API_KEY || '').trim();
-    return !gemini || gemini === 'your_gemini_api_key_here';
+    return false;
   }
 
   /**
@@ -84,6 +82,7 @@ class FirstRunManager {
       envExists: fs.existsSync(this.envPath),
       sentinelExists: fs.existsSync(this.sentinelPath),
       geminiConfigured: !!gemini && gemini !== 'your_gemini_api_key_here',
+      hostedAiAvailable: true,
       azureConfigured: !!(env.AZURE_SPEECH_KEY || '').trim() && !!(env.AZURE_SPEECH_REGION || '').trim(),
       whisperConfigured: !!(env.WHISPER_COMMAND || '').trim(),
       needsOnboarding: this.needsOnboarding()
