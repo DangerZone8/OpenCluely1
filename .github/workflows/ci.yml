@@ -77,13 +77,19 @@ jobs:
           if ($proc.HasExited) {
             throw "OpenCluely exited during the 15-second Windows launch smoke test (exit code $($proc.ExitCode))."
           }
-          if ($proc.MainWindowHandle -eq [IntPtr]::Zero) {
-            throw "OpenCluely stayed running but exposed no visible main window handle after 15 seconds."
+          # electron-builder can launch a bootstrap process that has no native
+          # window handle; inspect all app processes instead of only that parent.
+          $visibleApp = $null
+          for ($attempt = 0; $attempt -lt 10 -and -not $visibleApp; $attempt++) {
+            $visibleApp = Get-Process -Name 'OpenCluely' -ErrorAction SilentlyContinue |
+              Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero -and -not [string]::IsNullOrWhiteSpace($_.MainWindowTitle) } |
+              Select-Object -First 1
+            if (-not $visibleApp) { Start-Sleep -Seconds 1 }
           }
-          if ([string]::IsNullOrWhiteSpace($proc.MainWindowTitle)) {
-            throw "OpenCluely main window has no visible title after 15 seconds."
+          if (-not $visibleApp) {
+            throw "OpenCluely stayed running but no OpenCluely process exposed a visible main window after 25 seconds."
           }
-          Write-Host "PASS: packaged app stayed running and exposed a visible window: $($proc.MainWindowTitle)"
+          Write-Host "PASS: packaged app exposed a visible window: $($visibleApp.MainWindowTitle)"
           node scripts/test-chat-ui-live.js
           if ($LASTEXITCODE -ne 0) {
             Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
