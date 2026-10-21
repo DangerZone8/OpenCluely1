@@ -18,6 +18,9 @@ class LLMService {
   }
 
   initializeClient() {
+    this.client = null;
+    this.isInitialized = false;
+    this.remoteOnly = false;
     const apiKey = config.getApiKey('GEMINI');
     
     if (!apiKey || apiKey === 'your-api-key-here') {
