@@ -578,6 +578,21 @@ class ApplicationController {
     return { savedPath: result.filePath, bytes: buffer.length };
   });
 
+  ipcMain.handle("analyze-live-screen-frame", async (_event, payload) => {
+    if (!payload || (!(payload.bytes instanceof Uint8Array) && !Buffer.isBuffer(payload.bytes))) {
+      throw new TypeError("Screen frame must be binary image data.");
+    }
+    const image = Buffer.from(payload.bytes);
+    if (!image.length || image.length > 8 * 1024 * 1024) {
+      throw new Error("Screen frame is empty or exceeds the 8 MB limit.");
+    }
+    const mimeType = typeof payload.mimeType === "string" && /^image\/(jpeg|png|webp)$/i.test(payload.mimeType)
+      ? payload.mimeType
+      : "image/jpeg";
+    const instruction = typeof payload.instruction === "string" ? payload.instruction.slice(0, 2000) : "";
+    return llmService.analyzeScreenFrame(image, mimeType, instruction);
+  });
+
   ipcMain.handle("analyze-captured-audio", async (_event, payload) => {
     if (!payload || (!(payload.bytes instanceof Uint8Array) && !Buffer.isBuffer(payload.bytes))) {
       throw new TypeError("Captured audio must be binary.");
