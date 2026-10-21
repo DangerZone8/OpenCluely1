@@ -1471,152 +1471,148 @@
         });
       }
 
-      // Screen recording is opt-in and stays local until the user chooses a
-      // save path. Chromium/Electron provides the native display picker; system
-      // audio availability depends on OS and the selected display source.
-      async function stopScreenRecording(save = true) {
-        const recorder = screenRecorder;
-        if (!recorder) return;
-        screenRecordBtn.disabled = true;
+      // Screen mode sends live screen frames to the AI. It does not create or save a video file.
+      let liveScreenStream = null;
+      let liveScreenVideo = null;
+      let liveScreenTimer = null;
+      let liveScreenFrameInFlight = false;
+
+      async function captureAndAskAI(instruction, stream = null) {
+        let temporaryStream = null;
         try {
-          if (recorder.state !== 'inactive') {
-            await new Promise(resolve => {
-              recorder.addEventListener('stop', resolve, { once: true });
-              recorder.stop();
-            });
-          }
-          if (save && screenRecordingChunks.length) {
-            const blob = new Blob(screenRecordingChunks, { type: recorder.mimeType || 'video/webm' });
-            const bytes = await blob.arrayBuffer();
-            const result = await whysperAPI.saveScreenRecording(new Uint8Array(bytes));
-            if (result && result.savedPath) {
-              addMessage('Screen recording saved locally: ' + result.savedPath, 'system');
-            } else if (result && result.canceled) {
-              addMessage('Recording stopped. Saving was canceled; the recording was discarded.', 'system');
-            } else {
-              addMessage('Recording stopped, but the file could not be saved.', 'error');
-            }
-          }
-        } catch (error) {
-          addMessage('Could not save the screen recording: ' + error.message, 'error');
+          const activeStream = stream || (temporaryStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { frameRate: { ideal: 5, max: 10 } }, audio: false
+          }));
+          const video = document.createElement('video');
+          video.muted = true;
+          video.playsInline = true;
+          video.srcObject = activeStream;
+          await new Promise((resolve, reject) => {
+            if (video.readyState >= 2 && video.videoWidth) return resolve();
+            video.onloadedmetadata = () => video.play().then(resolve).catch(reject);
+            video.onerror = () => reject(new Error('The selected screen could not be read.'));
+            setTimeout(() => reject(new Error('Timed out waiting for the screen frame.')), 8000);
+          });
+          if (video.paused) await video.play();
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.min(video.videoWidth || 1280, 1600);
+          canvas.height = Math.max(1, Math.round(canvas.width * (video.videoHeight || 720) / (video.videoWidth || 1280)));
+          const context = canvas.getContext('2d');
+          if (!context) throw new Error('Could not initialize screen image capture.');
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.78));
+          if (!blob || !blob.size) throw new Error('The selected screen produced an empty frame.');
+          const bytes = new Uint8Array(await blob.arrayBuffer());
+          if (!whysperAPI || !whysperAPI.analyzeScreenFrame) throw new Error('Screen-to-AI is unavailable in this app build.');
+          return await whysperAPI.analyzeScreenFrame(bytes, 'image/jpeg', instruction || '');
         } finally {
-          if (screenRecordingStream) {
-            screenRecordingStream.getTracks().forEach(track => track.stop());
-          }
-          screenRecordingSourceStreams.forEach(stream => stream.getTracks().forEach(track => track.stop()));
-          screenRecordingSourceStreams = [];
-          screenRecordingStream = null;
-          if (screenRecordingAudioContext) {
-            screenRecordingAudioContext.close().catch(() => {});
-            screenRecordingAudioContext = null;
-          }
-          screenRecordingChunks = [];
-          screenRecordingBytes = 0;
-          screenRecorder = null;
-          if (screenRecordBtn) {
-            screenRecordBtn.disabled = false;
-            screenRecordBtn.title = 'Start screen recording with optional system audio';
-            screenRecordBtn.innerHTML = '<i class="fas fa-circle"></i>';
-            screenRecordBtn.classList.remove('recording');
-          }
-          if (recordingIndicator) recordingIndicator.style.display = isRecording ? 'block' : 'none';
+          if (temporaryStream) temporaryStream.getTracks().forEach(track => track.stop());
         }
       }
 
-      async function startScreenRecording() {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia || !window.MediaRecorder) {
-          addMessage('Screen recording is not supported by this build of Electron.', 'error');
-          return;
-        }
-        let displayStream;
-        let microphoneStream;
-        try {
-          displayStream = await navigator.mediaDevices.getDisplayMedia({
-            video: { frameRate: { ideal: 15, max: 30 } },
-            audio: true
-          });
-          const videoTracks = displayStream.getVideoTracks();
-          if (!videoTracks.length) throw new Error('No screen video track was selected.');
-          const audioTracks = [...displayStream.getAudioTracks()];
-          screenRecordingSourceStreams = [displayStream];
-          // Ask separately before recording microphone audio. This is optional
-          // and never enabled silently.
-          if (confirm('Include microphone audio in this recording? Choose Cancel for screen/system audio only.')) {
-            try {
-              microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-              audioTracks.push(...microphoneStream.getAudioTracks());
-              screenRecordingSourceStreams.push(microphoneStream);
-            } catch (error) {
-              addMessage('Microphone permission was not granted; continuing without microphone audio.', 'system');
-            }
-          }
-          const tracks = [...videoTracks];
-          if (audioTracks.length) {
-            const audioContext = new AudioContext();
-            const destination = audioContext.createMediaStreamDestination();
-            const sourceStreams = [displayStream, microphoneStream].filter(Boolean);
-            sourceStreams.forEach(stream => {
-              stream.getAudioTracks().forEach(track => {
-                const oneTrackStream = new MediaStream([track]);
-                audioContext.createMediaStreamSource(oneTrackStream).connect(destination);
-              });
-            });
-            destination.stream.getAudioTracks().forEach(track => tracks.push(track));
-            // Keep original audio source tracks alive while the mixed track is recorded.
-            screenRecordingAudioContext = audioContext;
-          }
-          if (!audioTracks.length) {
-            addMessage('This display source does not provide system audio. Video will still be recorded; microphone audio can be enabled separately.', 'system');
-          }
-          screenRecordingStream = new MediaStream(tracks);
-          const mimeType = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
-            .find(type => MediaRecorder.isTypeSupported(type));
-          screenRecordingChunks = [];
-          screenRecordingBytes = 0;
-          screenRecorder = new MediaRecorder(screenRecordingStream, mimeType ? { mimeType } : undefined);
-          screenRecorder.addEventListener('dataavailable', event => {
-            if (!event.data || !event.data.size) return;
-            screenRecordingBytes += event.data.size;
-            if (screenRecordingBytes > MAX_SCREEN_RECORDING_BYTES) {
-              addMessage('Recording reached the 250 MB safety limit and will stop.', 'system');
-              stopScreenRecording(true);
-              return;
-            }
-            screenRecordingChunks.push(event.data);
-          });
-          screenRecorder.addEventListener('error', event => {
-            addMessage('Screen recording error: ' + (event.error?.message || 'unknown error'), 'error');
-            stopScreenRecording(false);
-          });
-          videoTracks[0].addEventListener('ended', () => {
-            if (screenRecorder) stopScreenRecording(true);
-          }, { once: true });
-          screenRecorder.start(1000);
-          screenRecordBtn.title = 'Stop and save screen recording';
+      async function askAIAboutScreen() {
+        if (!navigator.mediaDevices?.getDisplayMedia) throw new Error('Screen capture is not supported by this build.');
+        addMessage('Choose a screen or window. OpenCluely will send one current frame to the AI.', 'system');
+        const result = await captureAndAskAI('Analyze this current screen and answer any visible question. Explain the relevant content clearly.');
+        if (result && result.response) renderAssistantResponse(result.response);
+        else throw new Error('The AI returned no screen analysis.');
+      }
+
+      async function startLiveScreenMode() {
+        if (!navigator.mediaDevices?.getDisplayMedia) throw new Error('Live screen capture is not supported by this build.');
+        liveScreenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: { frameRate: { ideal: 5, max: 10 } }, audio: false
+        });
+        liveScreenVideo = document.createElement('video');
+        liveScreenVideo.muted = true;
+        liveScreenVideo.playsInline = true;
+        liveScreenVideo.srcObject = liveScreenStream;
+        await new Promise((resolve, reject) => {
+          liveScreenVideo.onloadedmetadata = () => liveScreenVideo.play().then(resolve).catch(reject);
+          liveScreenVideo.onerror = () => reject(new Error('Could not start the live screen preview.'));
+          setTimeout(() => reject(new Error('Timed out opening the selected screen.')), 8000);
+        });
+        const stopOnEnd = () => stopLiveScreenMode();
+        liveScreenStream.getVideoTracks()[0]?.addEventListener('ended', stopOnEnd, { once: true });
+        if (screenRecordBtn) {
+          screenRecordBtn.title = 'Stop live screen AI';
           screenRecordBtn.innerHTML = '<i class="fas fa-stop"></i>';
           screenRecordBtn.classList.add('recording');
-          addMessage('Screen recording started. Video and any permitted audio are being recorded locally; click Stop to save.', 'system');
-        } catch (error) {
-          if (displayStream) displayStream.getTracks().forEach(track => track.stop());
-          if (microphoneStream) microphoneStream.getTracks().forEach(track => track.stop());
-          screenRecordingSourceStreams = [];
-          screenRecordingStream = null;
-          screenRecorder = null;
-          addMessage('Could not start screen recording: ' + error.message, 'error');
         }
+        addMessage('Live screen AI is on. OpenCluely is sending fresh screen frames for analysis; no video file is being saved. Click Stop to end.', 'system');
+        const sendFrame = async () => {
+          if (!liveScreenStream || liveScreenFrameInFlight || !liveScreenVideo || !liveScreenVideo.videoWidth) return;
+          liveScreenFrameInFlight = true;
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.min(liveScreenVideo.videoWidth, 1280);
+            canvas.height = Math.max(1, Math.round(canvas.width * liveScreenVideo.videoHeight / liveScreenVideo.videoWidth));
+            canvas.getContext('2d').drawImage(liveScreenVideo, 0, 0, canvas.width, canvas.height);
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.68));
+            if (!blob || !liveScreenStream) return;
+            const bytes = new Uint8Array(await blob.arrayBuffer());
+            const result = await whysperAPI.analyzeScreenFrame(bytes, 'image/jpeg',
+              'This is a live screen update. Identify important visible changes, read relevant on-screen text, and answer any question or task visible. Be concise and do not repeat generic descriptions.');
+            if (result?.response && liveScreenStream) renderAssistantResponse(result.response);
+          } catch (error) {
+            addMessage('Live screen AI error: ' + (error.message || String(error)), 'error');
+            stopLiveScreenMode();
+          } finally {
+            liveScreenFrameInFlight = false;
+          }
+        };
+        await sendFrame();
+        liveScreenTimer = setInterval(sendFrame, 3000);
+      }
+
+      function stopLiveScreenMode() {
+        if (liveScreenTimer) clearInterval(liveScreenTimer);
+        liveScreenTimer = null;
+        if (liveScreenStream) liveScreenStream.getTracks().forEach(track => track.stop());
+        liveScreenStream = null;
+        if (liveScreenVideo) {
+          liveScreenVideo.pause();
+          liveScreenVideo.srcObject = null;
+        }
+        liveScreenVideo = null;
+        liveScreenFrameInFlight = false;
+        if (screenRecordBtn) {
+          screenRecordBtn.title = 'Start live screen AI (analyze screen continuously)';
+          screenRecordBtn.innerHTML = '<i class="fas fa-eye"></i>';
+          screenRecordBtn.classList.remove('recording');
+        }
+      }
+
+      if (screenCaptureBtn) {
+        screenCaptureBtn.title = 'Capture screen and ask AI';
+        screenCaptureBtn.addEventListener('click', async () => {
+          screenCaptureBtn.disabled = true;
+          try {
+            await askAIAboutScreen();
+          } catch (error) {
+            addMessage('Capture screen and ask AI failed: ' + (error.message || String(error)), 'error');
+          } finally {
+            screenCaptureBtn.disabled = false;
+          }
+        });
       }
 
       if (screenRecordBtn) {
+        screenRecordBtn.title = 'Start live screen AI (analyze screen continuously)';
         screenRecordBtn.addEventListener('click', async () => {
-          if (screenRecorder) {
-            await stopScreenRecording(true);
-          } else {
-            screenRecordBtn.disabled = true;
-            try {
-              await startScreenRecording();
-            } finally {
-              if (screenRecordBtn) screenRecordBtn.disabled = false;
-            }
+          if (liveScreenStream) {
+            stopLiveScreenMode();
+            addMessage('Live screen AI stopped.', 'system');
+            return;
+          }
+          screenRecordBtn.disabled = true;
+          try {
+            await startLiveScreenMode();
+          } catch (error) {
+            stopLiveScreenMode();
+            addMessage('Could not start live screen AI: ' + (error.message || String(error)), 'error');
+          } finally {
+            if (screenRecordBtn) screenRecordBtn.disabled = false;
           }
         });
       }
