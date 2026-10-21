@@ -1222,6 +1222,39 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
   }
 
   /**
+   * Analyze a single live desktop frame with a general-purpose visual prompt.
+   * The frame is handled in memory and is never saved as a recording.
+   */
+  async analyzeScreenFrame(imageBuffer, mimeType = 'image/jpeg', instruction = '') {
+    if (!this.isInitialized || !this.client) {
+      throw new Error('Gemini is unavailable in this installation. A configured OpenCluely AI service is required.');
+    }
+    if (!Buffer.isBuffer(imageBuffer) || imageBuffer.length === 0) {
+      throw new TypeError('Screen image data is empty or invalid.');
+    }
+    if (imageBuffer.length > 8 * 1024 * 1024) {
+      throw new Error('Screen frame exceeds the 8 MB limit.');
+    }
+    if (!/^image\/(jpeg|png|webp)$/i.test(mimeType)) {
+      throw new Error('Unsupported screen image format: ' + mimeType);
+    }
+    const request = {
+      systemInstruction: { parts: [{ text: 'You are OpenCluely, a real-time visual assistant. Carefully inspect the supplied current screen frame. Describe only relevant visible content, answer visible questions when possible, and do not claim to see anything outside the image. In live mode, mention meaningful changes and avoid repeating the same generic description.' }] },
+      contents: [{
+        role: 'user',
+        parts: [
+          { text: instruction || 'Look at the current screen and explain what is happening or answer the question visible on screen. If the user has not asked a specific question, briefly summarize the important visible content.' },
+          { inlineData: { mimeType, data: imageBuffer.toString('base64') } }
+        ]
+      }]
+    };
+    this.applyGenerationDefaults(request, { maxOutputTokens: 1200 });
+    const response = await this.executeRequest(request);
+    if (!response || !response.trim()) throw new Error('Gemini returned no screen analysis.');
+    return { response: response.trim(), mimeType, bytes: imageBuffer.length };
+  }
+
+  /**
    * Analyze a clip captured by OpenCluely's built-in MediaRecorder pipeline.
    * This uses the existing Gemini connection; it does not require a Whisper
    * installation or a separate speech-provider configuration.
