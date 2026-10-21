@@ -13,6 +13,17 @@ const llm = read('src/services/llm.service.js');
 const chat = read('chat.html');
 
 assert.match(main, /setDisplayMediaRequestHandler/);
+assert.match(main, /analyze-live-screen-frame/);
+assert.match(preload, /analyzeScreenFrame:.*analyze-live-screen-frame/);
+assert.match(llm, /async analyzeScreenFrame\(/);
+assert.match(chat, /async function startLiveScreenMode\(/);
+assert.match(chat, /async function askAIAboutScreen\(/);
+assert.match(chat, /const LIVE_FRAME_INTERVAL_MS = 1500/);
+assert.match(chat, /liveScreenTimer = setTimeout\(sendFrame, LIVE_FRAME_INTERVAL_MS\)/);
+assert.match(chat, /if \(liveScreenFrameInFlight\)/);
+assert.match(chat, /streamAtStart/);
+assert.match(chat, /Live screen AI is on/);
+assert.match(chat, /no video file is being saved/);
 assert.match(main, /desktopCapturer\.getSources/);
 assert.match(main, /capture\.audio = "loopback"/);
 assert.match(main, /analyze-captured-audio/);
@@ -23,6 +34,10 @@ assert.match(chat, /async function convertAudioBlobToWav/);
 assert.match(chat, /analyzeCapturedAudio\(bytes, 'audio\/wav'\)/);
 assert.match(chat, /function applyMicVisibility\(\)[\s\S]*?micButton\.style\.display = ''/);
 assert.match(chat, /function startBuiltInAudioCapture/);
+assert.match(chat, /Live listening to /);
+assert.match(chat, /scheduleAudioSegmentRotation\(stream, sourceLabel\)/);
+assert.match(chat, /}, 6000\)/);
+assert.match(chat, /queueAudioAnalysis\(blob, sourceLabel\)/);
 
 let inlineScripts = 0;
 for (const match of chat.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)) {

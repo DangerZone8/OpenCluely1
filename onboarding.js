@@ -43,7 +43,7 @@
   const state = {
     step: 0,
     geminiKey: '',
-    geminiConfigured: false, // a key already exists in .env from a prior run
+    geminiConfigured: true, // hosted AI is the default; local key entry is optional
     speechProvider: null, // 'whisper' | 'azure' | 'skip'
     azureKey: '',
     azureRegion: '',
@@ -135,8 +135,8 @@
       case 'welcome':
         return true;
       case 'apikey':
-        // A key already in .env is enough — don't force a re-entry.
-        return !!state.geminiKey.trim() || state.geminiConfigured;
+        // Hosted OpenCluely AI works without users entering a private provider key.
+        return true;
       case 'speech':
         if (state.speechProvider === 'azure') {
           return !!state.azureKey.trim() && !!state.azureRegion.trim();
@@ -532,7 +532,7 @@
     const name = currentScreenName();
     if (!canAdvance()) {
       // Lightly nudge the user
-      if (name === 'apikey') setKeyStatus('error', 'Enter a Gemini API key');
+      if (name === 'apikey') setKeyStatus('error', 'You can continue without a Gemini API key');
       return;
     }
 
@@ -677,13 +677,15 @@
   // a partial config don't have to retype.
   if (window.electronAPI && window.electronAPI.getFirstRunStatus) {
     window.electronAPI.getFirstRunStatus().then((s) => {
-      if (s && s.geminiConfigured) {
-        // We can't read the key back (settings returns empty for keys),
-        // but we can mark status as success if the env file already has one
-        // and let the user advance without retyping it.
+      if (s && s.hostedAiAvailable) {
         state.geminiConfigured = true;
-        setKeyStatus('success', 'Already configured — click Continue');
-        geminiInput.placeholder = '•••••••••••••••• (already set)';
+        if (!s.geminiConfigured) {
+          setKeyStatus('success', 'Hosted AI selected — no API key needed');
+          geminiInput.placeholder = 'Optional: use your own Gemini key';
+        } else {
+          setKeyStatus('success', 'Hosted AI available; your local key is also configured');
+          geminiInput.placeholder = 'Optional: use your own Gemini key';
+        }
       }
     }).catch(() => {});
   }

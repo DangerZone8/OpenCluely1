@@ -214,9 +214,13 @@ OpenCluely is under active development. The core is stable and improvements ship
 
 
 
+## Hosted AI without a local API key
+
+The desktop app can use OpenCluely's hosted Gemini proxy without asking users to paste their own API key. The proxy keeps the shared provider key server-side. Deployment and environment-variable requirements are documented in [docs/hosted-ai.md](docs/hosted-ai.md). Hosted service availability and usage limits apply.
+
 ## Privacy and ethics
 
-OpenCluely collects no data and sends no telemetry. Processing happens locally, and your session stays on your device. Requests to the AI provider are encrypted in transit.
+OpenCluely does not add analytics telemetry. If you use the hosted AI mode, the text, screen frames, or audio clips you explicitly submit are sent over HTTPS to the OpenCluely-hosted AI proxy and then to Google Gemini for processing. A random installation identifier is used for basic request limiting. Do not submit passwords, private credentials, or other sensitive information. If you configure your own Gemini API key, requests go directly from the app to Google Gemini instead.
 
 The app is built for learning and practice. You are responsible for following the rules of any interview you take and the policies of the companies involved.
 

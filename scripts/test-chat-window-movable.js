@@ -47,25 +47,29 @@ assert.match(manager, /showLLMResponse\(content, metadata = \{\}\)\s*\{[\s\S]*?c
 assert.match(html, /id="screenCaptureBtn"/,
   'Chat must expose the existing screenshot/OCR capture workflow');
 assert.match(html, /id="screenRecordBtn"/,
-  'Chat must expose an actual screen-recording control');
+  'Chat must expose the live screen AI control');
 assert.match(html, /chatHeader\.addEventListener\('pointermove'/,
   'Chat must have an explicit pointer-based drag fallback');
 assert.match(preload, /moveChatWindow:\s*\(deltaX, deltaY\)\s*=>\s*ipcRenderer\.send\('move-chat-window'/,
   'Chat movement must be exposed through a dedicated preload IPC method');
 assert.match(main, /ipcMain\.on\("move-chat-window"[\s\S]*?chatWindow\.setPosition/,
   'Main process must move only the chat window receiving the drag event');
-assert.match(preload, /saveScreenRecording:\s*\(bytes\)\s*=>\s*ipcRenderer\.invoke\('save-screen-recording'/,
-  'Screen recording must be saved through a dedicated preload IPC method');
-assert.match(main, /ipcMain\.handle\("save-screen-recording"[\s\S]*?dialog\.showSaveDialog[\s\S]*?fs\.promises\.writeFile/,
-  'Screen recording must use a native save dialog and write the chosen file');
-assert.match(html, /getDisplayMedia\(\s*\{[\s\S]*?audio:\s*true/,
-  'Screen recording must request display audio where the platform supports it');
-assert.match(html, /getUserMedia\(\{\s*audio:\s*true/,
-  'Screen recording must request microphone permission only through an explicit opt-in');
-assert.match(html, /MAX_SCREEN_RECORDING_BYTES\s*=\s*250\s*\*\s*1024\s*\*\s*1024/,
-  'Screen recording must have a bounded memory/file size limit');
-assert.match(html, /saveScreenRecording\(new Uint8Array\(bytes\)\)/,
-  'Screen recordings must be saved through the preload IPC bridge');
+assert.match(preload, /analyzeScreenFrame:.*analyze-live-screen-frame/,
+  'Screen frames must be sent through a dedicated AI analysis IPC');
+assert.match(main, /ipcMain\.handle\("analyze-live-screen-frame"[\s\S]*?llmService\.analyzeScreenFrame/,
+  'Main process must route screen frames directly to visual AI analysis');
+assert.match(html, /async function startLiveScreenMode\(/,
+  'Screen control must start a live AI viewing session');
+assert.match(html, /const LIVE_FRAME_INTERVAL_MS = 1500/,
+  'Live screen AI must use a responsive frame interval while enabled');
+assert.match(html, /setTimeout\(sendFrame, LIVE_FRAME_INTERVAL_MS\)/,
+  'Live screen AI must schedule the next fresh frame after the previous analysis completes');
+assert.match(html, /liveScreenFrameInFlight/,
+  'Live screen AI must prevent overlapping frame-analysis requests');
+assert.match(html, /async function askAIAboutScreen\(/,
+  'Capture screen and ask AI must send a selected screen frame for analysis');
+assert.match(html, /analyzeScreenFrame\(bytes, 'image\/jpeg'/,
+  'Screen frame must reach the AI instead of being saved as a video');
 assert.match(html, /id="micButton"[^>]*title="Start or stop microphone listening"/,
   'Chat must label microphone listening explicitly');
 assert.match(preload, /getSpeechCaptureMode:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('get-speech-capture-mode'/,

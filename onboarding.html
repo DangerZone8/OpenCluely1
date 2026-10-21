@@ -741,7 +741,7 @@
                         Open AI now <i class="fas fa-comment-dots"></i>
                     </button>
                     <p class="hint" style="text-align:center;margin-top:8px;">
-                        You can finish setup later. Gemini answers require an API key.
+                        You can finish setup later. OpenCluely's hosted AI does not require you to enter a Gemini API key.
                     </p>
                 </div>
             </section>
@@ -750,7 +750,7 @@
             <section class="screen" data-screen="apikey">
                 <h1>Connect Google Gemini</h1>
                 <p class="subtitle">
-                    OpenCluely uses Google's Gemini to generate answers. You'll need a free API key.
+                    OpenCluely can use its hosted AI service automatically. Adding your own Gemini API key is optional.
                 </p>
 
                 <div class="field">
@@ -761,7 +761,7 @@
                             type="password"
                             id="geminiKey"
                             class="input"
-                            placeholder="AIza…"
+                            placeholder="Optional: AIza…"
                             autocomplete="off"
                             spellcheck="false"
                         >
@@ -770,11 +770,11 @@
                         </button>
                     </div>
                     <div class="hint">
-                        Don't have one? Get a free key at
+                        Want to use your own key instead? Get one at
                         <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">
                             aistudio.google.com/apikey
                         </a>.
-                        It's stored locally in <code>.env</code> — never sent anywhere except Google.
+                        Your key is stored locally and used directly with Google. Leave this blank to use OpenCluely's hosted AI service.
                     </div>
                     <div id="keyStatus" class="status-pill idle" style="display:none;">
                         <i class="fas fa-circle-info"></i>
