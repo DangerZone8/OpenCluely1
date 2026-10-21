@@ -1527,6 +1527,7 @@
       let liveScreenVideo = null;
       let liveScreenTimer = null;
       let liveScreenFrameInFlight = false;
+      let lastLiveScreenAnswer = '';
 
       async function captureAndAskAI(instruction, stream = null) {
         let temporaryStream = null;
@@ -1603,8 +1604,12 @@
             if (!blob || !liveScreenStream) return;
             const bytes = new Uint8Array(await blob.arrayBuffer());
             const result = await whysperAPI.analyzeScreenFrame(bytes, 'image/jpeg',
-              'This is a live screen update. Identify important visible changes, read relevant on-screen text, and answer any question or task visible. Be concise and do not repeat generic descriptions.');
-            if (result?.response && liveScreenStream) renderAssistantResponse(result.response);
+              'This is a live screen update. Identify important visible changes, read relevant on-screen text, and answer any question or task visible. Previous observation: ' + (lastLiveScreenAnswer || 'none yet') + '. If there is no meaningful new information, respond exactly NO_UPDATE. Be concise.');
+            const answer = result?.response?.trim();
+            if (answer && answer !== 'NO_UPDATE' && liveScreenStream) {
+              lastLiveScreenAnswer = answer.slice(0, 1200);
+              renderAssistantResponse(answer);
+            }
           } catch (error) {
             addMessage('Live screen AI error: ' + (error.message || String(error)), 'error');
             stopLiveScreenMode();
@@ -1613,7 +1618,7 @@
           }
         };
         await sendFrame();
-        liveScreenTimer = setInterval(sendFrame, 3000);
+        if (liveScreenStream) liveScreenTimer = setInterval(sendFrame, 3000);
       }
 
       function stopLiveScreenMode() {
@@ -1627,6 +1632,7 @@
         }
         liveScreenVideo = null;
         liveScreenFrameInFlight = false;
+        lastLiveScreenAnswer = '';
         if (screenRecordBtn) {
           screenRecordBtn.title = 'Start live screen AI (analyze screen continuously)';
           screenRecordBtn.innerHTML = '<i class="fas fa-eye"></i>';
