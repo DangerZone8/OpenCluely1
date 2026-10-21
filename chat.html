@@ -937,48 +937,117 @@
         }
       }
 
+      let audioCaptureActive = false;
+      let audioSegmentTimer = null;
+      let audioSegmentRotation = false;
+      let audioAnalysisQueue = Promise.resolve();
+      let customAudioMimeType = 'audio/webm';
+
+      function queueAudioAnalysis(blob, sourceLabel) {
+        if (!blob || !blob.size) return;
+        audioAnalysisQueue = audioAnalysisQueue
+          .then(() => analyzeCapturedAudioBlob(blob, sourceLabel))
+          .catch(error => addMessage('Audio analysis queue failed: ' + (error.message || String(error)), 'error'));
+      }
+
+      function scheduleAudioSegmentRotation(stream, sourceLabel) {
+        if (audioSegmentTimer) clearTimeout(audioSegmentTimer);
+        audioSegmentTimer = setTimeout(() => {
+          audioSegmentTimer = null;
+          const recorder = customAudioRecorder;
+          if (!audioCaptureActive || !recorder || recorder.state === 'inactive') return;
+          audioSegmentRotation = true;
+          try { recorder.stop(); }
+          catch (error) {
+            audioSegmentRotation = false;
+            addMessage('Could not rotate the live audio segment: ' + error.message, 'error');
+          }
+        }, 6000);
+      }
+
       async function startBuiltInAudioCapture(stream, sourceLabel, cleanupStream = stream) {
         if (!window.MediaRecorder) throw new Error('Audio recording is not supported by this Electron build.');
         if (!stream.getAudioTracks().length) throw new Error('The selected source did not provide an audio track.');
         customAudioStream = cleanupStream;
+        audioCaptureActive = true;
+        audioSegmentRotation = false;
         customAudioChunks = [];
-        const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
-          .find(type => MediaRecorder.isTypeSupported(type));
-        customAudioRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-        customAudioRecorder.addEventListener('dataavailable', event => {
-          if (event.data && event.data.size) customAudioChunks.push(event.data);
-        });
-        customAudioRecorder.addEventListener('error', event => {
-          addMessage('Audio capture failed: ' + (event.error?.message || 'unknown error'), 'error');
-        });
-        customAudioRecorder.addEventListener('stop', async () => {
-          const recorder = customAudioRecorder;
-          const blob = new Blob(customAudioChunks, { type: recorder?.mimeType || mimeType || 'audio/webm' });
+        customAudioMimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
+          .find(type => MediaRecorder.isTypeSupported(type)) || 'audio/webm';
+
+        const beginRecorder = () => {
+          const recorder = new MediaRecorder(stream, { mimeType: customAudioMimeType });
+          customAudioRecorder = recorder;
           customAudioChunks = [];
-          if (customAudioStream) customAudioStream.getTracks().forEach(track => track.stop());
-          customAudioStream = null;
-          customAudioRecorder = null;
-          isRecording = false;
-          if (recordingIndicator) recordingIndicator.style.display = 'none';
-          if (micButton) micButton.classList.remove('recording');
-          if (systemAudioListenBtn) {
-            systemAudioListenBtn.title = 'Listen to audio from a selected screen or window';
-            systemAudioListenBtn.innerHTML = '<i class="fas fa-headphones"></i>';
-            systemAudioListenBtn.classList.remove('recording');
-          }
-          hideListeningAnimation();
-          await analyzeCapturedAudioBlob(blob, sourceLabel);
-        });
-        customAudioRecorder.start(500);
+          recorder.addEventListener('dataavailable', event => {
+            if (event.data && event.data.size) customAudioChunks.push(event.data);
+          });
+          recorder.addEventListener('error', event => {
+            addMessage('Audio capture failed: ' + (event.error?.message || 'unknown error'), 'error');
+          });
+          recorder.addEventListener('stop', () => {
+            const blob = new Blob(customAudioChunks, { type: recorder.mimeType || customAudioMimeType });
+            customAudioChunks = [];
+            if (audioSegmentRotation) {
+              audioSegmentRotation = false;
+              queueAudioAnalysis(blob, sourceLabel);
+              if (audioCaptureActive) {
+                try {
+                  beginRecorder();
+                  customAudioRecorder.start(500);
+                  scheduleAudioSegmentRotation(stream, sourceLabel);
+                } catch (error) {
+                  audioCaptureActive = false;
+                  addMessage('Could not resume live audio listening: ' + error.message, 'error');
+                }
+              }
+              return;
+            }
+
+            if (audioSegmentTimer) clearTimeout(audioSegmentTimer);
+            audioSegmentTimer = null;
+            queueAudioAnalysis(blob, sourceLabel);
+            if (customAudioStream) customAudioStream.getTracks().forEach(track => track.stop());
+            customAudioStream = null;
+            customAudioRecorder = null;
+            audioCaptureActive = false;
+            isRecording = false;
+            if (recordingIndicator) recordingIndicator.style.display = 'none';
+            if (micButton) micButton.classList.remove('recording');
+            if (systemAudioListenBtn) {
+              systemAudioListenBtn.title = 'Listen to audio from a selected screen or window';
+              systemAudioListenBtn.innerHTML = '<i class="fas fa-headphones"></i>';
+              systemAudioListenBtn.classList.remove('recording');
+            }
+            hideListeningAnimation();
+          });
+          return recorder;
+        };
+
+        const recorder = beginRecorder();
+        recorder.start(500);
         isRecording = true;
         if (recordingIndicator) recordingIndicator.style.display = 'block';
         if (micButton) micButton.classList.add('recording');
+        if (systemAudioListenBtn) {
+          systemAudioListenBtn.title = 'Stop live audio listening';
+          systemAudioListenBtn.innerHTML = '<i class="fas fa-stop"></i>';
+          systemAudioListenBtn.classList.add('recording');
+        }
         showListeningAnimation();
-        addMessage('Listening to ' + sourceLabel + '. Click the audio button again to stop and send the clip to Gemini.', 'system');
+        addMessage('Live listening to ' + sourceLabel + '. OpenCluely sends recent audio to Gemini about every 6 seconds while listening; click again to stop.', 'system');
+        scheduleAudioSegmentRotation(stream, sourceLabel);
       }
 
       function stopBuiltInAudioCapture() {
-        if (customAudioRecorder && customAudioRecorder.state !== 'inactive') customAudioRecorder.stop();
+        audioCaptureActive = false;
+        audioSegmentRotation = false;
+        if (audioSegmentTimer) clearTimeout(audioSegmentTimer);
+        audioSegmentTimer = null;
+        if (customAudioRecorder && customAudioRecorder.state !== 'inactive') {
+          try { customAudioRecorder.stop(); }
+          catch (error) { addMessage('Could not stop audio listening: ' + error.message, 'error'); }
+        }
       }
 
       // Legacy provider-driven PCM capture remains available for the existing
