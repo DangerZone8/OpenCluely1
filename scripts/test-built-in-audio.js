@@ -18,7 +18,7 @@ assert.match(preload, /analyzeScreenFrame:.*analyze-live-screen-frame/);
 assert.match(llm, /async analyzeScreenFrame\(/);
 assert.match(chat, /async function startLiveScreenMode\(/);
 assert.match(chat, /async function askAIAboutScreen\(/);
-assert.match(chat, /setInterval\(sendFrame, 3000\)/);
+assert.match(chat, /const LIVE_FRAME_INTERVAL_MS = 1500/);\nassert.match(chat, /liveScreenTimer = setTimeout\(sendFrame, LIVE_FRAME_INTERVAL_MS\)/);\nassert.match(chat, /if \(liveScreenFrameInFlight\)/);\nassert.match(chat, /streamAtStart/);
 assert.match(chat, /Live screen AI is on/);
 assert.match(chat, /no video file is being saved/);
 assert.match(main, /desktopCapturer\.getSources/);
