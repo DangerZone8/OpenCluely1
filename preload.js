@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   takeScreenshot: () => ipcRenderer.invoke('take-screenshot'),
   saveScreenRecording: (bytes) => ipcRenderer.invoke('save-screen-recording', bytes),
   analyzeCapturedAudio: (bytes, mimeType) => ipcRenderer.invoke('analyze-captured-audio', { bytes, mimeType }),
+  analyzeScreenFrame: (bytes, mimeType, instruction) => ipcRenderer.invoke('analyze-live-screen-frame', { bytes, mimeType, instruction }),
   
   // Speech recognition
   startSpeechRecognition: () => ipcRenderer.invoke('start-speech-recognition'),
