@@ -1639,7 +1639,7 @@
       }
 
       function stopLiveScreenMode() {
-        if (liveScreenTimer) clearInterval(liveScreenTimer);
+        if (liveScreenTimer) clearTimeout(liveScreenTimer);
         liveScreenTimer = null;
         if (liveScreenStream) liveScreenStream.getTracks().forEach(track => track.stop());
         liveScreenStream = null;
