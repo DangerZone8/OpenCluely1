@@ -17,8 +17,12 @@ function respond(res, status, body) {
 
 function rateLimit(key, now) {
   let entry = counters.get(key);
-  if (!entry || now - entry.windowStart >= WINDOW_MS) {
+  if (!entry) {
     entry = { windowStart: now, windowCount: 0, dayStart: now, dayCount: 0 };
+  }
+  if (now - entry.windowStart >= WINDOW_MS) {
+    entry.windowStart = now;
+    entry.windowCount = 0;
   }
   if (now - entry.dayStart >= 24 * 60 * 60 * 1000) {
     entry.dayStart = now;
@@ -63,8 +67,7 @@ module.exports = async function handler(req, res) {
     return respond(res, 400, { error: 'Missing or invalid installation identifier.' });
   }
   const now = Date.now();
-  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-  const ip = forwarded || String(req.headers['x-real-ip'] || 'unknown');
+  const ip = String(req.headers['x-real-ip'] || req.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
   if (!rateLimit('ip:' + ip, now) || !rateLimit('install:' + installId, now)) {
     res.setHeader('Retry-After', '60');
     return respond(res, 429, { error: 'OpenCluely AI request limit reached. Wait a minute and try again.' });
