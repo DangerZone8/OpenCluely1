@@ -1000,7 +1000,10 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
       return this.executeRemoteRequest(geminiRequest);
     }
     const maxRetries = config.get('llm.gemini.maxRetries');
-    const timeout = config.get('llm.gemini.timeout');
+    const timeout = config.get('llm.gemini.timeout') || 15000;
+    // Bound the entire request (including fallback models and retry delays), not
+    // just each socket attempt, so a failed request cannot keep the UI waiting.
+    const deadline = Date.now() + timeout;
     const primaryModel = this.model;
     const fallbackModels = config.get('llm.gemini.fallbackModels') || [];
     const modelsToTry = [primaryModel, ...fallbackModels];
@@ -1020,9 +1023,11 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
 
     for (const modelName of modelsToTry) {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const remainingMs = deadline - Date.now();
+        if (remainingMs <= 0) throw lastError || new Error('Gemini request exceeded its total time limit.');
         try {
           const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Request timeout')), timeout)
+            setTimeout(() => reject(new Error('Gemini request time limit reached')), remainingMs)
           );
 
           logger.debug(`Gemini API attempt ${attempt} starting with model ${modelName}`, {
@@ -1111,7 +1116,8 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
 
           // Use exponential backoff with jitter for network errors
           const baseDelay = errorInfo.isNetworkError ? 2500 : 1500;
-          const delay = baseDelay * attempt + Math.random() * 1000;
+          const delay = Math.min(baseDelay * attempt + Math.random() * 1000, Math.max(0, deadline - Date.now()));
+          if (delay <= 0) throw lastError;
 
           logger.debug(`Waiting ${delay}ms before retry ${attempt + 1}`, {
             baseDelay,
@@ -1220,6 +1226,8 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
       return fullText;
     }
     const maxRetries = config.get('llm.gemini.maxRetries');
+    const timeout = config.get('llm.gemini.timeout') || 15000;
+    const deadline = Date.now() + timeout;
     const apiKey = config.getApiKey('GEMINI');
     const primaryModel = this.model;
     const fallbackModels = config.get('llm.gemini.fallbackModels') || [];
@@ -1229,8 +1237,10 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
 
     for (const modelName of modelsToTry) {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const remainingMs = deadline - Date.now();
+        if (remainingMs <= 0) throw lastError || new Error('Gemini streaming request exceeded its total time limit.');
         try {
-          const fullText = await this._streamRequestForModel(geminiRequest, modelName, apiKey, onDelta);
+          const fullText = await this._streamRequestForModel(geminiRequest, modelName, apiKey, onDelta, remainingMs);
 
           if (!fullText) {
             throw new Error('Empty streamed response from Gemini API');
@@ -1268,8 +1278,8 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
           }
 
           const baseDelay = errorInfo.isNetworkError ? 2500 : 1500;
-          const delay = baseDelay * attempt + Math.random() * 1000;
-          await this.delay(delay);
+          const delay = Math.min(baseDelay * attempt + Math.random() * 1000, Math.max(0, deadline - Date.now()));
+          if (delay > 0) await this.delay(delay);
         }
       }
     }
@@ -1277,9 +1287,9 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
     throw lastError || new Error('Gemini streaming request failed');
   }
 
-  _streamRequestForModel(geminiRequest, modelName, apiKey, onDelta) {
+  _streamRequestForModel(geminiRequest, modelName, apiKey, onDelta, timeoutOverride) {
     const https = require('https');
-    const timeout = config.get('llm.gemini.timeout');
+    const timeout = timeoutOverride || config.get('llm.gemini.timeout') || 15000;
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?alt=sse`;
     const postData = JSON.stringify(geminiRequest);
     const agent = new https.Agent({ keepAlive: true, maxSockets: 1 });
