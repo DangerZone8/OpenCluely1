@@ -113,11 +113,11 @@ module.exports = async function handler(req, res) {
   let lastFailure = null;
   const attemptedModels = [];
 
-  // Retry each model once for transient overload, then switch models. A short
-  // per-attempt timeout keeps this recovery path bounded on serverless hosting.
+  // Try each model at most once per user request. Repeated transient retries can
+  // consume free-tier quota rapidly; fail over to a distinct model instead.
   for (const candidate of fallbackModels) {
     let tryAnotherModel = false;
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt < 1; attempt++) {
       attemptedModels.push(candidate);
       try {
         const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(candidate) + ':generateContent', {
