@@ -13,7 +13,7 @@ function respond(res, status, body) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   // Fingerprint the deployed handler so production-alias drift is observable in E2E logs.
-  res.setHeader('X-OpenCluely-API-Revision', 'screen-vision-fallback-2026-10-22-d');
+  res.setHeader('X-OpenCluely-API-Revision', 'screen-vision-fallback-2026-10-22-e');
   res.end(JSON.stringify(body));
 }
 
@@ -95,7 +95,9 @@ module.exports = async function handler(req, res) {
   const allowedModels = new Set([
     'gemini-3.1-flash-lite',
     'gemini-3.5-flash-lite',
-    'gemini-3.5-flash'
+    'gemini-3.5-flash',
+    'gemini-3.6-flash',
+    'gemini-3.8-flash'
   ]);
   const model = allowedModels.has(body.model) ? body.model : 'gemini-3.5-flash-lite';
   if (!request || typeof request !== 'object' || !Array.isArray(request.contents) || request.contents.length === 0) {
@@ -104,7 +106,7 @@ module.exports = async function handler(req, res) {
 
   const fallbackModels = [
     model,
-    ...['gemini-3.1-flash-lite', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'].filter(candidate => candidate !== model)
+    ...['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.8-flash'].filter(candidate => candidate !== model)
   ];
   let lastFailure = null;
   const attemptedModels = [];
@@ -151,7 +153,14 @@ module.exports = async function handler(req, res) {
           code: providerCode || undefined,
           message: typeof result.error?.message === 'string' ? result.error.message.slice(0, 180) : undefined
         };
-        // Authentication and malformed-request errors won't improve on retry.
+        // Some model endpoints reject a request/configuration that another supported
+        // model accepts. Skip that model on INVALID_ARGUMENT; do not retry it.
+        if (providerCode === 'INVALID_ARGUMENT') {
+          lastFailure = { status: upstream.status, code: providerCode, message: lastFailure.message };
+          tryAnotherModel = true;
+          break;
+        }
+        // Authentication and other malformed-request errors won't improve on retry.
         if (!transient) {
           return respond(res, upstream.status === 429 ? 429 : 502, {
             error: 'The AI service could not complete this request.',
