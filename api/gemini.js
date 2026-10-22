@@ -40,9 +40,25 @@ module.exports = async function handler(req, res) {
     return respond(res, 405, { error: 'Use POST for AI requests.' });
   }
 
-  const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  // Accept the common Google/Gemini environment-variable names. Trim whitespace
+  // so a copied value with a trailing newline is not treated as a usable key.
+  const key = [
+    process.env.GEMINI_API_KEY,
+    process.env.GOOGLE_API_KEY,
+    process.env.GOOGLE_GENAI_API_KEY,
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY
+  ].map(value => typeof value === 'string' ? value.trim() : '').find(Boolean);
   if (!key) {
-    return respond(res, 503, { error: 'The OpenCluely AI service is not configured yet.' });
+    // Safe diagnostics: report only whether supported names exist, never values.
+    return respond(res, 503, {
+      error: 'The OpenCluely AI service is not configured in this deployment. Verify the Production environment variables and redeploy.',
+      configuredNames: {
+        GEMINI_API_KEY: Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()),
+        GOOGLE_API_KEY: Boolean(process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY.trim()),
+        GOOGLE_GENAI_API_KEY: Boolean(process.env.GOOGLE_GENAI_API_KEY && process.env.GOOGLE_GENAI_API_KEY.trim()),
+        GOOGLE_GENERATIVE_AI_API_KEY: Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY && process.env.GOOGLE_GENERATIVE_AI_API_KEY.trim())
+      }
+    });
   }
 
   const declaredLength = Number(req.headers['content-length'] || 0);
