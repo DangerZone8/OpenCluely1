@@ -55,10 +55,10 @@ async function main() {
     return { ok: false, status: 429, json: async () => ({ error: { status: 'RESOURCE_EXHAUSTED', message: 'quota exhausted' } }) };
   });
   assert.equal(quotaExhausted.status, 429);
-  assert.equal(quotaCalls.length, 5);
-  assert.equal(new Set(quotaCalls).size, 5);
+  assert.equal(quotaCalls.length, 1, 'quota exhaustion must stop immediately instead of consuming quota on fallback models');
   assert.equal(quotaExhausted.body.providerCode, 'RESOURCE_EXHAUSTED');
-  console.log('PASS: quota exhaustion switches models without wasteful same-model retries.');
+  assert.match(quotaExhausted.body.error, /retries are disabled/i);
+  console.log('PASS: quota exhaustion stops after one provider request without trying fallback models.');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => {
   global.fetch = originalFetch;
