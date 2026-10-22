@@ -1024,7 +1024,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
     for (const modelName of modelsToTry) {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         const remainingMs = deadline - Date.now();
-        if (remainingMs <= 0) throw lastError || new Error('Gemini request exceeded its total time limit.');
+        if (remainingMs <= 0) break; // exit this model loop so image network fallback can run below
         try {
           let timeoutId;
           const timeoutPromise = new Promise((_, reject) => {
@@ -1267,7 +1267,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
     for (const modelName of modelsToTry) {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         const remainingMs = deadline - Date.now();
-        if (remainingMs <= 0) throw lastError || new Error('Gemini streaming request exceeded its total time limit.');
+        if (remainingMs <= 0) break; // exit this model loop so image network fallback can run below
         try {
           const fullText = await this._streamRequestForModel(geminiRequest, modelName, apiKey, onDelta, remainingMs);
 
