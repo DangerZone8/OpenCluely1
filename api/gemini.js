@@ -13,7 +13,7 @@ function respond(res, status, body) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   // Fingerprint the deployed handler so production-alias drift is observable in E2E logs.
-  res.setHeader('X-OpenCluely-API-Revision', 'screen-vision-diag-2026-10-22-a');
+  res.setHeader('X-OpenCluely-API-Revision', 'screen-vision-diag-2026-10-22-b');
   res.end(JSON.stringify(body));
 }
 
@@ -94,10 +94,10 @@ module.exports = async function handler(req, res) {
   const request = body.request;
   const allowedModels = new Set([
     'gemini-3.1-flash-lite',
-    'gemini-2.5-flash-lite',
+    'gemini-3.5-flash-lite',
     'gemini-3.5-flash'
   ]);
-  const model = allowedModels.has(body.model) ? body.model : 'gemini-2.5-flash-lite';
+  const model = allowedModels.has(body.model) ? body.model : 'gemini-3.5-flash-lite';
   if (!request || typeof request !== 'object' || !Array.isArray(request.contents) || request.contents.length === 0) {
     return respond(res, 400, { error: 'AI request is missing content.' });
   }
