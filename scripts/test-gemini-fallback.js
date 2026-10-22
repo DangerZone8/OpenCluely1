@@ -49,6 +49,16 @@ async function main() {
   assert.equal(new Set(failed).size, 5);
   assert.equal(exhausted.body.providerCode, 'UNAVAILABLE');
   console.log('PASS: all distinct fallback models are attempted before returning a safe error.');
+  const quotaCalls = [];
+  const quotaExhausted = await invoke(async url => {
+    quotaCalls.push(decodeURIComponent(url.match(/models\/([^:]+)/)[1]));
+    return { ok: false, status: 429, json: async () => ({ error: { status: 'RESOURCE_EXHAUSTED', message: 'quota exhausted' } }) };
+  });
+  assert.equal(quotaExhausted.status, 429);
+  assert.equal(quotaCalls.length, 5);
+  assert.equal(new Set(quotaCalls).size, 5);
+  assert.equal(quotaExhausted.body.providerCode, 'RESOURCE_EXHAUSTED');
+  console.log('PASS: quota exhaustion switches models without wasteful same-model retries.');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => {
   global.fetch = originalFetch;
