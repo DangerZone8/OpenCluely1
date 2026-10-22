@@ -1260,7 +1260,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
     const apiKey = config.getApiKey('GEMINI');
     const primaryModel = this.model;
     const fallbackModels = config.get('llm.gemini.fallbackModels') || [];
-    const modelsToTry = [primaryModel, ...fallbackModels];
+    const modelsToTry = [...new Set([primaryModel, ...fallbackModels].filter(model => typeof model === 'string' && model.trim()))];
 
     let lastError = null;
 
