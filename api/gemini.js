@@ -104,53 +104,71 @@ module.exports = async function handler(req, res) {
 
   const fallbackModels = [
     model,
-    ...['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'].filter(candidate => candidate !== model)
+    ...['gemini-3.1-flash-lite', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'].filter(candidate => candidate !== model)
   ];
   let lastFailure = null;
+  const attemptedModels = [];
 
-  // Try the requested model first, then alternate vision-capable models when
-  // Google reports transient overload/quota/server failures or a network timeout.
+  // Retry each model once for transient overload, then switch models. A short
+  // per-attempt timeout keeps this recovery path bounded on serverless hosting.
   for (const candidate of fallbackModels) {
-    try {
-      const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(candidate) + ':generateContent', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': key
-        },
-        body: JSON.stringify({
-          contents: request.contents,
-          generationConfig: request.generationConfig || {},
-          ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
-        }),
-        signal: AbortSignal.timeout(12000)
-      });
-      const result = await upstream.json().catch(() => ({}));
-      if (upstream.ok) {
-        const text = (result.candidates || [])
-          .flatMap(item => item.content && Array.isArray(item.content.parts) ? item.content.parts : [])
-          .map(part => typeof part.text === 'string' ? part.text : '')
-          .filter(Boolean)
-          .join('\\n')
-          .trim();
-        if (text) return respond(res, 200, { text, model: candidate });
-        lastFailure = { status: 502, code: 'EMPTY_RESPONSE', message: 'The model returned no text.' };
-        continue;
-      }
+    let tryAnotherModel = false;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      attemptedModels.push(candidate);
+      try {
+        const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(candidate) + ':generateContent', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': key
+          },
+          body: JSON.stringify({
+            contents: request.contents,
+            generationConfig: request.generationConfig || {},
+            ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
+          }),
+          signal: AbortSignal.timeout(5000)
+        });
+        const result = await upstream.json().catch(() => ({}));
+        if (upstream.ok) {
+          const text = (result.candidates || [])
+            .flatMap(item => item.content && Array.isArray(item.content.parts) ? item.content.parts : [])
+            .map(part => typeof part.text === 'string' ? part.text : '')
+            .filter(Boolean)
+            .join('\\n')
+            .trim();
+          if (text) return respond(res, 200, { text, model: candidate });
+          lastFailure = { status: 502, code: 'EMPTY_RESPONSE', message: 'The model returned no text.' };
+          tryAnotherModel = true;
+          break;
+        }
 
-      const providerCode = typeof result.error?.status === 'string' ? result.error.status : '';
-      const transient = [429, 500, 502, 503, 504].includes(upstream.status) ||
-        ['UNAVAILABLE', 'RESOURCE_EXHAUSTED', 'INTERNAL', 'DEADLINE_EXCEEDED'].includes(providerCode);
-      lastFailure = {
-        status: upstream.status,
-        code: providerCode || undefined,
-        message: typeof result.error?.message === 'string' ? result.error.message.slice(0, 180) : undefined
-      };
-      // Invalid requests/authentication failures won't be fixed by changing models.
-      if (!transient) break;
-    } catch (error) {
-      lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
+        const providerCode = typeof result.error?.status === 'string' ? result.error.status : '';
+        const transient = [429, 500, 502, 503, 504].includes(upstream.status) ||
+          ['UNAVAILABLE', 'RESOURCE_EXHAUSTED', 'INTERNAL', 'DEADLINE_EXCEEDED'].includes(providerCode);
+        lastFailure = {
+          status: upstream.status,
+          code: providerCode || undefined,
+          message: typeof result.error?.message === 'string' ? result.error.message.slice(0, 180) : undefined
+        };
+        // Authentication and malformed-request errors won't improve on retry.
+        if (!transient) {
+          return respond(res, upstream.status === 429 ? 429 : 502, {
+            error: 'The AI service could not complete this request.',
+            providerStatus: upstream.status,
+            providerCode: lastFailure.code,
+            providerMessage: lastFailure.message
+          });
+        }
+        if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 200));
+        else tryAnotherModel = true;
+      } catch (error) {
+        lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
+        if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 200));
+        else tryAnotherModel = true;
+      }
     }
+    if (!tryAnotherModel) break;
   }
 
   const providerStatus = lastFailure?.status || 503;
@@ -158,6 +176,7 @@ module.exports = async function handler(req, res) {
     error: 'The AI service is temporarily unavailable across its configured models. Please try again shortly.',
     providerStatus,
     providerCode: lastFailure?.code,
-    providerMessage: lastFailure?.message
+    providerMessage: lastFailure?.message,
+    attemptedModels: [...new Set(attemptedModels)]
   });
 };
