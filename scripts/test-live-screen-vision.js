@@ -24,7 +24,7 @@ async function main() {
           'x-opencluely-install-id': installId
         },
         body: JSON.stringify({
-          model: 'gemini-3.1-flash-lite',
+          model: 'gemini-2.5-flash-lite',
           request: {
             contents: [{
               role: 'user',
