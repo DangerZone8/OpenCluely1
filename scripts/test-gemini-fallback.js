@@ -29,6 +29,16 @@ async function main() {
   assert.equal(recovered.body.model, 'gemini-3.1-flash-lite');
   assert.deepEqual(calls, ['gemini-3.5-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']);
   console.log('PASS: transient Gemini 503 falls back to an alternate model and succeeds.');
+  const invalidCalls = [];
+  const modelRejected = await invoke(async url => {
+    const model = decodeURIComponent(url.match(/models\/([^:]+)/)[1]); invalidCalls.push(model);
+    if (model === 'gemini-3.5-flash-lite') return { ok: false, status: 400, json: async () => ({ error: { status: 'INVALID_ARGUMENT', message: 'model-specific argument rejected' } }) };
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'SCREEN_TEST_OK' }] } }] }) };
+  });
+  assert.equal(modelRejected.status, 200);
+  assert.equal(modelRejected.body.model, 'gemini-3.1-flash-lite');
+  assert.deepEqual(invalidCalls, ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']);
+  console.log('PASS: model-specific INVALID_ARGUMENT switches to a supported fallback model.');
   const failed = [];
   const exhausted = await invoke(async url => {
     failed.push(decodeURIComponent(url.match(/models\/([^:]+)/)[1]));
