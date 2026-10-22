@@ -12,6 +12,8 @@ function respond(res, status, body) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  // Fingerprint the deployed handler so production-alias drift is observable in E2E logs.
+  res.setHeader('X-OpenCluely-API-Revision', 'screen-vision-diag-2026-10-22-a');
   res.end(JSON.stringify(body));
 }
 
@@ -122,7 +124,8 @@ module.exports = async function handler(req, res) {
           ? 'The shared AI service is busy or has reached its provider quota. Try again shortly.'
           : 'The AI service could not complete this request. Please try again.',
         providerStatus: upstream.status,
-        providerCode: typeof result.error?.status === 'string' ? result.error.status : undefined
+        providerCode: typeof result.error?.status === 'string' ? result.error.status : undefined,
+        providerMessage: typeof result.error?.message === 'string' ? result.error.message.slice(0, 180) : undefined
       });
     }
     const text = (result.candidates || [])
