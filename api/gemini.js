@@ -2,8 +2,10 @@
 
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
 const WINDOW_MS = 60 * 1000;
-const MAX_PER_WINDOW = 25;
-const MAX_PER_DAY = 1000;
+const MAX_PER_WINDOW = 3;
+// Conservative per-IP and per-install budget for the shared free-tier provider key.
+// This is a best-effort guard; durable project-wide enforcement needs a shared store.
+const MAX_PER_DAY = 12;
 const counters = globalThis.__openCluelyGeminiCounters || new Map();
 globalThis.__openCluelyGeminiCounters = counters;
 
@@ -153,9 +155,19 @@ module.exports = async function handler(req, res) {
           code: providerCode || undefined,
           message: typeof result.error?.message === 'string' ? result.error.message.slice(0, 180) : undefined
         };
-        // Skip model-specific request errors and quota exhaustion without retrying
-        // the same model: retries cannot fix invalid arguments and consume quota.
-        if (providerCode === 'INVALID_ARGUMENT' || providerCode === 'RESOURCE_EXHAUSTED' || upstream.status === 429) {
+        // Never fan out to more models after a quota/rate-limit response.
+        // All candidates share the same provider project and repeated calls can
+        // deepen exhaustion; fail fast and let the client display a clear limit.
+        if (providerCode === 'RESOURCE_EXHAUSTED' || upstream.status === 429) {
+          return respond(res, 429, {
+            error: 'Gemini usage limit reached for this API project. Further model retries are disabled to avoid wasting quota. Try again after the provider reset or review the project quota.',
+            providerStatus: upstream.status,
+            providerCode: providerCode || 'RATE_LIMITED',
+            retryAfterSeconds: 3600
+          });
+        }
+        // Skip model-specific request errors without retrying the same model.
+        if (providerCode === 'INVALID_ARGUMENT') {
           lastFailure = { status: upstream.status, code: providerCode, message: lastFailure.message };
           tryAnotherModel = true;
           break;
