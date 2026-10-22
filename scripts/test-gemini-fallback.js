@@ -26,8 +26,8 @@ async function main() {
   });
   assert.equal(recovered.status, 200);
   assert.equal(recovered.body.text, 'SCREEN_TEST_OK');
-  assert.equal(recovered.body.model, 'gemini-3.5-flash');
-  assert.deepEqual(calls, ['gemini-3.5-flash-lite', 'gemini-3.5-flash']);
+  assert.equal(recovered.body.model, 'gemini-3.1-flash-lite');
+  assert.deepEqual(calls, ['gemini-3.5-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']);
   console.log('PASS: transient Gemini 503 falls back to an alternate model and succeeds.');
   const failed = [];
   const exhausted = await invoke(async url => {
@@ -35,7 +35,7 @@ async function main() {
     return { ok: false, status: 503, json: async () => ({ error: { status: 'UNAVAILABLE', message: 'high demand' } }) };
   });
   assert.equal(exhausted.status, 502);
-  assert.equal(failed.length, 3);
+  assert.equal(failed.length, 6);
   assert.equal(new Set(failed).size, 3);
   assert.equal(exhausted.body.providerCode, 'UNAVAILABLE');
   console.log('PASS: all distinct fallback models are attempted before returning a safe error.');
