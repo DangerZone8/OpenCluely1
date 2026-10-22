@@ -45,8 +45,8 @@ async function main() {
     return { ok: false, status: 503, json: async () => ({ error: { status: 'UNAVAILABLE', message: 'high demand' } }) };
   });
   assert.equal(exhausted.status, 502);
-  assert.equal(failed.length, 8);
-  assert.equal(new Set(failed).size, 4);
+  assert.equal(failed.length, 10);
+  assert.equal(new Set(failed).size, 5);
   assert.equal(exhausted.body.providerCode, 'UNAVAILABLE');
   console.log('PASS: all distinct fallback models are attempted before returning a safe error.');
 }
