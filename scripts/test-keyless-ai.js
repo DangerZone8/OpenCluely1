@@ -22,7 +22,7 @@ async function testHostedClient() {
       return {
         ok: true,
         status: 200,
-        json: async () => ({ text: 'Hosted AI response works.' })
+        text: async () => JSON.stringify({ text: 'Hosted AI response works.' })
       };
     };
 
