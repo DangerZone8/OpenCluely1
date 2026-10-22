@@ -13,7 +13,7 @@ async function main() {
   let raw;
   // A main-branch merge starts a new Vercel production deployment. Retry brief
   // configuration/rollout 503s so this gate tests the newly deployed endpoint.
-  for (let attempt = 1; attempt <= 12; attempt++) {
+  for (let attempt = 1; attempt <= 24; attempt++) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 20000);
     try {
@@ -42,8 +42,10 @@ async function main() {
     } finally {
       clearTimeout(timer);
     }
-    if (response.status !== 503 || attempt === 12) break;
-    console.log('Hosted endpoint returned HTTP 503 during deployment/configuration check; retrying (' + attempt + '/12).');
+    const revision = response.headers.get('x-opencluely-api-revision');
+    const revisionReady = revision === 'screen-vision-diag-2026-10-22-a';
+    if ((response.status !== 503 && revisionReady) || attempt === 24) break;
+    console.log('Hosted endpoint not yet on expected revision (HTTP ' + response.status + ', revision=' + String(revision) + '); waiting for deployment (' + attempt + '/24).');
     await new Promise(resolve => setTimeout(resolve, 5000));
   }
 
