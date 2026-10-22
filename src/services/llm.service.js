@@ -1006,7 +1006,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
     const deadline = Date.now() + timeout;
     const primaryModel = this.model;
     const fallbackModels = config.get('llm.gemini.fallbackModels') || [];
-    const modelsToTry = [primaryModel, ...fallbackModels];
+    const modelsToTry = [...new Set([primaryModel, ...fallbackModels].filter(model => typeof model === 'string' && model.trim()))];
 
     logger.debug('Executing Gemini request', {
       hasModel: !!this.model,
@@ -1137,6 +1137,29 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
     }
 
     const finalErrorInfo = this.analyzeError(lastError);
+    // Screen/image requests can use the hosted proxy if the desktop cannot
+    // reach Google's API directly (common with packaged Electron networking,
+    // VPNs, firewalls, or DNS filtering). The provider key remains local and
+    // is never sent to the proxy.
+    const containsImage = (geminiRequest.contents || []).some(message =>
+      (message.parts || []).some(part => part && (part.inlineData || part.inline_data))
+    );
+    if (containsImage && finalErrorInfo.isNetworkError && !this.remoteOnly) {
+      logger.warn('Direct Gemini network access failed for image request; trying hosted AI proxy', {
+        error: lastError?.message,
+        endpoint: this.remoteEndpoint
+      });
+      try {
+        return await this.executeRemoteRequest(geminiRequest, this.model);
+      } catch (proxyError) {
+        logger.warn('Hosted AI proxy fallback also failed for image request', {
+          error: proxyError.message
+        });
+        proxyError.message = 'Direct Gemini connection failed (' + (lastError?.message || 'network error') +
+          '); hosted AI fallback failed (' + proxyError.message + ').';
+        throw proxyError;
+      }
+    }
     const finalError = new Error(`Gemini API failed after trying ${modelsToTry.join(', ')}: ${lastError?.message}`);
     finalError.errorAnalysis = finalErrorInfo;
     finalError.originalError = lastError;
@@ -1290,6 +1313,31 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
       }
     }
 
+    // Preserve the live-screen streaming UX when direct Google networking
+    // fails: use the hosted vision proxy and emit its completed answer as one
+    // delta. Do not route ordinary text/audio requests through this image-only
+    // recovery path.
+    const containsImage = (geminiRequest.contents || []).some(message =>
+      (message.parts || []).some(part => part && (part.inlineData || part.inline_data))
+    );
+    const finalErrorInfo = lastError ? this.analyzeError(lastError) : null;
+    if (containsImage && finalErrorInfo?.isNetworkError && !this.remoteOnly) {
+      logger.warn('Direct Gemini network access failed for streamed image request; trying hosted AI proxy', {
+        error: lastError?.message,
+        endpoint: this.remoteEndpoint
+      });
+      try {
+        const text = await this.executeRemoteRequest(geminiRequest, this.model);
+        if (typeof onDelta === 'function' && text) onDelta(text);
+        return text;
+      } catch (proxyError) {
+        logger.warn('Hosted AI proxy fallback also failed for streamed image request', {
+          error: proxyError.message
+        });
+        throw new Error('Direct Gemini connection failed (' + (lastError?.message || 'network error') +
+          '); hosted AI fallback failed (' + proxyError.message + ').');
+      }
+    }
     throw lastError || new Error('Gemini streaming request failed');
   }
 
