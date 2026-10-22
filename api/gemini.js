@@ -2,7 +2,7 @@
 
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
 const WINDOW_MS = 60 * 1000;
-const MAX_PER_WINDOW = 3;
+const MAX_PER_WINDOW = 10;
 // Conservative per-IP and per-install budget for the shared free-tier provider key.
 // This is a best-effort guard; durable project-wide enforcement needs a shared store.
 const MAX_PER_DAY = 12;
