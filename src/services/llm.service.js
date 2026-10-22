@@ -9,7 +9,7 @@ class LLMService {
     this.model = null;
     this.isInitialized = false;
     this.remoteOnly = false;
-    this.remoteEndpoint = process.env.OPENCLUELY_AI_ENDPOINT || 'https://opencluely-iota.vercel.app/api/gemini';
+    this.remoteEndpoint = process.env.OPENCLUELY_AI_ENDPOINT || 'https://opencluely.vercel.app/api/gemini';
     this.installationId = null;
     this.requestCount = 0;
     this.errorCount = 0;
