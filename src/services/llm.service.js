@@ -1134,6 +1134,9 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
           await this.delay(delay);
         }
       }
+      // A fetch/network failure is not model-specific. Stop contacting every
+      // configured model and use the hosted image proxy instead.
+      if (lastError && this.analyzeError(lastError).isNetworkError) break;
     }
 
     const finalErrorInfo = this.analyzeError(lastError);
@@ -1311,6 +1314,9 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
           if (delay > 0) await this.delay(delay);
         }
       }
+      // Network failures are not fixed by changing model IDs; avoid burning
+      // the remaining retry budget before switching to the hosted proxy.
+      if (lastError && this.analyzeError(lastError).isNetworkError) break;
     }
 
     // Preserve the live-screen streaming UX when direct Google networking
