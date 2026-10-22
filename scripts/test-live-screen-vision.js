@@ -9,7 +9,7 @@ const installId = crypto.randomUUID();
 const image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lS8AAAAASUVORK5CYII=';
 
 async function main() {
-  const expectedRevision = 'screen-vision-fallback-2026-10-22-f';
+  const expectedRevision = 'quota-guard-2026-10-22-a';
   let revision = null;
 
   // Poll with GET first. This endpoint responds 405 for GET but includes the
