@@ -120,7 +120,9 @@ module.exports = async function handler(req, res) {
       return respond(res, status, {
         error: upstream.status === 429
           ? 'The shared AI service is busy or has reached its provider quota. Try again shortly.'
-          : 'The AI service could not complete this request. Please try again.'
+          : 'The AI service could not complete this request. Please try again.',
+        providerStatus: upstream.status,
+        providerCode: typeof result.error?.status === 'string' ? result.error.status : undefined
       });
     }
     const text = (result.candidates || [])
