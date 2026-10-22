@@ -13,7 +13,7 @@ function respond(res, status, body) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   // Fingerprint the deployed handler so production-alias drift is observable in E2E logs.
-  res.setHeader('X-OpenCluely-API-Revision', 'screen-vision-fallback-2026-10-22-e');
+  res.setHeader('X-OpenCluely-API-Revision', 'screen-vision-fallback-2026-10-22-f');
   res.end(JSON.stringify(body));
 }
 
@@ -146,16 +146,16 @@ module.exports = async function handler(req, res) {
         }
 
         const providerCode = typeof result.error?.status === 'string' ? result.error.status : '';
-        const transient = [429, 500, 502, 503, 504].includes(upstream.status) ||
-          ['UNAVAILABLE', 'RESOURCE_EXHAUSTED', 'INTERNAL', 'DEADLINE_EXCEEDED'].includes(providerCode);
+        const transient = [500, 502, 503, 504].includes(upstream.status) ||
+          ['UNAVAILABLE', 'INTERNAL', 'DEADLINE_EXCEEDED'].includes(providerCode);
         lastFailure = {
           status: upstream.status,
           code: providerCode || undefined,
           message: typeof result.error?.message === 'string' ? result.error.message.slice(0, 180) : undefined
         };
-        // Some model endpoints reject a request/configuration that another supported
-        // model accepts. Skip that model on INVALID_ARGUMENT; do not retry it.
-        if (providerCode === 'INVALID_ARGUMENT') {
+        // Skip model-specific request errors and quota exhaustion without retrying
+        // the same model: retries cannot fix invalid arguments and consume quota.
+        if (providerCode === 'INVALID_ARGUMENT' || providerCode === 'RESOURCE_EXHAUSTED' || upstream.status === 429) {
           lastFailure = { status: upstream.status, code: providerCode, message: lastFailure.message };
           tryAnotherModel = true;
           break;
