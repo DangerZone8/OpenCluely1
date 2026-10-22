@@ -95,7 +95,7 @@ module.exports = async function handler(req, res) {
     'gemini-2.5-flash-lite',
     'gemini-3.5-flash'
   ]);
-  const model = allowedModels.has(body.model) ? body.model : 'gemini-3.1-flash-lite';
+  const model = allowedModels.has(body.model) ? body.model : 'gemini-2.5-flash-lite';
   if (!request || typeof request !== 'object' || !Array.isArray(request.contents) || request.contents.length === 0) {
     return respond(res, 400, { error: 'AI request is missing content.' });
   }
