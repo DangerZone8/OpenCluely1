@@ -19,7 +19,8 @@
     "clean": "node scripts/clean.js",
     "rebuild": "npm run clean && npm run build",
     "release": "npm run clean && npm run build:all",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "test:screen-vision-live": "node scripts/test-live-screen-vision.js"
   },
   "author": {
     "name": "TechyCSR",

@@ -9,7 +9,7 @@ class LLMService {
     this.model = null;
     this.isInitialized = false;
     this.remoteOnly = false;
-    this.remoteEndpoint = process.env.OPENCLUELY_AI_ENDPOINT || 'https://opencluely-iota.vercel.app/api/gemini';
+    this.remoteEndpoint = process.env.OPENCLUELY_AI_ENDPOINT || 'https://opencluelys.vercel.app/api/gemini';
     this.installationId = null;
     this.requestCount = 0;
     this.errorCount = 0;
@@ -76,29 +76,91 @@ class LLMService {
 
   async executeRemoteRequest(geminiRequest, modelName = this.model) {
     const timeout = config.get('llm.gemini.timeout') || 30000;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
-    try {
-      const response = await fetch(this.remoteEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-opencluely-install-id': this.getRemoteInstallationId()
-        },
-        body: JSON.stringify({ model: modelName, request: geminiRequest }),
-        signal: controller.signal
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(typeof result.error === 'string' ? result.error : 'Hosted OpenCluely AI request failed (' + response.status + ').');
+    const payload = JSON.stringify({ model: modelName, request: geminiRequest });
+    const headers = {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(payload),
+      'x-opencluely-install-id': this.getRemoteInstallationId()
+    };
+
+    const parseResponse = async (status, rawBody) => {
+      let result = {};
+      try { result = JSON.parse(rawBody); } catch {}
+      if (status < 200 || status >= 300) {
+        throw new Error(typeof result.error === 'string'
+          ? result.error
+          : 'Hosted OpenCluely AI request failed (' + status + ').');
       }
       if (typeof result.text !== 'string' || !result.text.trim()) {
         throw new Error('Hosted OpenCluely AI returned an empty response.');
       }
       return result.text.trim();
-    } catch (error) {
-      if (error.name === 'AbortError') throw new Error('Hosted OpenCluely AI timed out. Please try again.');
-      throw error;
+    };
+
+    const useHttpsFallback = (primaryError) => new Promise((resolve, reject) => {
+      const https = require('https');
+      let url;
+      try { url = new URL(this.remoteEndpoint); } catch {
+        reject(new Error('Hosted OpenCluely AI endpoint URL is invalid.'));
+        return;
+      }
+      if (url.protocol !== 'https:') {
+        reject(new Error('Hosted OpenCluely AI endpoint must use HTTPS.'));
+        return;
+      }
+      const req = https.request(url, {
+        method: 'POST',
+        headers,
+        timeout
+      }, (res) => {
+        const chunks = [];
+        let size = 0;
+        res.on('data', (chunk) => {
+          size += chunk.length;
+          if (size > 1024 * 1024) {
+            req.destroy(new Error('Hosted OpenCluely AI response exceeded the 1 MB limit.'));
+            return;
+          }
+          chunks.push(chunk);
+        });
+        res.on('end', async () => {
+          try {
+            resolve(await parseResponse(res.statusCode || 0, Buffer.concat(chunks).toString('utf8')));
+          } catch (error) { reject(error); }
+        });
+        res.on('error', reject);
+      });
+      req.on('timeout', () => req.destroy(new Error('Hosted OpenCluely AI request timed out.')));
+      req.on('error', (fallbackError) => {
+        const cause = primaryError && (primaryError.cause?.code || primaryError.cause?.message);
+        const fallbackCause = fallbackError && (fallbackError.code || fallbackError.message);
+        reject(new Error('Could not connect to the hosted OpenCluely AI service. Check your internet connection, firewall, or VPN and try again.' +
+          (cause || fallbackCause ? ' Network details: ' + String(fallbackCause || cause) : '')));
+      });
+      req.end(payload);
+    });
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+    try {
+      let response;
+      try {
+        response = await fetch(this.remoteEndpoint, {
+          method: 'POST',
+          headers,
+          body: payload,
+          signal: controller.signal
+        });
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          throw new Error('Hosted OpenCluely AI timed out. Please try again.');
+        }
+        // Some packaged Electron/Node builds fail through undici's fetch even
+        // when the platform HTTPS stack can connect. Retry once via native HTTPS.
+        return await useHttpsFallback(error);
+      }
+      const rawBody = await response.text();
+      return await parseResponse(response.status, rawBody);
     } finally {
       clearTimeout(timer);
     }
@@ -938,7 +1000,10 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
       return this.executeRemoteRequest(geminiRequest);
     }
     const maxRetries = config.get('llm.gemini.maxRetries');
-    const timeout = config.get('llm.gemini.timeout');
+    const timeout = config.get('llm.gemini.timeout') || 15000;
+    // Bound the entire request (including fallback models and retry delays), not
+    // just each socket attempt, so a failed request cannot keep the UI waiting.
+    const deadline = Date.now() + timeout;
     const primaryModel = this.model;
     const fallbackModels = config.get('llm.gemini.fallbackModels') || [];
     const modelsToTry = [primaryModel, ...fallbackModels];
@@ -958,14 +1023,17 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
 
     for (const modelName of modelsToTry) {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const remainingMs = deadline - Date.now();
+        if (remainingMs <= 0) throw lastError || new Error('Gemini request exceeded its total time limit.');
         try {
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Request timeout')), timeout)
-          );
+          let timeoutId;
+          const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error('Gemini request time limit reached')), remainingMs);
+          });
 
           logger.debug(`Gemini API attempt ${attempt} starting with model ${modelName}`, {
             timestamp: new Date().toISOString(),
-            timeout,
+            timeout: remainingMs,
             model: modelName
           });
 
@@ -975,7 +1043,12 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
             config: geminiRequest.generationConfig,
             systemInstruction: geminiRequest.systemInstruction
           });
-          const result = await Promise.race([requestPromise, timeoutPromise]);
+          let result;
+          try {
+            result = await Promise.race([requestPromise, timeoutPromise]);
+          } finally {
+            clearTimeout(timeoutId);
+          }
 
           if (!result) {
             throw new Error('Empty response from Gemini API');
@@ -1049,7 +1122,8 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
 
           // Use exponential backoff with jitter for network errors
           const baseDelay = errorInfo.isNetworkError ? 2500 : 1500;
-          const delay = baseDelay * attempt + Math.random() * 1000;
+          const delay = Math.min(baseDelay * attempt + Math.random() * 1000, Math.max(0, deadline - Date.now()));
+          if (delay <= 0) throw lastError;
 
           logger.debug(`Waiting ${delay}ms before retry ${attempt + 1}`, {
             baseDelay,
@@ -1158,6 +1232,8 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
       return fullText;
     }
     const maxRetries = config.get('llm.gemini.maxRetries');
+    const timeout = config.get('llm.gemini.timeout') || 15000;
+    const deadline = Date.now() + timeout;
     const apiKey = config.getApiKey('GEMINI');
     const primaryModel = this.model;
     const fallbackModels = config.get('llm.gemini.fallbackModels') || [];
@@ -1167,8 +1243,10 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
 
     for (const modelName of modelsToTry) {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const remainingMs = deadline - Date.now();
+        if (remainingMs <= 0) throw lastError || new Error('Gemini streaming request exceeded its total time limit.');
         try {
-          const fullText = await this._streamRequestForModel(geminiRequest, modelName, apiKey, onDelta);
+          const fullText = await this._streamRequestForModel(geminiRequest, modelName, apiKey, onDelta, remainingMs);
 
           if (!fullText) {
             throw new Error('Empty streamed response from Gemini API');
@@ -1206,8 +1284,8 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
           }
 
           const baseDelay = errorInfo.isNetworkError ? 2500 : 1500;
-          const delay = baseDelay * attempt + Math.random() * 1000;
-          await this.delay(delay);
+          const delay = Math.min(baseDelay * attempt + Math.random() * 1000, Math.max(0, deadline - Date.now()));
+          if (delay > 0) await this.delay(delay);
         }
       }
     }
@@ -1215,9 +1293,9 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
     throw lastError || new Error('Gemini streaming request failed');
   }
 
-  _streamRequestForModel(geminiRequest, modelName, apiKey, onDelta) {
+  _streamRequestForModel(geminiRequest, modelName, apiKey, onDelta, timeoutOverride) {
     const https = require('https');
-    const timeout = config.get('llm.gemini.timeout');
+    const timeout = timeoutOverride || config.get('llm.gemini.timeout') || 15000;
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?alt=sse`;
     const postData = JSON.stringify(geminiRequest);
     const agent = new https.Agent({ keepAlive: true, maxSockets: 1 });
@@ -1235,11 +1313,18 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
     };
 
     return new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (callback, value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(hardTimer);
+        callback(value);
+      };
       const req = https.request(url, options, (res) => {
         if (res.statusCode !== 200) {
           let errBody = '';
           res.on('data', (c) => { errBody += c; });
-          res.on('end', () => reject(new Error(`HTTP ${res.statusCode}: ${errBody}`)));
+          res.on('end', () => finish(reject, new Error(`HTTP ${res.statusCode}: ${errBody}`)));
           return;
         }
 
@@ -1276,14 +1361,17 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
           }
         });
 
-        res.on('end', () => resolve(fullText.trim()));
-        res.on('error', (error) => reject(new Error(`Streaming response error: ${error.message}`)));
+        res.on('end', () => finish(resolve, fullText.trim()));
+        res.on('error', (error) => finish(reject, new Error(`Streaming response error: ${error.message}`)));
       });
-
-      req.on('error', (error) => reject(new Error(`Streaming request failed: ${error.message}`)));
+      // A socket inactivity timeout alone can be reset indefinitely by a slow
+      // stream. Enforce a hard wall-clock deadline for each attempt as well.
+      const hardTimer = setTimeout(() => {
+        req.destroy(new Error(`Streaming request exceeded ${timeout}ms deadline`));
+      }, timeout);
+      req.on('error', (error) => finish(reject, new Error(`Streaming request failed: ${error.message}`)));
       req.on('timeout', () => {
-        req.destroy();
-        reject(new Error('Streaming request timeout'));
+        req.destroy(new Error('Streaming request timeout'));
       });
 
       req.write(postData);

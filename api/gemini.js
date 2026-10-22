@@ -12,6 +12,8 @@ function respond(res, status, body) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  // Fingerprint the deployed handler so production-alias drift is observable in E2E logs.
+  res.setHeader('X-OpenCluely-API-Revision', 'screen-vision-diag-2026-10-22-a');
   res.end(JSON.stringify(body));
 }
 
@@ -40,9 +42,25 @@ module.exports = async function handler(req, res) {
     return respond(res, 405, { error: 'Use POST for AI requests.' });
   }
 
-  const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  // Accept the common Google/Gemini environment-variable names. Trim whitespace
+  // so a copied value with a trailing newline is not treated as a usable key.
+  const key = [
+    process.env.GEMINI_API_KEY,
+    process.env.GOOGLE_API_KEY,
+    process.env.GOOGLE_GENAI_API_KEY,
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY
+  ].map(value => typeof value === 'string' ? value.trim() : '').find(Boolean);
   if (!key) {
-    return respond(res, 503, { error: 'The OpenCluely AI service is not configured yet.' });
+    // Safe diagnostics: report only whether supported names exist, never values.
+    return respond(res, 503, {
+      error: 'The OpenCluely AI service is not configured in this deployment. Verify the Production environment variables and redeploy.',
+      configuredNames: {
+        GEMINI_API_KEY: Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()),
+        GOOGLE_API_KEY: Boolean(process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY.trim()),
+        GOOGLE_GENAI_API_KEY: Boolean(process.env.GOOGLE_GENAI_API_KEY && process.env.GOOGLE_GENAI_API_KEY.trim()),
+        GOOGLE_GENERATIVE_AI_API_KEY: Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY && process.env.GOOGLE_GENERATIVE_AI_API_KEY.trim())
+      }
+    });
   }
 
   const declaredLength = Number(req.headers['content-length'] || 0);
@@ -79,7 +97,7 @@ module.exports = async function handler(req, res) {
     'gemini-2.5-flash-lite',
     'gemini-3.5-flash'
   ]);
-  const model = allowedModels.has(body.model) ? body.model : 'gemini-3.1-flash-lite';
+  const model = allowedModels.has(body.model) ? body.model : 'gemini-2.5-flash-lite';
   if (!request || typeof request !== 'object' || !Array.isArray(request.contents) || request.contents.length === 0) {
     return respond(res, 400, { error: 'AI request is missing content.' });
   }
@@ -104,7 +122,10 @@ module.exports = async function handler(req, res) {
       return respond(res, status, {
         error: upstream.status === 429
           ? 'The shared AI service is busy or has reached its provider quota. Try again shortly.'
-          : 'The AI service could not complete this request. Please try again.'
+          : 'The AI service could not complete this request. Please try again.',
+        providerStatus: upstream.status,
+        providerCode: typeof result.error?.status === 'string' ? result.error.status : undefined,
+        providerMessage: typeof result.error?.message === 'string' ? result.error.message.slice(0, 180) : undefined
       });
     }
     const text = (result.candidates || [])
