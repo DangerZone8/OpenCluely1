@@ -9,35 +9,42 @@ const installId = crypto.randomUUID();
 const image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lS8AAAAASUVORK5CYII=';
 
 async function main() {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 45000);
   let response;
   let raw;
-  try {
-    response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-opencluely-install-id': installId
-      },
-      body: JSON.stringify({
-        model: 'gemini-3.1-flash-lite',
-        request: {
-          contents: [{
-            role: 'user',
-            parts: [
-              { text: 'This is an automated end-to-end screen-vision connectivity test. Briefly describe the image content, then include the word SCREEN_TEST_OK.' },
-              { inlineData: { mimeType: 'image/png', data: image } }
-            ]
-          }],
-          generationConfig: { temperature: 0, maxOutputTokens: 96 }
-        }
-      }),
-      signal: controller.signal
-    });
-    raw = await response.text();
-  } finally {
-    clearTimeout(timer);
+  // A main-branch merge starts a new Vercel production deployment. Retry brief
+  // configuration/rollout 503s so this gate tests the newly deployed endpoint.
+  for (let attempt = 1; attempt <= 12; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+    try {
+      response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-opencluely-install-id': installId
+        },
+        body: JSON.stringify({
+          model: 'gemini-3.1-flash-lite',
+          request: {
+            contents: [{
+              role: 'user',
+              parts: [
+                { text: 'This is an automated end-to-end screen-vision connectivity test. Briefly describe the image content, then include the word SCREEN_TEST_OK.' },
+                { inlineData: { mimeType: 'image/png', data: image } }
+              ]
+            }],
+            generationConfig: { temperature: 0, maxOutputTokens: 96 }
+          }
+        }),
+        signal: controller.signal
+      });
+      raw = await response.text();
+    } finally {
+      clearTimeout(timer);
+    }
+    if (response.status !== 503 || attempt === 12) break;
+    console.log('Hosted endpoint returned HTTP 503 during deployment/configuration check; retrying (' + attempt + '/12).');
+    await new Promise(resolve => setTimeout(resolve, 5000));
   }
 
   let result = {};
