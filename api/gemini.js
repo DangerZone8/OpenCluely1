@@ -13,7 +13,7 @@ function respond(res, status, body) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   // Fingerprint the deployed handler so production-alias drift is observable in E2E logs.
-  res.setHeader('X-OpenCluely-API-Revision', 'screen-vision-diag-2026-10-22-b');
+  res.setHeader('X-OpenCluely-API-Revision', 'screen-vision-fallback-2026-10-22-c');
   res.end(JSON.stringify(body));
 }
 
@@ -102,41 +102,62 @@ module.exports = async function handler(req, res) {
     return respond(res, 400, { error: 'AI request is missing content.' });
   }
 
-  try {
-    const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': key
-      },
-      body: JSON.stringify({
-        contents: request.contents,
-        generationConfig: request.generationConfig || {},
-        ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
-      }),
-      signal: AbortSignal.timeout(30000)
-    });
-    const result = await upstream.json().catch(() => ({}));
-    if (!upstream.ok) {
-      const status = upstream.status === 429 ? 429 : upstream.status === 400 ? 400 : 502;
-      return respond(res, status, {
-        error: upstream.status === 429
-          ? 'The shared AI service is busy or has reached its provider quota. Try again shortly.'
-          : 'The AI service could not complete this request. Please try again.',
-        providerStatus: upstream.status,
-        providerCode: typeof result.error?.status === 'string' ? result.error.status : undefined,
-        providerMessage: typeof result.error?.message === 'string' ? result.error.message.slice(0, 180) : undefined
+  const fallbackModels = [
+    model,
+    ...['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'].filter(candidate => candidate !== model)
+  ];
+  let lastFailure = null;
+
+  // Try the requested model first, then alternate vision-capable models when
+  // Google reports transient overload/quota/server failures or a network timeout.
+  for (const candidate of fallbackModels) {
+    try {
+      const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(candidate) + ':generateContent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': key
+        },
+        body: JSON.stringify({
+          contents: request.contents,
+          generationConfig: request.generationConfig || {},
+          ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
+        }),
+        signal: AbortSignal.timeout(12000)
       });
+      const result = await upstream.json().catch(() => ({}));
+      if (upstream.ok) {
+        const text = (result.candidates || [])
+          .flatMap(item => item.content && Array.isArray(item.content.parts) ? item.content.parts : [])
+          .map(part => typeof part.text === 'string' ? part.text : '')
+          .filter(Boolean)
+          .join('\\n')
+          .trim();
+        if (text) return respond(res, 200, { text, model: candidate });
+        lastFailure = { status: 502, code: 'EMPTY_RESPONSE', message: 'The model returned no text.' };
+        continue;
+      }
+
+      const providerCode = typeof result.error?.status === 'string' ? result.error.status : '';
+      const transient = [429, 500, 502, 503, 504].includes(upstream.status) ||
+        ['UNAVAILABLE', 'RESOURCE_EXHAUSTED', 'INTERNAL', 'DEADLINE_EXCEEDED'].includes(providerCode);
+      lastFailure = {
+        status: upstream.status,
+        code: providerCode || undefined,
+        message: typeof result.error?.message === 'string' ? result.error.message.slice(0, 180) : undefined
+      };
+      // Invalid requests/authentication failures won't be fixed by changing models.
+      if (!transient) break;
+    } catch (error) {
+      lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
     }
-    const text = (result.candidates || [])
-      .flatMap(candidate => candidate.content && Array.isArray(candidate.content.parts) ? candidate.content.parts : [])
-      .map(part => typeof part.text === 'string' ? part.text : '')
-      .filter(Boolean)
-      .join('\n')
-      .trim();
-    if (!text) return respond(res, 502, { error: 'The AI service returned no text. Please try again.' });
-    return respond(res, 200, { text, model });
-  } catch (error) {
-    return respond(res, 502, { error: 'The shared AI service could not be reached. Please try again.' });
   }
+
+  const providerStatus = lastFailure?.status || 503;
+  return respond(res, providerStatus === 429 ? 429 : 502, {
+    error: 'The AI service is temporarily unavailable across its configured models. Please try again shortly.',
+    providerStatus,
+    providerCode: lastFailure?.code,
+    providerMessage: lastFailure?.message
+  });
 };
