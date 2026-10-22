@@ -49,7 +49,9 @@ async function main() {
 
   let result = {};
   try { result = JSON.parse(raw); } catch {}
-  assert.equal(response.status, 200, 'Hosted screen-vision endpoint must return HTTP 200; actual HTTP=' + response.status + '; body=' + String(raw).slice(0, 400));
+  const apiRevision = response.headers.get('x-opencluely-api-revision');
+  assert.equal(apiRevision, 'screen-vision-diag-2026-10-22-a', 'Hosted endpoint is not serving the expected API revision; header=' + String(apiRevision) + '; HTTP=' + response.status + '; body=' + String(raw).slice(0, 400));
+  assert.equal(response.status, 200, 'Hosted screen-vision endpoint must return HTTP 200; API revision=' + String(apiRevision) + '; actual HTTP=' + response.status + '; body=' + String(raw).slice(0, 400));
   assert.equal(typeof result.text, 'string', 'Hosted vision endpoint must return text');
   assert.match(result.text, /SCREEN_TEST_OK/, 'Gemini response must contain the requested marker');
   console.log('PASS: live hosted screen-vision E2E; HTTPS POST, installation ID, Vercel proxy, Gemini vision request and response all succeeded.');
