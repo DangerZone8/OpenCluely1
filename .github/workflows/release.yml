@@ -55,12 +55,18 @@ jobs:
         run: npm ci
 
       - name: Run repository checks
-        run: npm run check && npm run test:screen-vision-live
+        run: npm run check
+
+      # Provider-backed checks run only for an explicit release candidate, not on every main commit.
+      # This avoids consuming free-tier Gemini quota on every small code fix.
+      - name: Run live hosted screen-vision test
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.dry_run != true)
+        run: npm run test:screen-vision-live
 
       # Real Gemini calls are required before a tag/manual release build can proceed.
       # Configure GEMINI_API_KEY in repository Actions secrets; never print the key.
       - name: Run live Gemini chat regression tests
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.dry_run != true)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: npm run test:gemini-live
