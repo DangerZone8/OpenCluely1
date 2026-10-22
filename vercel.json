@@ -1,8 +1,30 @@
 {
   "version": 2,
-  "installCommand": "echo 'Static Vercel deployment: no npm install required'",
-  "buildCommand": "node scripts/build-vercel.js",
-  "outputDirectory": "web-dist",
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "buildCommand": "node scripts/build-vercel.js",
+        "installCommand": "echo 'Static Vercel deployment: no npm install required'",
+        "distDir": "web-dist"
+      }
+    },
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/web-dist/$1"
+    }
+  ],
   "cleanUrls": true,
   "trailingSlash": false
 }
