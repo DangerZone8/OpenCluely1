@@ -24,7 +24,7 @@ async function main() {
           'x-opencluely-install-id': installId
         },
         body: JSON.stringify({
-          model: 'gemini-2.5-flash-lite',
+          model: 'gemini-3.5-flash-lite',
           request: {
             contents: [{
               role: 'user',
@@ -43,7 +43,7 @@ async function main() {
       clearTimeout(timer);
     }
     const revision = response.headers.get('x-opencluely-api-revision');
-    const revisionReady = revision === 'screen-vision-diag-2026-10-22-a';
+    const revisionReady = revision === 'screen-vision-diag-2026-10-22-b';
     if ((response.status !== 503 && revisionReady) || attempt === 24) break;
     console.log('Hosted endpoint not yet on expected revision (HTTP ' + response.status + ', revision=' + String(revision) + '); waiting for deployment (' + attempt + '/24).');
     await new Promise(resolve => setTimeout(resolve, 5000));
