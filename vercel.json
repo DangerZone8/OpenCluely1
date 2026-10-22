@@ -1,30 +1,8 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "buildCommand": "node scripts/build-vercel.js",
-        "installCommand": "echo 'Static Vercel deployment: no npm install required'",
-        "distDir": "web-dist"
-      }
-    },
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/web-dist/$1"
-    }
-  ],
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "node scripts/build-vercel.js",
+  "installCommand": "echo 'Static Vercel deployment: no npm install required'",
+  "outputDirectory": "web-dist",
   "cleanUrls": true,
   "trailingSlash": false
 }
