@@ -55,7 +55,7 @@ jobs:
         run: npm ci
 
       - name: Run repository checks
-        run: npm run check
+        run: npm run check && npm run test:screen-vision-live
 
       # Real Gemini calls are required before a tag/manual release build can proceed.
       # Configure GEMINI_API_KEY in repository Actions secrets; never print the key.
