@@ -1297,11 +1297,18 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
     };
 
     return new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (callback, value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(hardTimer);
+        callback(value);
+      };
       const req = https.request(url, options, (res) => {
         if (res.statusCode !== 200) {
           let errBody = '';
           res.on('data', (c) => { errBody += c; });
-          res.on('end', () => reject(new Error(`HTTP ${res.statusCode}: ${errBody}`)));
+          res.on('end', () => finish(reject, new Error(`HTTP ${res.statusCode}: ${errBody}`)));
           return;
         }
 
@@ -1338,14 +1345,17 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
           }
         });
 
-        res.on('end', () => resolve(fullText.trim()));
-        res.on('error', (error) => reject(new Error(`Streaming response error: ${error.message}`)));
+        res.on('end', () => finish(resolve, fullText.trim()));
+        res.on('error', (error) => finish(reject, new Error(`Streaming response error: ${error.message}`)));
       });
-
-      req.on('error', (error) => reject(new Error(`Streaming request failed: ${error.message}`)));
+      // A socket inactivity timeout alone can be reset indefinitely by a slow
+      // stream. Enforce a hard wall-clock deadline for each attempt as well.
+      const hardTimer = setTimeout(() => {
+        req.destroy(new Error(`Streaming request exceeded ${timeout}ms deadline`));
+      }, timeout);
+      req.on('error', (error) => finish(reject, new Error(`Streaming request failed: ${error.message}`)));
       req.on('timeout', () => {
-        req.destroy();
-        reject(new Error('Streaming request timeout'));
+        req.destroy(new Error('Streaming request timeout'));
       });
 
       req.write(postData);
