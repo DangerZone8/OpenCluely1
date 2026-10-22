@@ -55,7 +55,7 @@ jobs:
         run: node scripts/build-vercel.js
 
       - name: Verify deployed hosted screen-vision endpoint
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: npm run test:screen-vision-live
 
       - name: Build unpacked desktop application
