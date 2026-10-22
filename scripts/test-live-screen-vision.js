@@ -43,7 +43,7 @@ async function main() {
       clearTimeout(timer);
     }
     const revision = response.headers.get('x-opencluely-api-revision');
-    const revisionReady = revision === 'screen-vision-fallback-2026-10-22-d';
+    const revisionReady = revision === 'screen-vision-fallback-2026-10-22-e';
     if ((response.status !== 503 && revisionReady) || attempt === 24) break;
     console.log('Hosted endpoint not yet on expected revision (HTTP ' + response.status + ', revision=' + String(revision) + '); waiting for deployment (' + attempt + '/24).');
     await new Promise(resolve => setTimeout(resolve, 5000));
@@ -52,7 +52,7 @@ async function main() {
   let result = {};
   try { result = JSON.parse(raw); } catch {}
   const apiRevision = response.headers.get('x-opencluely-api-revision');
-  assert.equal(apiRevision, 'screen-vision-fallback-2026-10-22-d', 'Hosted endpoint is not serving the expected API revision; header=' + String(apiRevision) + '; HTTP=' + response.status + '; body=' + String(raw).slice(0, 400));
+  assert.equal(apiRevision, 'screen-vision-fallback-2026-10-22-e', 'Hosted endpoint is not serving the expected API revision; header=' + String(apiRevision) + '; HTTP=' + response.status + '; body=' + String(raw).slice(0, 400));
   assert.equal(response.status, 200, 'Hosted screen-vision endpoint must return HTTP 200; API revision=' + String(apiRevision) + '; actual HTTP=' + response.status + '; body=' + String(raw).slice(0, 400));
   assert.equal(typeof result.text, 'string', 'Hosted vision endpoint must return text');
   assert.match(result.text, /SCREEN_TEST_OK/, 'Gemini response must contain the requested marker');
