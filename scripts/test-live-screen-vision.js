@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 
-const endpoint = process.env.OPENCLUELY_AI_ENDPOINT || 'https://opencluely.vercel.app/api/gemini';
+const endpoint = process.env.OPENCLUELY_AI_ENDPOINT || 'https://opencluelys.vercel.app/api/gemini';
 const installId = crypto.randomUUID();
 // Tiny valid 1x1 PNG: exercises the same hosted vision payload shape as Capture Screen and Ask AI.
 const image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lS8AAAAASUVORK5CYII=';
