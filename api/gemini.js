@@ -181,12 +181,12 @@ module.exports = async function handler(req, res) {
             providerMessage: lastFailure.message
           });
         }
-        if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 200));
-        else tryAnotherModel = true;
+        // No same-model retry: advance directly to the next distinct fallback model.
+        tryAnotherModel = true;
       } catch (error) {
         lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
-        if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 200));
-        else tryAnotherModel = true;
+        // Network/timeout failures also advance once to the next distinct model.
+        tryAnotherModel = true;
       }
     }
     if (!tryAnotherModel) break;
