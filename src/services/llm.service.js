@@ -1026,13 +1026,14 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
         const remainingMs = deadline - Date.now();
         if (remainingMs <= 0) throw lastError || new Error('Gemini request exceeded its total time limit.');
         try {
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Gemini request time limit reached')), remainingMs)
-          );
+          let timeoutId;
+          const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error('Gemini request time limit reached')), remainingMs);
+          });
 
           logger.debug(`Gemini API attempt ${attempt} starting with model ${modelName}`, {
             timestamp: new Date().toISOString(),
-            timeout,
+            timeout: remainingMs,
             model: modelName
           });
 
@@ -1042,7 +1043,12 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
             config: geminiRequest.generationConfig,
             systemInstruction: geminiRequest.systemInstruction
           });
-          const result = await Promise.race([requestPromise, timeoutPromise]);
+          let result;
+          try {
+            result = await Promise.race([requestPromise, timeoutPromise]);
+          } finally {
+            clearTimeout(timeoutId);
+          }
 
           if (!result) {
             throw new Error('Empty response from Gemini API');
