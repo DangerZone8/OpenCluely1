@@ -180,14 +180,38 @@ class LLMService {
           if (error.name === 'AbortError') throw new Error('Hosted Cleverly AI request timed out.');
           try { return await useHttpsFallback(endpoint, error); }
           catch (fallbackError) {
-            if (fallbackError.isHostedResponseError) throw fallbackError;
+            // A hosted deployment can be reachable but misconfigured (503) or
+            // temporarily unhealthy (5xx). Try the next known host in those cases.
+            // Do not fan out on quota exhaustion (429) or client/auth errors.
+            if (fallbackError.isHostedResponseError) {
+              if (fallbackError.statusCode >= 500 && fallbackError.statusCode !== 429) {
+                let host = endpoint;
+                try { host = new URL(endpoint).host; } catch {}
+                networkFailures.push(host + ': HTTP ' + fallbackError.statusCode + ' from hosted AI endpoint');
+                continue;
+              }
+              throw fallbackError;
+            }
             let host = endpoint;
             try { host = new URL(endpoint).host; } catch {}
             networkFailures.push(host + ': ' + fallbackError.message);
             continue;
           }
         }
-        return await parseResponse(response.status, await response.text());
+        const responseBody = await response.text();
+        try {
+          return await parseResponse(response.status, responseBody);
+        } catch (error) {
+          // A 503 from one Vercel alias must not prevent trying a healthy alias.
+          // Preserve authoritative client errors and never retry/fan out on 429.
+          if (response.status >= 500 && response.status !== 429) {
+            let host = endpoint;
+            try { host = new URL(endpoint).host; } catch {}
+            networkFailures.push(host + ': HTTP ' + response.status + ' from hosted AI endpoint');
+            continue;
+          }
+          throw error;
+        }
       } finally {
         clearTimeout(timer);
       }
