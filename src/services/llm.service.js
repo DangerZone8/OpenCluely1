@@ -525,7 +525,7 @@ class LLMService {
 
   isCleverlyIdentityQuestion(text) {
     const question = String(text || '').toLowerCase().replace(/[’]/g, "'").trim();
-    return /\b(?:what(?:'s| is) your name|tell me your name|say your name|remind me (?:of )?your name|who are you|who am i talking to|what should i call you|what can i call you|are you called [^?!.]+|is your name [^?!.]+|what(?:'s| is) the name of (?:you|this ai|this assistant)|introduce yourself)\b/.test(question);
+    return /\b(?:what(?:'s| is) your name|tell me your name|say your name|remind me (?:of )?your name|who are you|who am i talking to|what should i call you|what can i call you|what do i call you|are you called [^?!.]+|is your name [^?!.]+|what(?:'s| is) the name of (?:you|this ai|this assistant)|introduce yourself)\b/.test(question);
   }
 
   /** General-purpose chat without the selected skill's specialized prompt. */
