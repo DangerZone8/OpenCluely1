@@ -105,8 +105,8 @@ class LLMService {
       }
     };
     const endpoints = [...new Set([
-      ...hostedEndpoints,
-      ...configuredEndpoints.filter(isUsableHostedEndpoint)
+      ...configuredEndpoints.filter(isUsableHostedEndpoint),
+      ...hostedEndpoints
     ])];
 
     const parseResponse = async (status, rawBody) => {
