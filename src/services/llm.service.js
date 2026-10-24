@@ -84,12 +84,30 @@ class LLMService {
     };
     // Alternate hosts are used only for connection failures. An HTTP response,
     // especially 429, is authoritative and must never fan out to another host.
-    const endpoints = [...new Set([
+    // Never let a stale local development URL disable AI in a packaged build.
+    // Hosted AI must remain reachable even if .env contains localhost/127.0.0.1.
+    const configuredEndpoints = [
       this.remoteEndpoint,
-      process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT,
+      process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT
+    ];
+    const hostedEndpoints = [
       'https://opencluely-iota.vercel.app/api/gemini',
       'https://opencluelys.vercel.app/api/gemini'
-    ].filter(value => typeof value === 'string' && value.trim()))];
+    ];
+    const isUsableHostedEndpoint = (value) => {
+      if (typeof value !== 'string' || !value.trim()) return false;
+      try {
+        const url = new URL(value.trim());
+        return url.protocol === 'https:' &&
+          !['localhost', '127.0.0.1', '::1', '[::1]'].includes(url.hostname.toLowerCase());
+      } catch {
+        return false;
+      }
+    };
+    const endpoints = [...new Set([
+      ...hostedEndpoints,
+      ...configuredEndpoints.filter(isUsableHostedEndpoint)
+    ])];
 
     const parseResponse = async (status, rawBody) => {
       let result = {};
