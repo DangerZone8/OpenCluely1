@@ -68,7 +68,7 @@ async function main() {
     const endpointCalls = [];
     global.fetch = async (url) => {
       endpointCalls.push(String(url));
-      if (String(url).includes('misconfigured.example')) {
+      if (String(url).includes('opencluelys.vercel.app') || String(url).includes('misconfigured.example')) {
         return {
           status: 503,
           headers: { get: () => 'quota-guard-2026-10-22-a' },
@@ -90,6 +90,7 @@ async function main() {
       });
       assert.equal(hostedResponse, 'Fallback host works.');
       assert.deepEqual(endpointCalls, [
+        'https://opencluelys.vercel.app/api/gemini',
         'https://misconfigured.example/api/gemini',
         'https://healthy.example/api/gemini'
       ]);
