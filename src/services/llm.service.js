@@ -109,10 +109,14 @@ class LLMService {
         return false;
       }
     };
+    // Always try both known production aliases before custom overrides. This
+    // guarantees a stale/misconfigured OPENCLUELY_AI_ENDPOINT cannot push the
+    // known backup out of the three-attempt budget. Keep a custom fallback as
+    // the third choice when it is distinct from both production aliases.
     const endpoints = [...new Set([
       hostedEndpoints[0],
-      ...configuredEndpoints.filter(isUsableHostedEndpoint),
-      hostedEndpoints[1]
+      hostedEndpoints[1],
+      ...configuredEndpoints.filter(isUsableHostedEndpoint)
     ])].slice(0, 3);
 
     const parseResponse = (status, rawBody) => {
