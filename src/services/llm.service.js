@@ -87,6 +87,7 @@ class LLMService {
     const endpoints = [...new Set([
       this.remoteEndpoint,
       process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT,
+      'https://opencluely-iota.vercel.app/api/gemini',
       'https://opencluelys.vercel.app/api/gemini'
     ].filter(value => typeof value === 'string' && value.trim()))];
 
@@ -525,7 +526,7 @@ class LLMService {
 
   isCleverlyIdentityQuestion(text) {
     const question = String(text || '').toLowerCase().replace(/[’]/g, "'").trim();
-    return /\b(?:what(?:'s| is) your name|tell me your name|say your name|remind me (?:of )?your name|who are you|who am i talking to|what should i call you|what can i call you|what do i call you|are you called [^?!.]+|is your name [^?!.]+|what(?:'s| is) the name of (?:you|this ai|this assistant)|introduce yourself)\b/.test(question);
+    return /\b(?:your name|what name do you go by|what do you call yourself|what(?:'s| is) the name of (?:you|this ai|this assistant)|tell me your name|say your name|remind me (?:of )?your name|who are you|who am i (?:talking to|chatting with|speaking to)|who is this|what should i call you|what can i call you|what do i call you|are you called [^?!.]+|is your name [^?!.]+|are you (?:opencluely|cleverly|gemini|chatgpt|an? ai|the assistant)|introduce yourself)\b/.test(question);
   }
 
   /** General-purpose chat without the selected skill's specialized prompt. */
