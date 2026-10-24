@@ -109,85 +109,81 @@ module.exports = async function handler(req, res) {
   const fallbackModels = [
     model,
     ...['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.8-flash'].filter(candidate => candidate !== model)
-  ];
+  ].slice(0, 2);
   let lastFailure = null;
   const attemptedModels = [];
+  // Vercel serverless requests must finish before the desktop's request deadline.
+  // Two distinct models is enough for a useful fallback; five serial attempts can
+  // consume 25s and leave the desktop waiting with no answer.
+  const requestDeadline = Date.now() + 9000;
 
-  // Try each model at most once per user request. Repeated transient retries can
-  // consume free-tier quota rapidly; fail over to a distinct model instead.
   for (const candidate of fallbackModels) {
+    const remainingMs = requestDeadline - Date.now();
+    if (remainingMs <= 0) break;
     let tryAnotherModel = false;
-    for (let attempt = 0; attempt < 1; attempt++) {
-      attemptedModels.push(candidate);
-      try {
-        const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(candidate) + ':generateContent', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': key
-          },
-          body: JSON.stringify({
-            contents: request.contents,
-            generationConfig: request.generationConfig || {},
-            ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
-          }),
-          signal: AbortSignal.timeout(5000)
-        });
-        const result = await upstream.json().catch(() => ({}));
-        if (upstream.ok) {
-          const text = (result.candidates || [])
-            .flatMap(item => item.content && Array.isArray(item.content.parts) ? item.content.parts : [])
-            .map(part => typeof part.text === 'string' ? part.text : '')
-            .filter(Boolean)
-            .join('\\n')
-            .trim();
-          if (text) return respond(res, 200, { text, model: candidate });
-          lastFailure = { status: 502, code: 'EMPTY_RESPONSE', message: 'The model returned no text.' };
-          tryAnotherModel = true;
-          continue;
-        }
-
-        const providerCode = typeof result.error?.status === 'string' ? result.error.status : '';
-        const transient = [500, 502, 503, 504].includes(upstream.status) ||
-          ['UNAVAILABLE', 'INTERNAL', 'DEADLINE_EXCEEDED'].includes(providerCode);
-        lastFailure = {
-          status: upstream.status,
-          code: providerCode || undefined,
-          message: typeof result.error?.message === 'string' ? result.error.message.slice(0, 180) : undefined
-        };
-        // Never fan out to more models after a quota/rate-limit response.
-        // All candidates share the same provider project and repeated calls can
-        // deepen exhaustion; fail fast and let the client display a clear limit.
-        if (providerCode === 'RESOURCE_EXHAUSTED' || upstream.status === 429) {
-          return respond(res, 429, {
-            error: 'Gemini usage limit reached for this API project. Further model retries are disabled to avoid wasting quota. Try again after the provider reset or review the project quota.',
-            providerStatus: upstream.status,
-            providerCode: providerCode || 'RATE_LIMITED',
-            retryAfterSeconds: 3600
-          });
-        }
-        // Skip model-specific request errors without retrying the same model.
-        if (providerCode === 'INVALID_ARGUMENT') {
-          lastFailure = { status: upstream.status, code: providerCode, message: lastFailure.message };
-          tryAnotherModel = true;
-          continue;
-        }
-        // Authentication and other malformed-request errors won't improve on retry.
-        if (!transient) {
-          return respond(res, upstream.status === 429 ? 429 : 502, {
-            error: 'The AI service could not complete this request.',
-            providerStatus: upstream.status,
-            providerCode: lastFailure.code,
-            providerMessage: lastFailure.message
-          });
-        }
-        // No same-model retry: advance directly to the next distinct fallback model.
+    attemptedModels.push(candidate);
+    try {
+      const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(candidate) + ':generateContent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': key
+        },
+        body: JSON.stringify({
+          contents: request.contents,
+          generationConfig: request.generationConfig || {},
+          ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
+        }),
+        signal: AbortSignal.timeout(Math.min(4500, remainingMs))
+      });
+      const result = await upstream.json().catch(() => ({}));
+      if (upstream.ok) {
+        const text = (result.candidates || [])
+          .flatMap(item => item.content && Array.isArray(item.content.parts) ? item.content.parts : [])
+          .map(part => typeof part.text === 'string' ? part.text : '')
+          .filter(Boolean)
+          .join('\\n')
+          .trim();
+        if (text) return respond(res, 200, { text, model: candidate });
+        lastFailure = { status: 502, code: 'EMPTY_RESPONSE', message: 'The model returned no text.' };
         tryAnotherModel = true;
-      } catch (error) {
-        lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
-        // Network/timeout failures also advance once to the next distinct model.
-        tryAnotherModel = true;
+        continue;
       }
+
+      const providerCode = typeof result.error?.status === 'string' ? result.error.status : '';
+      const transient = [500, 502, 503, 504].includes(upstream.status) ||
+        ['UNAVAILABLE', 'INTERNAL', 'DEADLINE_EXCEEDED'].includes(providerCode);
+      lastFailure = {
+        status: upstream.status,
+        code: providerCode || undefined,
+        message: typeof result.error?.message === 'string' ? result.error.message.slice(0, 180) : undefined
+      };
+      // Never fan out to more models after a quota/rate-limit response.
+      if (providerCode === 'RESOURCE_EXHAUSTED' || upstream.status === 429) {
+        return respond(res, 429, {
+          error: 'Gemini usage limit reached for this API project. Further model retries are disabled to avoid wasting quota. Try again after the provider reset or review the project quota.',
+          providerStatus: upstream.status,
+          providerCode: providerCode || 'RATE_LIMITED',
+          retryAfterSeconds: 3600
+        });
+      }
+      if (providerCode === 'INVALID_ARGUMENT') {
+        lastFailure = { status: upstream.status, code: providerCode, message: lastFailure.message };
+        tryAnotherModel = true;
+        continue;
+      }
+      if (!transient) {
+        return respond(res, upstream.status === 429 ? 429 : 502, {
+          error: 'The AI service could not complete this request.',
+          providerStatus: upstream.status,
+          providerCode: lastFailure.code,
+          providerMessage: lastFailure.message
+        });
+      }
+      tryAnotherModel = true;
+    } catch (error) {
+      lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
+      tryAnotherModel = true;
     }
     if (!tryAnotherModel) break;
   }
