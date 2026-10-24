@@ -151,7 +151,8 @@
       ],
       "fpm": [
         "--after-install=scripts/post-install-deb.sh"
-      ]
+      ],
+      "packageName": "cleverly"
     },
     "nsis": {
       "oneClick": false,
