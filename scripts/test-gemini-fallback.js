@@ -39,6 +39,17 @@ async function main() {
   assert.equal(modelRejected.body.model, 'gemini-3.1-flash-lite');
   assert.deepEqual(invalidCalls, ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']);
   console.log('PASS: model-specific INVALID_ARGUMENT switches to a supported fallback model.');
+  const notFoundCalls = [];
+  const missingModel = await invoke(async url => {
+    const model = decodeURIComponent(url.match(/models\/([^:]+)/)[1]); notFoundCalls.push(model);
+    if (model === 'gemini-3.5-flash-lite') return { ok: false, status: 404, json: async () => ({ error: { status: 'NOT_FOUND', message: 'model not found' } }) };
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'SCREEN_TEST_OK' }] } }] }) };
+  });
+  assert.equal(missingModel.status, 200);
+  assert.equal(missingModel.body.model, 'gemini-3.1-flash-lite');
+  assert.deepEqual(notFoundCalls, ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']);
+  console.log('PASS: a retired/unavailable Gemini model name falls back to a supported model.');
+
   const failed = [];
   const exhausted = await invoke(async url => {
     failed.push(decodeURIComponent(url.match(/models\/([^:]+)/)[1]));
