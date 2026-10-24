@@ -39,7 +39,7 @@
     <p>Download the desktop installer directly from this page. Choose your operating system and the download starts from the published installer file; you do not need to open a release page.</p>
     <div class="actions">
       <a id="recommended-download" class="button primary" href="#" aria-disabled="true">Preparing direct download…</a>
-      <a class="button secondary" href="https://github.com/DangerZone8/Cleverly1">View source on GitHub</a>
+      <a class="button secondary" href="https://github.com/DangerZone8/OpenCluely1">View source on GitHub</a>
     </div>
     <p id="release-status" class="status" role="status" aria-live="polite">Checking the latest published release…</p>
 
@@ -71,11 +71,11 @@
       <p class="note">Hosted AI requests send the text, screen frames, or audio clips you choose to submit to the Cleverly service and Google Gemini over HTTPS. Do not submit passwords or other sensitive information. Use the assistant in accordance with the rules of your school, assessment, interview, and workplace.</p>
     </section>
 
-    <footer>Cleverly · <a href="https://github.com/DangerZone8/Cleverly1/blob/main/LICENSE">Apache 2.0 license</a> · <a href="https://github.com/DangerZone8/Cleverly1/releases">All releases</a></footer>
+    <footer>Cleverly · <a href="https://github.com/DangerZone8/OpenCluely1/blob/main/LICENSE">Apache 2.0 license</a> · <a href="https://github.com/DangerZone8/OpenCluely1/releases">All releases</a></footer>
   </main>
   <script>
     (function () {
-      const API = "https://api.github.com/repos/DangerZone8/Cleverly1/releases/latest";
+      const API = "https://api.github.com/repos/DangerZone8/OpenCluely1/releases/latest";
       const links = {
         windows: document.getElementById("windows-download"),
         mac: document.getElementById("mac-download"),
@@ -87,7 +87,7 @@
 
       function activate(link, asset, label) {
         if (!asset) {
-          link.href = "https://github.com/DangerZone8/Cleverly1/releases/latest";
+          link.href = "https://github.com/DangerZone8/OpenCluely1/releases/latest";
           link.removeAttribute("aria-disabled");
           link.textContent = label + " installer unavailable — view release";
           return;
@@ -124,7 +124,7 @@
             recommended.removeAttribute("aria-disabled");
             recommended.textContent = "Download latest for this device";
           } else {
-            recommended.href = release.html_url || "https://github.com/DangerZone8/Cleverly1/releases/latest";
+            recommended.href = release.html_url || "https://github.com/DangerZone8/OpenCluely1/releases/latest";
             recommended.removeAttribute("aria-disabled");
             recommended.textContent = "View latest release";
           }
@@ -136,11 +136,11 @@
         .catch(function (error) {
           version.textContent = "Version lookup unavailable";
           status.textContent = "Could not check the latest release automatically. Use the releases page to choose a published installer.";
-          recommended.href = "https://github.com/DangerZone8/Cleverly1/releases/latest";
+          recommended.href = "https://github.com/DangerZone8/OpenCluely1/releases/latest";
           recommended.removeAttribute("aria-disabled");
           recommended.textContent = "Open latest release";
           Object.keys(links).forEach(function (platform) {
-            links[platform].href = "https://github.com/DangerZone8/Cleverly1/releases/latest";
+            links[platform].href = "https://github.com/DangerZone8/OpenCluely1/releases/latest";
             links[platform].removeAttribute("aria-disabled");
             links[platform].textContent = "View available " + platform + " downloads";
           });
