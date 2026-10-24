@@ -794,24 +794,28 @@ class ApplicationController {
       return { success: true, results };
     });
 
-    ipcMain.handle("send-chat-message", async (event, text) => {
-      // Typed messages need the full skill pipeline (with history context),
-      // NOT the voice "intelligent filter" pipeline. Voice keeps its filter
-      // behaviour; typed chat goes through processWithLLM so it gets real
-      // answers using the active skill prompt and recent conversation history.
-      (async () => {
-        try {
-          const sessionHistory = sessionManager.getOptimizedHistory();
-          await this.processWithLLM(text, sessionHistory, { generalAssistant: true });
-        } catch (error) {
-          logger.error("Failed to process chat message with LLM", {
-            error: error.message,
-            text: text.substring(0, 100)
-          });
+    ipcMain.handle("send-chat-message", async (_event, text) => {
+      // Typed chat is always general-purpose. Do not route it through the
+      // currently selected skill (for example DSA), which can turn a greeting
+      // into an irrelevant algorithm hint. Await the real operation so callers
+      // cannot mistake "queued" for a successful response.
+      if (typeof text !== "string" || !text.trim()) {
+        return { success: false, error: "Message cannot be empty." };
+      }
+      try {
+        const sessionHistory = sessionManager.getOptimizedHistory();
+        const result = await this.processWithLLM(text.trim(), sessionHistory, { generalAssistant: true });
+        if (!result || result.success === false) {
+          return { success: false, error: result?.error || "Cleverly could not complete the message." };
         }
-      })();
-
-      return { success: true };
+        return { success: true };
+      } catch (error) {
+        logger.error("Failed to process chat message with LLM", {
+          error: error.message,
+          text: text.substring(0, 100)
+        });
+        return { success: false, error: error.message || "Cleverly could not complete the message." };
+      }
     });
 
     ipcMain.handle("get-skill-prompt", (event, skillName) => {
@@ -1348,17 +1352,14 @@ class ApplicationController {
           delta
         });
       };
-      // Typed chat is general-purpose; selected skill prompts remain for explicit
-      // voice/transcription and screenshot workflows.
-      const llmResult = options.generalAssistant
-        ? await llmService.processGeneralAssistantStream(text, sessionManager.getConversationHistory(12), onDelta)
-        : await llmService.processTextWithSkillStream(
-            text,
-            this.activeSkill,
-            sessionHistory.recent,
-            needsProgrammingLanguage ? this.codingLanguage : null,
-            onDelta
-          );
+      // processWithLLM is used only by the typed-chat IPC entry point.
+      // Always use the general assistant here; specialized prompts are reserved
+      // for explicit voice/transcription and screenshot workflows.
+      const llmResult = await llmService.processGeneralAssistantStream(
+        text,
+        sessionManager.getConversationHistory(12),
+        onDelta
+      );
       llmResult.metadata = { ...llmResult.metadata, messageId };
 
       logger.info("LLM processing completed, showing response", {
@@ -1379,10 +1380,11 @@ class ApplicationController {
       this.broadcastTranscriptionLLMResponse(llmResult);
 
       windowManager.showLLMResponse(llmResult.response, {
-        skill: this.activeSkill,
+        skill: "general",
         processingTime: llmResult.metadata.processingTime,
         usedFallback: llmResult.metadata.usedFallback,
       });
+      return { success: true, response: llmResult.response, metadata: llmResult.metadata };
     } catch (error) {
       logger.error("LLM processing failed", {
         error: error.message,
@@ -1401,6 +1403,7 @@ class ApplicationController {
       });
 
       this.broadcastLLMError(error.message);
+      return { success: false, error: error.message || "Cleverly could not complete the request." };
     }
   }
 
