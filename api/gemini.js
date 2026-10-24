@@ -55,7 +55,7 @@ module.exports = async function handler(req, res) {
   if (!key) {
     // Safe diagnostics: report only whether supported names exist, never values.
     return respond(res, 503, {
-      error: 'The OpenCluely AI service is not configured in this deployment. Verify the Production environment variables and redeploy.',
+      error: 'The Cleverly AI service is not configured in this deployment. Verify the Production environment variables and redeploy.',
       configuredNames: {
         GEMINI_API_KEY: Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()),
         GOOGLE_API_KEY: Boolean(process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY.trim()),
@@ -90,7 +90,7 @@ module.exports = async function handler(req, res) {
   const ip = String(req.headers['x-real-ip'] || req.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
   if (!rateLimit('ip:' + ip, now) || !rateLimit('install:' + installId, now)) {
     res.setHeader('Retry-After', '60');
-    return respond(res, 429, { error: 'OpenCluely AI request limit reached. Wait a minute and try again.' });
+    return respond(res, 429, { error: 'Cleverly AI request limit reached. Wait a minute and try again.' });
   }
 
   const request = body.request;
