@@ -45,10 +45,10 @@ async function main() {
     return { ok: false, status: 503, json: async () => ({ error: { status: 'UNAVAILABLE', message: 'high demand' } }) };
   });
   assert.equal(exhausted.status, 502);
-  assert.equal(failed.length, 5);
-  assert.equal(new Set(failed).size, 5);
+  assert.equal(failed.length, 2, 'proxy should cap fallback to two models within its request deadline');
+  assert.equal(new Set(failed).size, 2, 'proxy must use distinct fallback models');
   assert.equal(exhausted.body.providerCode, 'UNAVAILABLE');
-  console.log('PASS: each distinct fallback model is attempted at most once before returning a safe error.');
+  console.log('PASS: proxy attempts at most two distinct models before returning a bounded-time safe error.');
   const quotaCalls = [];
   const quotaExhausted = await invoke(async url => {
     quotaCalls.push(decodeURIComponent(url.match(/models\/([^:]+)/)[1]));
