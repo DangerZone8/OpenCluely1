@@ -106,16 +106,21 @@ module.exports = async function handler(req, res) {
     return respond(res, 400, { error: 'AI request is missing content.' });
   }
 
+  const isVisionRequest = request.contents.some(item =>
+    Array.isArray(item?.parts) && item.parts.some(part => part && (part.inlineData || part.fileData))
+  );
+  // Preserve v1.0.175's snappy text-chat behavior: ordinary messages use the
+  // configured fast model only. Vision requests retain one alternate model so
+  // screen-aware and Capture Screen flows can recover from model-specific errors.
   const fallbackModels = [
     model,
     ...['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.8-flash'].filter(candidate => candidate !== model)
-  ].slice(0, 2);
+  ].slice(0, isVisionRequest ? 2 : 1);
   let lastFailure = null;
   const attemptedModels = [];
-  // Vercel serverless requests must finish before the desktop's request deadline.
-  // Two distinct models is enough for a useful fallback; five serial attempts can
-  // consume 25s and leave the desktop waiting with no answer.
-  const requestDeadline = Date.now() + 9000;
+  // Give text chat a short deadline; screen analysis gets extra time for image
+  // processing without making everyday chat wait through serial model retries.
+  const requestDeadline = Date.now() + (isVisionRequest ? 9000 : 7000);
 
   for (const candidate of fallbackModels) {
     const remainingMs = requestDeadline - Date.now();
@@ -134,7 +139,7 @@ module.exports = async function handler(req, res) {
           generationConfig: request.generationConfig || {},
           ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
         }),
-        signal: AbortSignal.timeout(Math.min(8000, remainingMs))
+        signal: AbortSignal.timeout(Math.min(isVisionRequest ? 8000 : 6000, remainingMs))
       });
       const result = await upstream.json().catch(() => ({}));
       if (upstream.ok) {
