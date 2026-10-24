@@ -106,18 +106,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          DEB_FILE="$(find dist -maxdepth 1 -type f -name 'opencluely_*_amd64.deb' -print -quit)"
+          DEB_FILE="$(find dist -maxdepth 1 -type f -name 'cleverly_*_amd64.deb' -print -quit)"
           test -n "$DEB_FILE"
           sudo apt-get install -y "./$DEB_FILE"
           PACKAGE_NAME="$(dpkg-deb -f "$DEB_FILE" Package)"
-          APP_BIN="$(find /opt -type f -name opencluely -perm -111 -print -quit)"
+          APP_BIN="$(find /opt -type f -name cleverly -perm -111 -print -quit)"
           if [ -z "$APP_BIN" ] || [ ! -x "$APP_BIN" ]; then
-            echo "Could not find installed OpenCluely executable under /opt."
+            echo "Could not find installed Cleverly executable under /opt."
             dpkg -L "$PACKAGE_NAME"
             exit 1
           fi
           set +e
-          xvfb-run -a timeout --signal=TERM --kill-after=5s 20s "$APP_BIN" --no-sandbox --disable-gpu --user-data-dir=/tmp/opencluely-release-smoke
+          xvfb-run -a timeout --signal=TERM --kill-after=5s 20s "$APP_BIN" --no-sandbox --disable-gpu --user-data-dir=/tmp/cleverly-release-smoke
           APP_EXIT=$?
           set -e
           if [ "$APP_EXIT" -eq 124 ] || [ "$APP_EXIT" -eq 137 ] || [ "$APP_EXIT" -eq 143 ]; then
@@ -166,7 +166,7 @@ jobs:
         run: npm ci
 
       # electron-builder reads `version` from package.json for artifact
-      # naming (e.g. OpenCluely-1.0.0-x64.dmg). When we build from a
+      # naming (e.g. Cleverly-1.0.0-x64.dmg). When we build from a
       # git tag (v1.0.7) the package.json still says 1.0.0 by default,
       # so artifact names drift from the release tag. Sync them here.
       # `npm pkg set` is cross-platform and doesn't touch git.
@@ -342,7 +342,7 @@ jobs:
 
           | Platform | File | Notes |
           |---|---|---|
-          | **Windows** | `OpenCluely-Setup-*.exe` | NSIS installer — installs app + adds to Start Menu |
+          | **Windows** | `Cleverly-Setup-*.exe` | NSIS installer — installs app + adds to Start Menu |
           | **Linux** | `*.deb` | Debian/Ubuntu — auto-pulls system deps (Python, ffmpeg, GTK) |
           | **Linux** | `*.AppImage` | Universal — no install, just `chmod +x` and run |
           | **macOS** | `*.dmg` / `*.zip` | Intel and Apple Silicon builds; unsigned, so first launch may require approval in Privacy & Security |
@@ -395,9 +395,9 @@ jobs:
           # macOS DMG and ZIP are included as installable downloads.
           #
           # The order below is the order files appear in the release page.
-          find artifacts -type f -name 'OpenCluely-Setup-*.exe' \
+          find artifacts -type f -name 'Cleverly-Setup-*.exe' \
             -exec cp -v {} release/ \;
-          find artifacts -type f -name 'opencluely_*_amd64.deb' \
+          find artifacts -type f -name 'cleverly_*_amd64.deb' \
             -exec cp -v {} release/ \;
           find artifacts -type f -name '*.AppImage' \
             -exec cp -v {} release/ \;
