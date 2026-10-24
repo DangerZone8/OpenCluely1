@@ -75,7 +75,7 @@ function redactSensitiveSettings(settings) {
 // exhaust the X11 client limit, producing "Maximum number of clients reached".
 //
 // Disabling hardware acceleration and the GPU subprocess forces Chromium to
-// render via the CPU (SwiftShader). OpenCluely's UI is light enough that
+// render via the CPU (SwiftShader). Cleverly's UI is light enough that
 // this is imperceptible, and it eliminates the GPU crash entirely.
 if (process.platform === "linux") {
   app.disableHardwareAcceleration();
@@ -165,7 +165,7 @@ class ApplicationController {
 
     // Window configurations for reference
     this.windowConfigs = {
-      main: { title: "OpenCluely" },
+      main: { title: "Cleverly" },
       chat: { title: "Chat" },
       llmResponse: { title: "AI Response" },
       settings: { title: "Settings" },
@@ -181,8 +181,8 @@ class ApplicationController {
     }
 
     // Keep the real product identity visible so users can find the app.
-    if (app && typeof app.setName === 'function') app.setName("OpenCluely");
-    process.title = "OpenCluely";
+    if (app && typeof app.setName === 'function') app.setName("Cleverly");
+    process.title = "Cleverly";
 
     if (
       process.platform === "darwin" &&
@@ -244,8 +244,8 @@ class ApplicationController {
     this.starting = true;
 
     // Restore the real product identity at startup for discoverability.
-    app.setName("OpenCluely");
-    process.title = "OpenCluely";
+    app.setName("Cleverly");
+    process.title = "Cleverly";
 
     logger.info("Application starting", {
       version: config.get("app.version"),
@@ -282,7 +282,7 @@ class ApplicationController {
       await windowManager.initializeWindows({ showMainWindow: true });
       this.setupGlobalShortcuts();
 
-      // Keep the packaged OpenCluely identity and icon; do not disguise it.
+      // Keep the packaged Cleverly identity and icon; do not disguise it.
 
       this.starting = false;
       this.isReady = true;
@@ -337,7 +337,7 @@ class ApplicationController {
         this.isReady = true;
         try {
           await windowManager.showMainWindow();
-          logger.warn("Keeping OpenCluely open after a non-fatal startup error");
+          logger.warn("Keeping Cleverly open after a non-fatal startup error");
         } catch (showError) {
           logger.error("Could not recover main window after startup failure", {
             error: showError.message,
@@ -456,7 +456,7 @@ class ApplicationController {
         buttons.push("Cancel");
         const choice = await dialog.showMessageBox({
           type: "question",
-          title: "OpenCluely screen capture",
+          title: "Cleverly screen capture",
           message: "Choose the screen or window to capture.",
           buttons,
           cancelId: buttons.length - 1,
@@ -567,8 +567,8 @@ class ApplicationController {
     }
     const parentWindow = BrowserWindow.fromWebContents(event.sender);
     const result = await dialog.showSaveDialog(parentWindow || undefined, {
-      title: "Save OpenCluely screen recording",
-      defaultPath: path.join(app.getPath("videos"), `OpenCluely-Recording-${new Date().toISOString().replace(/[:.]/g, "-")}.webm`),
+      title: "Save Cleverly screen recording",
+      defaultPath: path.join(app.getPath("videos"), `Cleverly-Recording-${new Date().toISOString().replace(/[:.]/g, "-")}.webm`),
       buttonLabel: "Save recording",
       filters: [{ name: "WebM video", extensions: ["webm"] }]
     });
