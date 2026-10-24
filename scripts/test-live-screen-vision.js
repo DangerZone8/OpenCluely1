@@ -15,7 +15,8 @@ const image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AA
 
 async function main() {
   const expectedRevision = 'quota-guard-2026-10-22-a';
-  let revision = null;\n  let endpoint = null;
+  let revision = null;
+  let endpoint = null;
 
   // Poll with GET first. This endpoint responds 405 for GET but includes the
   // deployed revision header, allowing rollout checks without spending Gemini quota.
