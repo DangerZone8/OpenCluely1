@@ -1,7 +1,7 @@
 {
   "name": "opencluely",
   "version": "1.0.0",
-  "description": "AI Problem Solving Assistant",
+  "description": "Cleverly AI Desktop Assistant",
   "main": "main.js",
   "scripts": {
     "start": "node scripts/launch-electron.js",
@@ -49,7 +49,7 @@
   },
   "build": {
     "appId": "com.opencluely.app",
-    "productName": "OpenCluely",
+    "productName": "Cleverly",
     "directories": {
       "output": "dist"
     },
@@ -161,10 +161,10 @@
       "perMachine": false,
       "include": "scripts/post-install-nsis.nsh",
       "deleteAppDataOnUninstall": false,
-      "artifactName": "OpenCluely-Setup-${version}.${ext}"
+      "artifactName": "Cleverly-Setup-${version}.${ext}"
     },
     "dmg": {
-      "title": "OpenCluely Interview Assistant",
+      "title": "Cleverly AI Assistant",
       "backgroundColor": "#000000",
       "window": {
         "width": 600,
