@@ -9,7 +9,7 @@ class LLMService {
     this.model = null;
     this.isInitialized = false;
     this.remoteOnly = false;
-    this.remoteEndpoint = process.env.OPENCLUELY_AI_ENDPOINT || 'https://opencluely-iota.vercel.app/api/gemini';
+    this.remoteEndpoint = process.env.OPENCLUELY_AI_ENDPOINT || 'https://opencluelys.vercel.app/api/gemini';
     this.installationId = null;
     this.requestCount = 0;
     this.errorCount = 0;
@@ -92,9 +92,11 @@ class LLMService {
       this.remoteEndpoint,
       process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT
     ];
+    // Prefer the alias that has successfully served real Gemini requests. The
+    // iota alias has repeatedly returned 503 because its Production key is absent.
     const hostedEndpoints = [
-      'https://opencluely-iota.vercel.app/api/gemini',
-      'https://opencluelys.vercel.app/api/gemini'
+      'https://opencluelys.vercel.app/api/gemini',
+      'https://opencluely-iota.vercel.app/api/gemini'
     ];
     const isUsableHostedEndpoint = (value) => {
       if (typeof value !== 'string' || !value.trim()) return false;
