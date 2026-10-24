@@ -77,7 +77,10 @@ class LLMService {
   async executeRemoteRequest(geminiRequest, modelName = this.model) {
     // One hard deadline for the whole request. Do not let a dead Vercel alias
     // multiply the normal timeout by every endpoint and transport fallback.
-    const totalTimeout = Math.max(8000, Math.min(config.get('llm.gemini.timeout') || 15000, 18000));
+    // Gemini vision may legitimately take 10-15s; allow that once while still
+    // preventing multiple dead aliases from multiplying the wait indefinitely.
+    const configuredTimeout = config.get('llm.gemini.timeout') || 15000;
+    const totalTimeout = Math.max(20000, Math.min(configuredTimeout * 2, 30000));
     const deadline = Date.now() + totalTimeout;
     const payload = JSON.stringify({ model: modelName, request: geminiRequest });
     const headers = {
@@ -173,7 +176,7 @@ class LLMService {
       if (remaining <= 0) break;
       // Keep any one alias from monopolizing the UI. The HTTPS fallback shares
       // the same per-endpoint budget rather than receiving another full timeout.
-      const endpointBudget = Math.min(5000, remaining);
+      const endpointBudget = Math.min(configuredTimeout, remaining);
       const endpointDeadline = Date.now() + endpointBudget;
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), endpointBudget);
@@ -185,7 +188,7 @@ class LLMService {
           });
         } catch (error) {
           clearTimeout(timer);
-          const fallbackBudget = Math.min(3000, endpointDeadline - Date.now(), deadline - Date.now());
+          const fallbackBudget = Math.min(2500, endpointDeadline - Date.now(), deadline - Date.now());
           if (fallbackBudget <= 0) {
             networkFailures.push(new URL(endpoint).host + ': connection timed out');
             continue;
