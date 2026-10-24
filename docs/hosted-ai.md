@@ -1,6 +1,6 @@
 # Hosted AI service configuration
 
-OpenCluely's desktop app can use the hosted Gemini proxy at:
+Cleverly's desktop app can use the hosted Gemini proxy at:
 
 `https://opencluely-iota.vercel.app/api/gemini`
 
@@ -18,6 +18,6 @@ Without this variable, the endpoint returns HTTP 503 and the app reports that th
 - Allows only the model IDs configured in `api/gemini.js`.
 - Limits JSON payloads to 4 MiB and applies per-IP/per-installation request limits.
 - Never returns the provider key to the desktop client.
-- Sends request content to the OpenCluely-hosted endpoint and Google Gemini. Users should not submit passwords or other sensitive information.
+- Sends request content to the Cleverly-hosted endpoint and Google Gemini. Users should not submit passwords or other sensitive information.
 
 The current in-memory rate limits are best-effort protection for a small deployment, not durable abuse prevention: serverless instances can restart or scale independently. Before promoting the proxy to a broad public release, use a durable rate-limit store and stronger account/device authentication, and configure spending quotas/alerts in Google AI Studio or Google Cloud.
