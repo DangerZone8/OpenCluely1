@@ -75,17 +75,16 @@ class LLMService {
   }
 
   async executeRemoteRequest(geminiRequest, modelName = this.model) {
-    const timeout = config.get('llm.gemini.timeout') || 30000;
+    // One hard deadline for the whole request. Do not let a dead Vercel alias
+    // multiply the normal timeout by every endpoint and transport fallback.
+    const totalTimeout = Math.max(8000, Math.min(config.get('llm.gemini.timeout') || 15000, 18000));
+    const deadline = Date.now() + totalTimeout;
     const payload = JSON.stringify({ model: modelName, request: geminiRequest });
     const headers = {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(payload),
       'x-opencluely-install-id': this.getRemoteInstallationId()
     };
-    // Alternate hosts are used only for connection failures. An HTTP response,
-    // especially 429, is authoritative and must never fan out to another host.
-    // Never let a stale local development URL disable AI in a packaged build.
-    // Hosted AI must remain reachable even if .env contains localhost/127.0.0.1.
     const configuredEndpoints = [
       this.remoteEndpoint,
       process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT
@@ -107,9 +106,9 @@ class LLMService {
     const endpoints = [...new Set([
       ...configuredEndpoints.filter(isUsableHostedEndpoint),
       ...hostedEndpoints
-    ])];
+    ])].slice(0, 3);
 
-    const parseResponse = async (status, rawBody) => {
+    const parseResponse = (status, rawBody) => {
       let result = {};
       try { result = JSON.parse(rawBody); } catch {}
       if (status < 200 || status >= 300) {
@@ -128,7 +127,7 @@ class LLMService {
       return result.text.trim();
     };
 
-    const useHttpsFallback = (endpoint, primaryError) => new Promise((resolve, reject) => {
+    const useHttpsFallback = (endpoint, primaryError, timeoutMs) => new Promise((resolve, reject) => {
       const https = require('https');
       let url;
       try { url = new URL(endpoint); } catch {
@@ -139,7 +138,7 @@ class LLMService {
         reject(new Error('Hosted Cleverly AI endpoint must use HTTPS.'));
         return;
       }
-      const req = https.request(url, { method: 'POST', headers, timeout }, (res) => {
+      const req = https.request(url, { method: 'POST', headers, timeout: timeoutMs }, (res) => {
         const chunks = [];
         let size = 0;
         res.on('data', (chunk) => {
@@ -150,8 +149,8 @@ class LLMService {
           }
           chunks.push(chunk);
         });
-        res.on('end', async () => {
-          try { resolve(await parseResponse(res.statusCode || 0, Buffer.concat(chunks).toString('utf8'))); }
+        res.on('end', () => {
+          try { resolve(parseResponse(res.statusCode || 0, Buffer.concat(chunks).toString('utf8'))); }
           catch (error) { reject(error); }
         });
         res.on('error', reject);
@@ -161,7 +160,7 @@ class LLMService {
         const cause = primaryError && (primaryError.cause?.code || primaryError.cause?.message);
         const fallbackCause = fallbackError && (fallbackError.code || fallbackError.message);
         const error = new Error('Could not connect to hosted Cleverly AI at ' + url.host +
-          '. Check network/firewall/VPN. Network details: ' + String(fallbackCause || cause || 'connection failed'));
+          '. Network details: ' + String(fallbackCause || cause || 'connection failed'));
         error.cause = fallbackError;
         reject(error);
       });
@@ -170,44 +169,50 @@ class LLMService {
 
     const networkFailures = [];
     for (const endpoint of endpoints) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
+      // Keep any one alias from monopolizing the UI. The HTTPS fallback shares
+      // the same per-endpoint budget rather than receiving another full timeout.
+      const endpointBudget = Math.min(5000, remaining);
+      const endpointDeadline = Date.now() + endpointBudget;
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeout);
+      const timer = setTimeout(() => controller.abort(), endpointBudget);
       try {
         let response;
         try {
-          response = await fetch(endpoint, { method: 'POST', headers, body: payload, signal: controller.signal });
+          response = await fetch(endpoint, {
+            method: 'POST', headers, body: payload, signal: controller.signal
+          });
         } catch (error) {
-          if (error.name === 'AbortError') throw new Error('Hosted Cleverly AI request timed out.');
-          try { return await useHttpsFallback(endpoint, error); }
-          catch (fallbackError) {
-            // A hosted deployment can be reachable but misconfigured (503) or
-            // temporarily unhealthy (5xx). Try the next known host in those cases.
-            // Do not fan out on quota exhaustion (429) or client/auth errors.
+          clearTimeout(timer);
+          const fallbackBudget = Math.min(3000, endpointDeadline - Date.now(), deadline - Date.now());
+          if (fallbackBudget <= 0) {
+            networkFailures.push(new URL(endpoint).host + ': connection timed out');
+            continue;
+          }
+          try {
+            return await useHttpsFallback(endpoint, error, fallbackBudget);
+          } catch (fallbackError) {
             if (fallbackError.isHostedResponseError) {
               if (fallbackError.statusCode >= 500 && fallbackError.statusCode !== 429) {
-                let host = endpoint;
-                try { host = new URL(endpoint).host; } catch {}
-                networkFailures.push(host + ': HTTP ' + fallbackError.statusCode + ' from hosted AI endpoint');
+                networkFailures.push(new URL(endpoint).host + ': HTTP ' + fallbackError.statusCode);
                 continue;
               }
               throw fallbackError;
             }
-            let host = endpoint;
-            try { host = new URL(endpoint).host; } catch {}
-            networkFailures.push(host + ': ' + fallbackError.message);
+            networkFailures.push(new URL(endpoint).host + ': ' + fallbackError.message);
             continue;
           }
         }
+
         const responseBody = await response.text();
         try {
-          return await parseResponse(response.status, responseBody);
+          return parseResponse(response.status, responseBody);
         } catch (error) {
-          // A 503 from one Vercel alias must not prevent trying a healthy alias.
-          // Preserve authoritative client errors and never retry/fan out on 429.
+          // 5xx is a server/deployment problem: try the next alias. A 429 or
+          // any other client error is authoritative and must not fan out.
           if (response.status >= 500 && response.status !== 429) {
-            let host = endpoint;
-            try { host = new URL(endpoint).host; } catch {}
-            networkFailures.push(host + ': HTTP ' + response.status + ' from hosted AI endpoint');
+            networkFailures.push(new URL(endpoint).host + ': HTTP ' + response.status);
             continue;
           }
           throw error;
@@ -216,7 +221,10 @@ class LLMService {
         clearTimeout(timer);
       }
     }
-    throw new Error('Could not connect to any hosted Cleverly AI endpoint. ' + networkFailures.join(' | '));
+    if (Date.now() >= deadline) {
+      throw new Error('Hosted Cleverly AI timed out after ' + totalTimeout + 'ms across all endpoints. ' + networkFailures.join(' | '));
+    }
+    throw new Error('Could not connect to a healthy hosted Cleverly AI endpoint. ' + networkFailures.join(' | '));
   }
 
   getGenerationConfig(overrides = {}) {
