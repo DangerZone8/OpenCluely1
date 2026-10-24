@@ -144,7 +144,7 @@ module.exports = async function handler(req, res) {
           if (text) return respond(res, 200, { text, model: candidate });
           lastFailure = { status: 502, code: 'EMPTY_RESPONSE', message: 'The model returned no text.' };
           tryAnotherModel = true;
-          break;
+          continue;
         }
 
         const providerCode = typeof result.error?.status === 'string' ? result.error.status : '';
@@ -170,7 +170,7 @@ module.exports = async function handler(req, res) {
         if (providerCode === 'INVALID_ARGUMENT') {
           lastFailure = { status: upstream.status, code: providerCode, message: lastFailure.message };
           tryAnotherModel = true;
-          break;
+          continue;
         }
         // Authentication and other malformed-request errors won't improve on retry.
         if (!transient) {
