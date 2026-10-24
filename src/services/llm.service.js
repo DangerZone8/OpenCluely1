@@ -89,8 +89,8 @@ class LLMService {
       'x-opencluely-install-id': this.getRemoteInstallationId()
     };
     const configuredEndpoints = [
-      this.remoteEndpoint,
-      process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT
+      process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT,
+      this.remoteEndpoint
     ];
     // Always try the known-good production alias first. A stale or locally
     // overridden OPENCLUELY_AI_ENDPOINT must never send a packaged desktop app
