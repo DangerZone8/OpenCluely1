@@ -7,8 +7,8 @@
 Real-time AI help on a stealth overlay that screen sharing cannot see. Ask by voice or screenshot, and get clear answers that stream in as you need them.
 
 <p>
-  <a href="https://github.com/DangerZone8/OpenCluely1/releases/latest"><img src="https://img.shields.io/github/v/release/DangerZone8/Cleverly1?style=for-the-badge&label=Latest&color=111111&labelColor=000000" alt="Latest release" /></a>
-  <a href="https://github.com/DangerZone8/OpenCluely1/releases"><img src="https://img.shields.io/github/downloads/DangerZone8/Cleverly1/total?style=for-the-badge&color=111111&labelColor=000000" alt="Downloads" /></a>
+  <a href="https://github.com/DangerZone8/OpenCluely1/releases/latest"><img src="https://img.shields.io/github/v/release/DangerZone8/OpenCluely1?style=for-the-badge&label=Latest&color=111111&labelColor=000000" alt="Latest release" /></a>
+  <a href="https://github.com/DangerZone8/OpenCluely1/releases"><img src="https://img.shields.io/github/downloads/DangerZone8/OpenCluely1/total?style=for-the-badge&color=111111&labelColor=000000" alt="Downloads" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-111111?style=for-the-badge&labelColor=000000" alt="Apache 2.0 License" /></a>
   <img src="https://img.shields.io/badge/Platforms-Windows%20%7C%20macOS%20%7C%20Linux-111111?style=for-the-badge&labelColor=000000" alt="Platforms" />
 </p>
