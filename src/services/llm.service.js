@@ -27,7 +27,7 @@ class LLMService {
       this.model = config.get('llm.gemini.model');
       this.remoteOnly = true;
       this.isInitialized = true;
-      logger.info('No local Gemini key found; using the hosted OpenCluely AI service.');
+      logger.info('No local Gemini key found; using the hosted Cleverly AI service.');
       return;
     }
 
@@ -1731,9 +1731,9 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
           contents: [{ role: 'user', parts: [{ text: 'Reply with OK.' }] }],
           generationConfig: this.getGenerationConfig({ temperature: 0, maxOutputTokens: 32 })
         });
-        return { success: true, response, latency: Date.now() - startTime, model: this.model, provider: 'OpenCluely hosted AI service' };
+        return { success: true, response, latency: Date.now() - startTime, model: this.model, provider: 'Cleverly hosted AI service' };
       } catch (error) {
-        return { success: false, error: error.message, provider: 'OpenCluely hosted AI service' };
+        return { success: false, error: error.message, provider: 'Cleverly hosted AI service' };
       }
     }
 
