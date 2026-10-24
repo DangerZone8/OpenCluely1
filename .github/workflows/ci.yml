@@ -113,7 +113,7 @@ jobs:
           test -n "$DEB_FILE"
           sudo apt-get install -y "./$DEB_FILE"
           PACKAGE_NAME="$(dpkg-deb -f "$DEB_FILE" Package)"
-          APP_BIN="$(find /opt -type f -name opencluely -perm -111 -print -quit)"
+          APP_BIN="$(find /opt -type f -name cleverly -perm -111 -print -quit)"
           test -n "$APP_BIN"
           test -x "$APP_BIN"
           set +e
