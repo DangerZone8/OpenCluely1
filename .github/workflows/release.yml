@@ -76,7 +76,7 @@ jobs:
 
   preflight:
     needs: [test]
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
     name: Install and smoke-test packaged app
     runs-on: ubuntu-latest
     steps:
@@ -129,7 +129,7 @@ jobs:
 
   build:
     needs: [test]
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
