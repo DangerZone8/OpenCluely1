@@ -523,11 +523,21 @@ class LLMService {
     }
   }
 
+  isCleverlyIdentityQuestion(text) {
+    const question = String(text || '').toLowerCase().replace(/[’]/g, "'").trim();
+    return /\b(?:what(?:'s| is) your name|tell me your name|say your name|remind me (?:of )?your name|who are you|who am i talking to|what should i call you|what can i call you|are you called [^?!.]+|is your name [^?!.]+|what(?:'s| is) the name of (?:you|this ai|this assistant)|introduce yourself)\b/.test(question);
+  }
+
   /** General-purpose chat without the selected skill's specialized prompt. */
   async processGeneralAssistantStream(text, sessionMemory = [], onDelta = null) {
     if (!this.isInitialized) throw new Error('LLM service not initialized. Check Gemini API key configuration.');
     const startTime = Date.now();
     this.requestCount++;
+    if (this.isCleverlyIdentityQuestion(text)) {
+      const response = "I'm Cleverly, your AI assistant.";
+      if (typeof onDelta === 'function') onDelta(response);
+      return { response, metadata: { skill: 'general', programmingLanguage: null, processingTime: Date.now() - startTime, requestId: this.requestCount, usedFallback: false, streamed: true, identityResponse: true } };
+    }
     const history = Array.isArray(sessionMemory) ? sessionMemory : [];
     const contents = history
       .filter((entry) => entry && ['user', 'model', 'assistant'].includes(entry.role) && typeof entry.content === 'string' && entry.content.trim())
