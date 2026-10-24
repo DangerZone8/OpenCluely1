@@ -65,29 +65,29 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $app = Join-Path $PWD 'dist/win-unpacked/OpenCluely.exe'
+          $app = Join-Path $PWD 'dist/win-unpacked/Cleverly.exe'
           if (-not (Test-Path $app)) {
             throw "Packaged executable not found: $app"
           }
-          $userData = Join-Path $env:TEMP 'opencluely-windows-smoke'
+          $userData = Join-Path $env:TEMP 'cleverly-windows-smoke'
           if (Test-Path $userData) { Remove-Item $userData -Recurse -Force }
           $proc = Start-Process -FilePath $app -ArgumentList @('--disable-gpu', "--user-data-dir=$userData", '--remote-debugging-port=9222') -PassThru
           Start-Sleep -Seconds 15
           $proc.Refresh()
           if ($proc.HasExited) {
-            throw "OpenCluely exited during the 15-second Windows launch smoke test (exit code $($proc.ExitCode))."
+            throw "Cleverly exited during the 15-second Windows launch smoke test (exit code $($proc.ExitCode))."
           }
           # electron-builder can launch a bootstrap process that has no native
           # window handle; inspect all app processes instead of only that parent.
           $visibleApp = $null
           for ($attempt = 0; $attempt -lt 10 -and -not $visibleApp; $attempt++) {
-            $visibleApp = Get-Process -Name 'OpenCluely' -ErrorAction SilentlyContinue |
+            $visibleApp = Get-Process -Name 'Cleverly' -ErrorAction SilentlyContinue |
               Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero -and -not [string]::IsNullOrWhiteSpace($_.MainWindowTitle) } |
               Select-Object -First 1
             if (-not $visibleApp) { Start-Sleep -Seconds 1 }
           }
           if (-not $visibleApp) {
-            throw "OpenCluely stayed running but no OpenCluely process exposed a visible main window after 25 seconds."
+            throw "OpenCluely stayed running but no Cleverly process exposed a visible main window after 25 seconds."
           }
           Write-Host "PASS: packaged app exposed a visible window: $($visibleApp.MainWindowTitle)"
           node scripts/test-chat-ui-live.js
@@ -109,7 +109,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          DEB_FILE="$(find dist -maxdepth 1 -type f -name 'opencluely_*_amd64.deb' -print -quit)"
+          DEB_FILE="$(find dist -maxdepth 1 -type f -name 'cleverly_*_amd64.deb' -print -quit)"
           test -n "$DEB_FILE"
           sudo apt-get install -y "./$DEB_FILE"
           PACKAGE_NAME="$(dpkg-deb -f "$DEB_FILE" Package)"
@@ -117,7 +117,7 @@ jobs:
           test -n "$APP_BIN"
           test -x "$APP_BIN"
           set +e
-          xvfb-run -a timeout --signal=TERM --kill-after=5s 20s "$APP_BIN" --no-sandbox --disable-gpu --user-data-dir=/tmp/opencluely-installed-smoke
+          xvfb-run -a timeout --signal=TERM --kill-after=5s 20s "$APP_BIN" --no-sandbox --disable-gpu --user-data-dir=/tmp/cleverly-installed-smoke
           APP_EXIT=$?
           set -e
           if [ "$APP_EXIT" -eq 124 ] || [ "$APP_EXIT" -eq 137 ] || [ "$APP_EXIT" -eq 143 ]; then
