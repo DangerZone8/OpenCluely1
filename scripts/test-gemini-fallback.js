@@ -60,6 +60,16 @@ async function main() {
   assert.equal(new Set(failed).size, 2, 'proxy must use distinct fallback models');
   assert.equal(exhausted.body.providerCode, 'UNAVAILABLE');
   console.log('PASS: proxy attempts at most two distinct models before returning a bounded-time safe error.');
+  const networkCalls = [];
+  const networkFailed = await invoke(async url => {
+    networkCalls.push(decodeURIComponent(url.match(/models\/([^:]+)/)[1]));
+    throw new TypeError('fetch failed');
+  });
+  assert.equal(networkFailed.status, 502);
+  assert.equal(networkCalls.length, 1, 'network failure must not waste the remaining deadline trying other model IDs');
+  assert.equal(networkFailed.body.providerCode, 'NETWORK_OR_TIMEOUT');
+  console.log('PASS: provider network failure stops after one request instead of serially timing out on fallback models.');
+
   const quotaCalls = [];
   const quotaExhausted = await invoke(async url => {
     quotaCalls.push(decodeURIComponent(url.match(/models\/([^:]+)/)[1]));
