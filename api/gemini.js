@@ -167,7 +167,9 @@ module.exports = async function handler(req, res) {
           retryAfterSeconds: 3600
         });
       }
-      if (providerCode === 'INVALID_ARGUMENT') {
+      if (providerCode === 'INVALID_ARGUMENT' || providerCode === 'NOT_FOUND' || providerCode === 'MODEL_NOT_FOUND') {
+        // A retired or unavailable model name is model-specific, not a reason
+        // to fail the entire request when a supported fallback remains.
         lastFailure = { status: upstream.status, code: providerCode, message: lastFailure.message };
         tryAnotherModel = true;
         continue;
