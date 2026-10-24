@@ -134,7 +134,7 @@ module.exports = async function handler(req, res) {
           generationConfig: request.generationConfig || {},
           ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
         }),
-        signal: AbortSignal.timeout(Math.min(4500, remainingMs))
+        signal: AbortSignal.timeout(Math.min(8000, remainingMs))
       });
       const result = await upstream.json().catch(() => ({}));
       if (upstream.ok) {
@@ -185,7 +185,9 @@ module.exports = async function handler(req, res) {
       tryAnotherModel = true;
     } catch (error) {
       lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
-      tryAnotherModel = true;
+      // A timeout/network failure is shared by all model IDs. Do not spend the
+      // remaining deadline retrying the same unreachable provider host.
+      break;
     }
     if (!tryAnotherModel) break;
   }
