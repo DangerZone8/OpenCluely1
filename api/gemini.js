@@ -142,7 +142,7 @@ module.exports = async function handler(req, res) {
           .flatMap(item => item.content && Array.isArray(item.content.parts) ? item.content.parts : [])
           .map(part => typeof part.text === 'string' ? part.text : '')
           .filter(Boolean)
-          .join('\\n')
+          .join('\n')
           .trim();
         if (text) return respond(res, 200, { text, model: candidate });
         lastFailure = { status: 502, code: 'EMPTY_RESPONSE', message: 'The model returned no text.' };
