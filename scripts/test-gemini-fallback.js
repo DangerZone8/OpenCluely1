@@ -7,12 +7,12 @@ const originalKey = process.env.GEMINI_API_KEY;
 function response() {
   return { statusCode: 200, headers: {}, setHeader(k,v) { this.headers[k.toLowerCase()] = v; }, end(body) { this.body = body; } };
 }
-async function invoke(fetchImpl) {
+async function invoke(fetchImpl, includeImage = true) {
   global.fetch = fetchImpl;
   const res = response();
   await handler({ method: 'POST', headers: { 'content-length': '100', 'x-opencluely-install-id': crypto.randomUUID() }, body: {
     model: 'gemini-3.5-flash-lite',
-    request: { contents: [{ role: 'user', parts: [{ text: 'Describe this image' }, { inlineData: { mimeType: 'image/png', data: 'aGVsbG8=' } }] }] }
+    request: { contents: [{ role: 'user', parts: [{ text: includeImage ? 'Describe this image' : 'Reply briefly to this text chat test.' }, ...(includeImage ? [{ inlineData: { mimeType: 'image/png', data: 'aGVsbG8=' } }] : [])] }] }
   } }, res);
   return { status: res.statusCode, body: JSON.parse(res.body) };
 }
@@ -69,6 +69,16 @@ async function main() {
   assert.equal(networkCalls.length, 1, 'network failure must not waste the remaining deadline trying other model IDs');
   assert.equal(networkFailed.body.providerCode, 'NETWORK_OR_TIMEOUT');
   console.log('PASS: provider network failure stops after one request instead of serially timing out on fallback models.');
+
+  const textCalls = [];
+  const fastText = await invoke(async url => {
+    textCalls.push(decodeURIComponent(url.match(/models\\/([^:]+)/)[1]));
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'FAST_TEXT_OK' }] } }] }) };
+  }, false);
+  assert.equal(fastText.status, 200);
+  assert.equal(fastText.body.text, 'FAST_TEXT_OK');
+  assert.equal(textCalls.length, 1, 'ordinary chat must use one fast-model request without serial fallback');
+  console.log('PASS: ordinary text chat uses one fast-model request; screen vision keeps bounded fallback.');
 
   const quotaCalls = [];
   const quotaExhausted = await invoke(async url => {
