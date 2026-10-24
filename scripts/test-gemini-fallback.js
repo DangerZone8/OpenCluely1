@@ -72,7 +72,7 @@ async function main() {
 
   const textCalls = [];
   const fastText = await invoke(async url => {
-    textCalls.push(decodeURIComponent(url.match(/models\\/([^:]+)/)[1]));
+    textCalls.push(decodeURIComponent(url.match(/models\/([^:]+)/)[1]));
     return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'FAST_TEXT_OK' }] } }] }) };
   }, false);
   assert.equal(fastText.status, 200);
