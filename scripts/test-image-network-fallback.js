@@ -68,7 +68,7 @@ async function main() {
     const endpointCalls = [];
     global.fetch = async (url) => {
       endpointCalls.push(String(url));
-      if (String(url).includes('opencluelys.vercel.app') || String(url).includes('misconfigured.example')) {
+      if (String(url).includes('opencluelys.vercel.app') || String(url).includes('opencluely-iota.vercel.app') || String(url).includes('misconfigured.example')) {
         return {
           status: 503,
           headers: { get: () => 'quota-guard-2026-10-22-a' },
@@ -91,14 +91,14 @@ async function main() {
       assert.equal(hostedResponse, 'Fallback host works.');
       assert.deepEqual(endpointCalls, [
         'https://opencluelys.vercel.app/api/gemini',
-        'https://misconfigured.example/api/gemini',
+        'https://opencluely-iota.vercel.app/api/gemini',
         'https://healthy.example/api/gemini'
       ]);
     } finally {
       global.fetch = originalFetch;
     }
 
-    console.log('PASS: hosted AI falls back to a healthy alias after a misconfigured alias returns HTTP 503.');
+    console.log('PASS: hosted AI tries both known production aliases before a configured healthy fallback.');
     console.log('PASS: image requests fall back to hosted vision proxy after direct Gemini fetch failures (streaming and non-streaming).');
   } finally {
     llm.remoteOnly = saved.remoteOnly;
