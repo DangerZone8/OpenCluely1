@@ -82,88 +82,98 @@ class LLMService {
       'Content-Length': Buffer.byteLength(payload),
       'x-opencluely-install-id': this.getRemoteInstallationId()
     };
+    // Alternate hosts are used only for connection failures. An HTTP response,
+    // especially 429, is authoritative and must never fan out to another host.
+    const endpoints = [...new Set([
+      this.remoteEndpoint,
+      process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT,
+      'https://opencluelys.vercel.app/api/gemini'
+    ].filter(value => typeof value === 'string' && value.trim()))];
 
     const parseResponse = async (status, rawBody) => {
       let result = {};
       try { result = JSON.parse(rawBody); } catch {}
       if (status < 200 || status >= 300) {
-        throw new Error(typeof result.error === 'string'
+        const error = new Error(typeof result.error === 'string'
           ? result.error
-          : 'Hosted OpenCluely AI request failed (' + status + ').');
+          : 'Hosted Cleverly AI request failed (' + status + ').');
+        error.isHostedResponseError = true;
+        error.statusCode = status;
+        throw error;
       }
       if (typeof result.text !== 'string' || !result.text.trim()) {
-        throw new Error('Hosted OpenCluely AI returned an empty response.');
+        const error = new Error('Hosted Cleverly AI returned an empty response.');
+        error.isHostedResponseError = true;
+        throw error;
       }
       return result.text.trim();
     };
 
-    const useHttpsFallback = (primaryError) => new Promise((resolve, reject) => {
+    const useHttpsFallback = (endpoint, primaryError) => new Promise((resolve, reject) => {
       const https = require('https');
       let url;
-      try { url = new URL(this.remoteEndpoint); } catch {
-        reject(new Error('Hosted OpenCluely AI endpoint URL is invalid.'));
+      try { url = new URL(endpoint); } catch {
+        reject(new Error('Hosted Cleverly AI endpoint URL is invalid.'));
         return;
       }
       if (url.protocol !== 'https:') {
-        reject(new Error('Hosted OpenCluely AI endpoint must use HTTPS.'));
+        reject(new Error('Hosted Cleverly AI endpoint must use HTTPS.'));
         return;
       }
-      const req = https.request(url, {
-        method: 'POST',
-        headers,
-        timeout
-      }, (res) => {
+      const req = https.request(url, { method: 'POST', headers, timeout }, (res) => {
         const chunks = [];
         let size = 0;
         res.on('data', (chunk) => {
           size += chunk.length;
           if (size > 1024 * 1024) {
-            req.destroy(new Error('Hosted OpenCluely AI response exceeded the 1 MB limit.'));
+            req.destroy(new Error('Hosted Cleverly AI response exceeded the 1 MB limit.'));
             return;
           }
           chunks.push(chunk);
         });
         res.on('end', async () => {
-          try {
-            resolve(await parseResponse(res.statusCode || 0, Buffer.concat(chunks).toString('utf8')));
-          } catch (error) { reject(error); }
+          try { resolve(await parseResponse(res.statusCode || 0, Buffer.concat(chunks).toString('utf8'))); }
+          catch (error) { reject(error); }
         });
         res.on('error', reject);
       });
-      req.on('timeout', () => req.destroy(new Error('Hosted OpenCluely AI request timed out.')));
+      req.on('timeout', () => req.destroy(new Error('Hosted Cleverly AI request timed out.')));
       req.on('error', (fallbackError) => {
         const cause = primaryError && (primaryError.cause?.code || primaryError.cause?.message);
         const fallbackCause = fallbackError && (fallbackError.code || fallbackError.message);
-        reject(new Error('Could not connect to the hosted OpenCluely AI service. Check your internet connection, firewall, or VPN and try again.' +
-          (cause || fallbackCause ? ' Network details: ' + String(fallbackCause || cause) : '')));
+        const error = new Error('Could not connect to hosted Cleverly AI at ' + url.host +
+          '. Check network/firewall/VPN. Network details: ' + String(fallbackCause || cause || 'connection failed'));
+        error.cause = fallbackError;
+        reject(error);
       });
       req.end(payload);
     });
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
-    try {
-      let response;
+    const networkFailures = [];
+    for (const endpoint of endpoints) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
       try {
-        response = await fetch(this.remoteEndpoint, {
-          method: 'POST',
-          headers,
-          body: payload,
-          signal: controller.signal
-        });
-      } catch (error) {
-        if (error.name === 'AbortError') {
-          throw new Error('Hosted OpenCluely AI timed out. Please try again.');
+        let response;
+        try {
+          response = await fetch(endpoint, { method: 'POST', headers, body: payload, signal: controller.signal });
+        } catch (error) {
+          if (error.name === 'AbortError') throw new Error('Hosted Cleverly AI request timed out.');
+          try { return await useHttpsFallback(endpoint, error); }
+          catch (fallbackError) {
+            if (fallbackError.isHostedResponseError) throw fallbackError;
+            let host = endpoint;
+            try { host = new URL(endpoint).host; } catch {}
+            networkFailures.push(host + ': ' + fallbackError.message);
+            continue;
+          }
         }
-        // Some packaged Electron/Node builds fail through undici's fetch even
-        // when the platform HTTPS stack can connect. Retry once via native HTTPS.
-        return await useHttpsFallback(error);
+        return await parseResponse(response.status, await response.text());
+      } finally {
+        clearTimeout(timer);
       }
-      const rawBody = await response.text();
-      return await parseResponse(response.status, rawBody);
-    } finally {
-      clearTimeout(timer);
     }
+    throw new Error('Could not connect to any hosted Cleverly AI endpoint. ' + networkFailures.join(' | '));
   }
 
   getGenerationConfig(overrides = {}) {
@@ -531,7 +541,7 @@ class LLMService {
       contents.push({ role: 'user', parts: [{ text: String(text) }] });
     }
     const request = {
-      systemInstruction: { parts: [{ text: "You are OpenCluely, a helpful general-purpose AI assistant. Respond naturally to everyday conversation, writing, explanations, brainstorming, technology, and programming questions. Do not assume every message is a data-structures-and-algorithms problem. Only provide code when relevant. Respond conversationally to greetings and informal phrases. Use the conversation history to understand follow-up questions, avoid repeating questions already answered, and maintain context." }] },
+      systemInstruction: { parts: [{ text: "You are Cleverly, the AI assistant. If asked your name directly or indirectly, identify yourself as Cleverly and never as OpenCluely. Respond naturally to everyday conversation, writing, explanations, brainstorming, technology, and programming questions. Do not assume every message is a data-structures-and-algorithms problem. Only provide code when relevant. Respond conversationally to greetings and informal phrases. Use the conversation history to understand follow-up questions, avoid repeating questions already answered, and maintain context." }] },
       contents
     };
     this.applyGenerationDefaults(request);
@@ -1439,7 +1449,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
    */
   async analyzeScreenFrame(imageBuffer, mimeType = 'image/jpeg', instruction = '') {
     if (!this.isInitialized) {
-      throw new Error('OpenCluely AI is unavailable. Please try again later.');
+      throw new Error('Cleverly AI is unavailable. Please try again later.');
     }
     if (!Buffer.isBuffer(imageBuffer) || imageBuffer.length === 0) {
       throw new TypeError('Screen image data is empty or invalid.');
@@ -1451,7 +1461,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
       throw new Error('Unsupported screen image format: ' + mimeType);
     }
     const request = {
-      systemInstruction: { parts: [{ text: 'You are OpenCluely, a real-time visual assistant. Carefully inspect the supplied current screen frame. Describe only relevant visible content, answer visible questions when possible, and do not claim to see anything outside the image. In live mode, mention meaningful changes and avoid repeating the same generic description.' }] },
+      systemInstruction: { parts: [{ text: 'You are Cleverly, a real-time visual assistant. Carefully inspect the supplied current screen frame. Describe only relevant visible content, answer visible questions when possible, and do not claim to see anything outside the image. In live mode, mention meaningful changes and avoid repeating the same generic description.' }] },
       contents: [{
         role: 'user',
         parts: [
@@ -1473,7 +1483,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
    */
   async processAudioWithGemini(audioBuffer, mimeType = 'audio/webm') {
     if (!this.isInitialized) {
-      throw new Error('OpenCluely AI is unavailable. Please try again later.');
+      throw new Error('Cleverly AI is unavailable. Please try again later.');
     }
     if (!Buffer.isBuffer(audioBuffer) || audioBuffer.length === 0) {
       throw new TypeError('Audio data is empty or invalid.');
