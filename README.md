@@ -1,14 +1,14 @@
 <div align="center">
 
-# OpenCluely
+# Cleverly
 
 **The invisible AI interview copilot.**
 
 Real-time AI help on a stealth overlay that screen sharing cannot see. Ask by voice or screenshot, and get clear answers that stream in as you need them.
 
 <p>
-  <a href="https://github.com/DangerZone8/OpenCluely1/releases/latest"><img src="https://img.shields.io/github/v/release/DangerZone8/OpenCluely1?style=for-the-badge&label=Latest&color=111111&labelColor=000000" alt="Latest release" /></a>
-  <a href="https://github.com/DangerZone8/OpenCluely1/releases"><img src="https://img.shields.io/github/downloads/DangerZone8/OpenCluely1/total?style=for-the-badge&color=111111&labelColor=000000" alt="Downloads" /></a>
+  <a href="https://github.com/DangerZone8/Cleverly1/releases/latest"><img src="https://img.shields.io/github/v/release/DangerZone8/Cleverly1?style=for-the-badge&label=Latest&color=111111&labelColor=000000" alt="Latest release" /></a>
+  <a href="https://github.com/DangerZone8/Cleverly1/releases"><img src="https://img.shields.io/github/downloads/DangerZone8/Cleverly1/total?style=for-the-badge&color=111111&labelColor=000000" alt="Downloads" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-111111?style=for-the-badge&labelColor=000000" alt="Apache 2.0 License" /></a>
   <img src="https://img.shields.io/badge/Platforms-Windows%20%7C%20macOS%20%7C%20Linux-111111?style=for-the-badge&labelColor=000000" alt="Platforms" />
 </p>
@@ -26,7 +26,7 @@ https://github.com/user-attachments/assets/896a7140-1e85-405d-bfbe-e05c9f3a816b
 
 ## What it is
 
-OpenCluely is a desktop app for technical interviews and practice. It places a small overlay on your screen that recording and conferencing tools do not capture. You can speak a question or take a screenshot, and the AI answers in real time. The answer streams into a floating window and an optional chat panel, with clean code blocks and syntax highlighting.
+Cleverly is a desktop app for technical interviews and practice. It places a small overlay on your screen that recording and conferencing tools do not capture. You can speak a question or take a screenshot, and the AI answers in real time. The answer streams into a floating window and an optional chat panel, with clean code blocks and syntax highlighting.
 
 It is free and open source. Processing stays on your machine, and the only thing that leaves your device is the request you send to the AI provider.
 
@@ -49,11 +49,11 @@ Pre-built installers are published with every release. These links always point 
 
 | Platform | File | Notes |
 |---|---|---|
-| Windows | [Setup .exe](https://github.com/DangerZone8/OpenCluely1/releases/latest) | NSIS installer. Adds a Start Menu shortcut. |
-| Linux (Debian or Ubuntu) | [.deb](https://github.com/DangerZone8/OpenCluely1/releases/latest) | Pulls system deps automatically (Python, ffmpeg, GTK). |
-| Linux (universal) | [.AppImage](https://github.com/DangerZone8/OpenCluely1/releases/latest) | No install. Run `chmod +x` then launch. |
+| Windows | [Setup .exe](https://github.com/DangerZone8/Cleverly1/releases/latest) | NSIS installer. Adds a Start Menu shortcut. |
+| Linux (Debian or Ubuntu) | [.deb](https://github.com/DangerZone8/Cleverly1/releases/latest) | Pulls system deps automatically (Python, ffmpeg, GTK). |
+| Linux (universal) | [.AppImage](https://github.com/DangerZone8/Cleverly1/releases/latest) | No install. Run `chmod +x` then launch. |
 
-> **macOS:** there is no pre-built download. The app is unsigned and un-notarized, so macOS Gatekeeper blocks it as "damaged and can't be opened." Run OpenCluely from source instead — see [Quick start](#quick-start). It is a one-line `./setup.sh` once Node.js is installed.
+> **macOS:** there is no pre-built download. The app is unsigned and un-notarized, so macOS Gatekeeper blocks it as "damaged and can't be opened." Run Cleverly from source instead — see [Quick start](#quick-start). It is a one-line `./setup.sh` once Node.js is installed.
 
 Every build is produced automatically on GitHub Actions and ships with SHA-256 checksums. Each release also lists the full set of commits it includes.
 
@@ -66,8 +66,8 @@ If you would rather build from source, three steps are all it takes.
 1. Clone the repository.
 
    ```bash
-   git clone https://github.com/DangerZone8/OpenCluely1.git
-   cd OpenCluely1
+   git clone https://github.com/DangerZone8/Cleverly1.git
+   cd Cleverly1
    ```
 
 2. Run the setup script.
@@ -156,7 +156,7 @@ For Azure Speech, create a Speech resource in the [Azure Portal](https://portal.
 
 ## Project status
 
-OpenCluely is under active development. The core is stable and improvements ship regularly.
+Cleverly is under active development. The core is stable and improvements ship regularly.
 
 ### Done
 
@@ -188,7 +188,7 @@ OpenCluely is under active development. The core is stable and improvements ship
 <details>
 <summary>Setup issues</summary>
 
-- **setup.sh will not run.** Make sure you are in the project folder (`cd OpenCluely1`) and that the script is executable (`chmod +x setup.sh`). On Windows, use Git Bash.
+- **setup.sh will not run.** Make sure you are in the project folder (`cd Cleverly1`) and that the script is executable (`chmod +x setup.sh`). On Windows, use Git Bash.
 - **Setup stops with exit code 130.** That means Ctrl+C was pressed. Run `./setup.sh` again.
 - **Node or npm not found.** Install Node.js 20 or newer from [nodejs.org](https://nodejs.org/), restart the terminal, and retry.
 
@@ -208,7 +208,7 @@ OpenCluely is under active development. The core is stable and improvements ship
 
 <summary> Limitations </summary>
 
-- **Screen-capture invisibility does not work on Linux.** The overlay stays hidden from screen shares and recordings only on **macOS** and **Windows**. This relies on Electron's `setContentProtection`, which maps to `NSWindowSharingNone` on macOS and `WDA_EXCLUDEFROMCAPTURE` on Windows. Electron provides **no equivalent on Linux** (neither X11 nor Wayland), so on Linux the call is a silent no-op and the overlay **will be visible** to anyone you screen-share with. This is a platform limitation, not a bug — there is no window flag on Linux that excludes a window from framebuffer capture. If you need capture-invisibility, run OpenCluely on macOS or Windows. As a partial workaround on Linux, share a single application window instead of your entire screen, or place the overlay on a monitor you are not sharing.
+- **Screen-capture invisibility does not work on Linux.** The overlay stays hidden from screen shares and recordings only on **macOS** and **Windows**. This relies on Electron's `setContentProtection`, which maps to `NSWindowSharingNone` on macOS and `WDA_EXCLUDEFROMCAPTURE` on Windows. Electron provides **no equivalent on Linux** (neither X11 nor Wayland), so on Linux the call is a silent no-op and the overlay **will be visible** to anyone you screen-share with. This is a platform limitation, not a bug — there is no window flag on Linux that excludes a window from framebuffer capture. If you need capture-invisibility, run Cleverly on macOS or Windows. As a partial workaround on Linux, share a single application window instead of your entire screen, or place the overlay on a monitor you are not sharing.
 
 </details>
 
@@ -216,11 +216,11 @@ OpenCluely is under active development. The core is stable and improvements ship
 
 ## Hosted AI without a local API key
 
-The desktop app can use OpenCluely's hosted Gemini proxy without asking users to paste their own API key. The proxy keeps the shared provider key server-side. Deployment and environment-variable requirements are documented in [docs/hosted-ai.md](docs/hosted-ai.md). Hosted service availability and usage limits apply.
+The desktop app can use Cleverly's hosted Gemini proxy without asking users to paste their own API key. The proxy keeps the shared provider key server-side. Deployment and environment-variable requirements are documented in [docs/hosted-ai.md](docs/hosted-ai.md). Hosted service availability and usage limits apply.
 
 ## Privacy and ethics
 
-OpenCluely does not add analytics telemetry. If you use the hosted AI mode, the text, screen frames, or audio clips you explicitly submit are sent over HTTPS to the OpenCluely-hosted AI proxy and then to Google Gemini for processing. A random installation identifier is used for basic request limiting. Do not submit passwords, private credentials, or other sensitive information. If you configure your own Gemini API key, requests go directly from the app to Google Gemini instead.
+Cleverly does not add analytics telemetry. If you use the hosted AI mode, the text, screen frames, or audio clips you explicitly submit are sent over HTTPS to the Cleverly-hosted AI proxy and then to Google Gemini for processing. A random installation identifier is used for basic request limiting. Do not submit passwords, private credentials, or other sensitive information. If you configure your own Gemini API key, requests go directly from the app to Google Gemini instead.
 
 The app is built for learning and practice. You are responsible for following the rules of any interview you take and the policies of the companies involved.
 
@@ -237,7 +237,7 @@ Released under the Apache License 2.0. See [LICENSE](LICENSE) for details.
 
 <div align="center">
 
-Built by [TechyCSR](https://techycsr.dev). If OpenCluely helped you, consider giving it a star ⭐
+Built by [TechyCSR](https://techycsr.dev). If Cleverly helped you, consider giving it a star ⭐
 
 </div>
 
