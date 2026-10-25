@@ -107,9 +107,15 @@ class LLMService {
         return false;
       }
     };
+    const primaryHostedEndpoint = 'https://opencluelys.vercel.app/api/gemini';
+    const backupHostedEndpoint = 'https://opencluely-iota.vercel.app/api/gemini';
+    // Retry the primary once after a transient 5xx/network failure before
+    // falling through to the known backup. Successful calls still use one hop;
+    // quota/client errors remain authoritative and are never retried.
     const hostedEndpoints = [
-      'https://opencluelys.vercel.app/api/gemini',
-      'https://opencluely-iota.vercel.app/api/gemini'
+      primaryHostedEndpoint,
+      primaryHostedEndpoint,
+      backupHostedEndpoint
     ];
     const configuredFallback = process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT;
     const endpoints = [
