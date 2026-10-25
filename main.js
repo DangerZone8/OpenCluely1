@@ -1523,11 +1523,12 @@ class ApplicationController {
       if (this.shouldShowVoiceOverlay()) {
         windowManager.showLLMLoading();
       }
-      const llmResult = await llmService.processTranscriptionWithIntelligentResponseStream(
+      // Spoken conversation uses the same general assistant as typed chat.
+      // The old skill-filter prompt treated ordinary greetings as irrelevant
+      // and could return a canned DSA hint instead of a real assistant answer.
+      const llmResult = await llmService.processGeneralAssistantStream(
         cleanText,
-        this.activeSkill,
-        sessionHistory.recent,
-        needsProgrammingLanguage ? this.codingLanguage : null,
+        sessionManager.getConversationHistory(12),
         (delta) => {
           this.sendToVoiceResponseWindows("transcription-llm-response-chunk", {
             messageId,
@@ -1572,33 +1573,39 @@ class ApplicationController {
 
       // Try to provide a fallback response
       try {
-        const fallbackResult = llmService.generateIntelligentFallbackResponse(text, this.activeSkill);
-        // Carry the streaming messageId so the target replaces the live
-        // bubble instead of leaving it stuck and appending a duplicate.
-        if (messageId) {
-          fallbackResult.metadata = { ...fallbackResult.metadata, messageId };
-        }
-
+        // Do not present a canned DSA hint as if the model answered.
+        // Surface a truthful, brief connection error and keep the original
+        // failure in logs so the real transport issue can be diagnosed.
+        const fallbackResult = {
+          response: "I couldn't reach the AI service just now. Please try again.",
+          metadata: {
+            skill: "general",
+            processingTime: 0,
+            requestId: llmService.requestCount,
+            usedFallback: true,
+            isTranscriptionResponse: true,
+            fallbackReason: error.message,
+            ...(messageId ? { messageId } : {})
+          }
+        };
         sessionManager.addModelResponse(fallbackResult.response, {
-          skill: this.activeSkill,
-          processingTime: fallbackResult.metadata.processingTime,
+          skill: "general",
+          processingTime: 0,
           usedFallback: true,
           isTranscriptionResponse: true,
           fallbackReason: error.message
         });
-
         this.sendTranscriptionLLMResponseToVoiceTargets(fallbackResult);
         if (this.shouldShowVoiceOverlay()) {
           windowManager.showLLMResponse(fallbackResult.response, {
-            skill: this.activeSkill,
-            processingTime: fallbackResult.metadata.processingTime,
+            skill: "general",
+            processingTime: 0,
             usedFallback: true,
             isTranscriptionResponse: true
           });
         }
-        logger.info("Used fallback response for transcription", {
-          skill: this.activeSkill,
-          fallbackResponse: fallbackResult.response
+        logger.warn("Displayed a transparent voice-AI connection fallback", {
+          error: error.message
         });
         
       } catch (fallbackError) {
