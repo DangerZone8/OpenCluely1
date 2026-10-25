@@ -57,6 +57,16 @@ jobs:
       - name: Run repository checks
         run: npm run check
 
+      - name: Install virtual-desktop runtime for actual UI testing
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth libgtk-3-0 libnss3 libxss1 libasound2t64 libgbm1
+
+      - name: Run real desktop UI screen-AI E2E
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: xvfb-run -a npm run test:screen-ai-desktop-e2e
+
       # These checks are release gates: main pushes also publish releases, so they must run
       # before any main-branch release. Missing credentials or an unreachable hosted endpoint must fail closed.
       - name: Run live hosted screen-vision test
@@ -76,7 +86,7 @@ jobs:
 
   preflight:
     needs: [test]
-    if: always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+    if: needs.test.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
     name: Install and smoke-test packaged app
     runs-on: ubuntu-latest
     steps:
