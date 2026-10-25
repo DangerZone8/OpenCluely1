@@ -109,14 +109,10 @@ class LLMService {
     };
     const primaryHostedEndpoint = 'https://opencluelys.vercel.app/api/gemini';
     const backupHostedEndpoint = 'https://opencluely-iota.vercel.app/api/gemini';
-    // Retry the primary once after a transient 5xx/network failure before
-    // falling through to the known backup. Successful calls still use one hop;
-    // quota/client errors remain authoritative and are never retried.
-    const hostedEndpoints = [
-      primaryHostedEndpoint,
-      primaryHostedEndpoint,
-      backupHostedEndpoint
-    ];
+    // Keep the backup reachable within the global deadline. Retry the primary
+    // once only after an explicit HTTP 5xx response; network timeouts move to
+    // the backup instead of consuming the entire deadline on the same host.
+    const hostedEndpoints = [primaryHostedEndpoint, backupHostedEndpoint];
     const configuredFallback = process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT;
     const endpoints = [
       ...hostedEndpoints,
@@ -208,7 +204,9 @@ class LLMService {
     });
 
     const networkFailures = [];
-    for (const endpoint of endpoints) {
+    let primaryRetryUsed = false;
+    for (let endpointIndex = 0; endpointIndex < endpoints.length; endpointIndex++) {
+      const endpoint = endpoints[endpointIndex];
       const remaining = deadline - Date.now();
       if (remaining <= 0) break;
       // Keep any one alias from monopolizing the UI. The HTTPS fallback shares
@@ -236,6 +234,10 @@ class LLMService {
             if (fallbackError.isHostedResponseError) {
               if (fallbackError.statusCode >= 500 && fallbackError.statusCode !== 429) {
                 networkFailures.push(new NodeURL(endpoint).host + ': HTTP ' + fallbackError.statusCode);
+                if (endpoint === primaryHostedEndpoint && !primaryRetryUsed) {
+                  primaryRetryUsed = true;
+                  endpointIndex -= 1;
+                }
                 continue;
               }
               throw fallbackError;
@@ -253,6 +255,10 @@ class LLMService {
           // any other client error is authoritative and must not fan out.
           if (response.status >= 500 && response.status !== 429) {
             networkFailures.push(new NodeURL(endpoint).host + ': HTTP ' + response.status);
+            if (endpoint === primaryHostedEndpoint && !primaryRetryUsed) {
+              primaryRetryUsed = true;
+              endpointIndex -= 1;
+            }
             continue;
           }
           throw error;
