@@ -114,7 +114,13 @@ async function main() {
     ...process.env,
     ELECTRON_RUN_AS_NODE: '',
     CLEVERLY_E2E_SCREEN_CAPTURE: '1',
-    ELECTRON_DISABLE_SECURITY_WARNINGS: 'true'
+    ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
+    // Exercise the real hosted Gemini vision proxy from the desktop UI. The CI
+    // runner's direct Google API fetch can fail independently of the app, and
+    // a locally configured endpoint must never send this test to localhost.
+    GEMINI_API_KEY: '',
+    OPENCLUELY_AI_ENDPOINT: 'https://opencluelys.vercel.app/api/gemini',
+    OPENCLUELY_AI_FALLBACK_ENDPOINT: 'https://opencluely-iota.vercel.app/api/gemini'
   };
   delete env.ELECTRON_RUN_AS_NODE;
   child = spawn(electronPath, [
