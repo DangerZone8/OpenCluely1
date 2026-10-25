@@ -1592,10 +1592,10 @@
           screenRecordBtn.classList.add('recording');
         }
         addMessage('Live screen AI is on. Cleverly is sending fresh screen frames for analysis; no video file is being saved. Click Stop to end.', 'system');
-        // Keep the capture loop responsive, but never overlap model requests.
+        // Keep live vision below the hosted service's per-minute budget and never overlap requests.
         // Each request contains a fresh frame from the active display stream;
         // the AI is therefore observing ongoing work, not a saved video file.
-        const LIVE_FRAME_INTERVAL_MS = 1500;
+        const LIVE_FRAME_INTERVAL_MS = 6500;
         const sendFrame = async () => {
           if (!liveScreenStream || !liveScreenVideo || !liveScreenVideo.videoWidth) return;
           if (liveScreenFrameInFlight) {
