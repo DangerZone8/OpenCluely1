@@ -20,7 +20,8 @@
     "rebuild": "npm run clean && npm run build",
     "release": "npm run clean && npm run build:all",
     "postinstall": "electron-builder install-app-deps",
-    "test:screen-vision-live": "node scripts/test-live-screen-vision.js"
+    "test:screen-vision-live": "node scripts/test-live-screen-vision.js",
+    "test:screen-ai-desktop-e2e": "node scripts/test-screen-ai-desktop-e2e.js"
   },
   "author": {
     "name": "TechyCSR",
