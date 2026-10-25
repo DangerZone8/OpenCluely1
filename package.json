@@ -1,7 +1,7 @@
 {
   "name": "slickly-ai",
   "version": "1.0.0",
-  "description": "Slickly AI AI Desktop Assistant",
+  "description": "Slickly AI Desktop Assistant",
   "main": "main.js",
   "scripts": {
     "start": "node scripts/launch-electron.js",
