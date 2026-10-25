@@ -1,7 +1,7 @@
 {
-  "name": "cleverly",
+  "name": "slickly-ai",
   "version": "1.0.0",
-  "description": "Cleverly AI Desktop Assistant",
+  "description": "Slickly AI AI Desktop Assistant",
   "main": "main.js",
   "scripts": {
     "start": "node scripts/launch-electron.js",
@@ -50,7 +50,7 @@
   },
   "build": {
     "appId": "com.opencluely.app",
-    "productName": "Cleverly",
+    "productName": "Slickly AI",
     "directories": {
       "output": "dist"
     },
@@ -153,7 +153,7 @@
       "fpm": [
         "--after-install=scripts/post-install-deb.sh"
       ],
-      "packageName": "cleverly"
+      "packageName": "slickly-ai"
     },
     "nsis": {
       "oneClick": false,
@@ -163,10 +163,10 @@
       "perMachine": false,
       "include": "scripts/post-install-nsis.nsh",
       "deleteAppDataOnUninstall": false,
-      "artifactName": "Cleverly-Setup-${version}.${ext}"
+      "artifactName": "Slickly AI-Setup-${version}.${ext}"
     },
     "dmg": {
-      "title": "Cleverly AI Assistant",
+      "title": "Slickly AI AI Assistant",
       "backgroundColor": "#000000",
       "window": {
         "width": 600,
