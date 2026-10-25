@@ -203,12 +203,13 @@ class ApplicationController {
               types: ["screen"],
               thumbnailSize: { width: 1280, height: 720 }
             });
+            logger.info("E2E display capture source selection", { sourceCount: sources.length });
             callback(sources.length ? { video: sources[0] } : {});
           } catch (error) {
             logger.error("E2E display capture source selection failed", { error: error.message });
             callback({});
           }
-        });
+        }, { useSystemPicker: false });
       }
       await this.onAppReady();
       if (process.env.CLEVERLY_E2E_SCREEN_CAPTURE === "1") {
