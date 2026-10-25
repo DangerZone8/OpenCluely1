@@ -194,7 +194,28 @@ class ApplicationController {
   }
 
   setupEventHandlers() {
-    app.whenReady().then(() => this.onAppReady());
+    app.whenReady().then(async () => {
+      // CI-only real desktop capture selection; disabled in normal launches.
+      if (process.env.CLEVERLY_E2E_SCREEN_CAPTURE === "1") {
+        session.defaultSession.setDisplayMediaRequestHandler(async (_request, callback) => {
+          try {
+            const sources = await desktopCapturer.getSources({
+              types: ["screen"],
+              thumbnailSize: { width: 1280, height: 720 }
+            });
+            callback(sources.length ? { video: sources[0] } : {});
+          } catch (error) {
+            logger.error("E2E display capture source selection failed", { error: error.message });
+            callback({});
+          }
+        });
+      }
+      await this.onAppReady();
+      if (process.env.CLEVERLY_E2E_SCREEN_CAPTURE === "1") {
+        // Expose the real chat renderer only in the desktop E2E run.
+        windowManager.showChatWindow();
+      }
+    });
     app.on("window-all-closed", () => this.onWindowAllClosed());
     app.on("activate", () => this.onActivate());
     app.on("will-quit", () => this.onWillQuit());
