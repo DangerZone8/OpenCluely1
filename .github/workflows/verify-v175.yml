@@ -33,6 +33,14 @@ jobs:
       - name: Run local regression checks
         run: npm run check
 
+      - name: Install virtual-desktop runtime
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb xauth libgtk-3-0 libnss3 libxss1 libasound2t64 libgbm1
+
+      - name: Run real desktop UI screen-AI E2E
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: xvfb-run -a npm run test:screen-ai-desktop-e2e
+
       - name: Verify live hosted screen vision
         run: npm run test:screen-vision-live
 
