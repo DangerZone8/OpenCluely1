@@ -4,7 +4,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const main = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
+// Git checkout may materialize CRLF on Windows; normalize before matching source boundaries.
+const main = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8').replace(/\r\n/g, '\n');
 
 const handlerStart = main.indexOf('ipcMain.handle("send-chat-message"');
 assert.notEqual(handlerStart, -1, 'typed-chat IPC handler must exist');
