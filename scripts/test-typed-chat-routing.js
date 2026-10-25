@@ -35,11 +35,11 @@ assert.notEqual(speechStart, -1, 'spoken-chat processing method must exist');
 const speechEnd = main.indexOf('broadcastOCRSuccess(ocrResult)', speechStart);
 assert.notEqual(speechEnd, -1, 'spoken-chat processing method must have a clear boundary');
 const speechMethod = main.slice(speechStart, speechEnd);
-assert.match(speechMethod, /await llmService\\.processGeneralAssistantStream\\(/,
+assert.ok(speechMethod.includes('await llmService.processGeneralAssistantStream('),
   'spoken chat must use the general assistant instead of the skill-only filter prompt');
-assert.doesNotMatch(speechMethod, /processTranscriptionWithIntelligentResponseStream\\(/,
+assert.ok(!speechMethod.includes('processTranscriptionWithIntelligentResponseStream('),
   'ordinary spoken chat must not be routed through the skill-only prompt');
-assert.match(speechMethod, /I couldn't reach the AI service just now/,
+assert.ok(speechMethod.includes("I couldn't reach the AI service just now"),
   'network failures must not be disguised as canned DSA answers');
 
 console.log('PASS: typed and spoken chat use the general assistant; failures are transparent.');
