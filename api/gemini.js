@@ -3,6 +3,9 @@
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
 const WINDOW_MS = 60 * 1000;
 const MAX_PER_WINDOW = 10;
+// A single live-screen session sends about 9 frames/minute at the 6.5s UI interval.
+// Leave room for a manual capture and one transient retry without weakening chat limits.
+const MAX_SCREEN_PER_WINDOW = 20;
 // Conservative per-IP and per-install budget for the shared free-tier provider key.
 // This is a best-effort guard; durable project-wide enforcement needs a shared store.
 const MAX_PER_DAY = 120;
@@ -96,8 +99,8 @@ module.exports = async function handler(req, res) {
   // Isolate screen-frame traffic from chat/audio so a live session cannot
   // consume the conversational budget. Each feature still has bounded limits.
   if (
-    !rateLimit('ip:' + ip + ':' + feature, now, MAX_PER_WINDOW, dailyLimit) ||
-    !rateLimit('install:' + installId + ':' + feature, now, MAX_PER_WINDOW, dailyLimit)
+    !rateLimit('ip:' + ip + ':' + feature, now, feature === 'screen-vision' ? MAX_SCREEN_PER_WINDOW : MAX_PER_WINDOW, dailyLimit) ||
+    !rateLimit('install:' + installId + ':' + feature, now, feature === 'screen-vision' ? MAX_SCREEN_PER_WINDOW : MAX_PER_WINDOW, dailyLimit)
   ) {
     res.setHeader('Retry-After', '60');
     return respond(res, 429, { error: 'Cleverly AI ' + feature + ' request limit reached. Wait a minute and try again.' });
