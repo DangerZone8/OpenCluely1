@@ -89,7 +89,7 @@ async function waitForResult(previousCount, timeoutMs, label) {
     if (last.assistant.length > previousCount) {
       const latest = last.assistant[last.assistant.length - 1];
       assert.ok(latest.length > 0, label + ' produced an empty assistant response');
-      assert.doesNotMatch(latest, /Could not connect to any hosted Cleverly AI endpoint|fetch failed|API key.*missing/i,
+      assert.doesNotMatch(latest, /Could not connect to any hosted Slickly AI endpoint|fetch failed|API key.*missing/i,
         label + ' returned an infrastructure error instead of an AI answer: ' + latest);
       return { response: latest, state: last };
     }
@@ -157,7 +157,7 @@ async function main() {
           context.fillRect(0, 0, canvas.width, canvas.height);
           context.fillStyle = '#111111';
           context.font = 'bold 42px sans-serif';
-          context.fillText('Cleverly Desktop Screen AI E2E', 60, 110);
+          context.fillText('Slickly AI Desktop Screen AI E2E', 60, 110);
           context.font = '30px sans-serif';
           context.fillText('Analyze this screen and reply with a short summary.', 60, 180);
           context.fillText('Fresh test frame: ' + (++frame), 60, 240);
@@ -192,7 +192,7 @@ async function main() {
     await sleep(32000);
     const sustained = await evaluate("(() => ({ active: document.querySelector('#screenRecordBtn')?.classList.contains('recording'), errors: Array.from(document.querySelectorAll('#chatMessages .message.error')).map(e => e.innerText), system: Array.from(document.querySelectorAll('#chatMessages .message.system')).map(e => e.innerText) }))()");
     assert.equal(sustained.active, true, 'Live Screen AI must remain active after 32 seconds');
-    assert.doesNotMatch(sustained.errors.join('\n'), /Live screen AI stopped after three consecutive failed requests|request limit reached|Could not connect to any hosted Cleverly AI endpoint/i,
+    assert.doesNotMatch(sustained.errors.join('\n'), /Live screen AI stopped after three consecutive failed requests|request limit reached|Could not connect to any hosted Slickly AI endpoint/i,
       'Live Screen AI must not regress into the previous endpoint/rate-limit error during sustained use: ' + JSON.stringify(sustained));
     console.log('PASS Live Screen AI sustained 32-second run: still active, no fatal endpoint/rate-limit error.');
     await evaluate("document.querySelector('#screenRecordBtn')?.click()");
