@@ -140,7 +140,7 @@ module.exports = async function handler(req, res) {
   const attemptedModels = [];
   // Bound the whole request while allowing a fast alternate when the provider
   // promptly rejects a model. The first attempt remains the normal fast path.
-  const requestDeadline = Date.now() + 9000;
+  const requestDeadline = Date.now() + 20000;
 
   for (const candidate of fallbackModels) {
     const remainingMs = requestDeadline - Date.now();
@@ -159,7 +159,7 @@ module.exports = async function handler(req, res) {
           generationConfig: request.generationConfig || {},
           ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
         }),
-        signal: AbortSignal.timeout(Math.min(8000, remainingMs))
+        signal: AbortSignal.timeout(Math.min(12000, remainingMs))
       });
       const result = await upstream.json().catch(() => ({}));
       if (upstream.ok) {
