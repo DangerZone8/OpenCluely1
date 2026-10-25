@@ -200,7 +200,7 @@ async function main() {
     try {
       const log = fs.readFileSync(logPath, 'utf8');
       if (process.env.CI && /FATAL|uncaught exception/i.test(log)) console.error('Electron log contains fatal markers.');
-      if (process.exitCode && log) console.error('Electron diagnostic log (tail):\\n' + log.slice(-5000));
+      if (process.env.CI && log) console.error('Electron diagnostic log (tail):\\n' + log.slice(-12000));
     } catch (_) {}
     fs.rmSync(userData, { recursive: true, force: true });
   }
