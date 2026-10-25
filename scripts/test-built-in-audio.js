@@ -18,7 +18,7 @@ assert.match(preload, /analyzeScreenFrame:.*analyze-live-screen-frame/);
 assert.match(llm, /async analyzeScreenFrame\(/);
 assert.match(chat, /async function startLiveScreenMode\(/);
 assert.match(chat, /async function askAIAboutScreen\(/);
-assert.match(chat, /const LIVE_FRAME_INTERVAL_MS = 1500/);
+assert.match(chat, /const LIVE_FRAME_INTERVAL_MS = 6500/);
 assert.match(chat, /liveScreenTimer = setTimeout\(sendFrame, LIVE_FRAME_INTERVAL_MS\)/);
 assert.match(chat, /if \(liveScreenFrameInFlight\)/);
 assert.match(chat, /streamAtStart/);
