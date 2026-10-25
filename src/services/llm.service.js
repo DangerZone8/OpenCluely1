@@ -123,6 +123,27 @@ class LLMService {
       ...configuredEndpoints.filter(isUsableHostedEndpoint)
     ])].slice(0, 3);
 
+    // Keep a runtime invariant at the network boundary: no request may ever
+    // be sent to a loopback or non-HTTPS destination, even if a future config
+    // change accidentally bypasses the configured-endpoint filter.
+    const unsafeEndpoints = endpoints.filter(endpoint => !isUsableHostedEndpoint(endpoint));
+    if (unsafeEndpoints.length) {
+      throw new Error('Refusing unsafe hosted Cleverly AI endpoint(s): ' +
+        unsafeEndpoints.map(endpoint => {
+          try { return new URL(endpoint).host; } catch { return '[invalid URL]'; }
+        }).join(', '));
+    }
+    logger.info('Screen/chat hosted endpoint candidates', {
+      sourceFile: __filename,
+      candidates: endpoints.map(endpoint => new URL(endpoint).host),
+      configuredEndpointHost: (() => {
+        try { return new URL(this.remoteEndpoint).host; } catch { return '[invalid URL]'; }
+      })(),
+      fallbackEndpointHost: (() => {
+        try { return new URL(process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT || '').host; } catch { return '[invalid URL]'; }
+      })()
+    });
+
     const parseResponse = (status, rawBody) => {
       let result = {};
       try { result = JSON.parse(rawBody); } catch {}
