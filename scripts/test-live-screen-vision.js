@@ -14,7 +14,7 @@ const installId = crypto.randomUUID();
 const image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lS8AAAAASUVORK5CYII=';
 
 async function main() {
-  const expectedRevision = 'screen-budget-2026-10-25-c';
+  const expectedRevision = 'v175-fast-chat-2026-10-25-d';
   const failures = [];
 
   // Try every configured hosted endpoint end-to-end. A correctly-versioned but
