@@ -7,10 +7,14 @@ const originalKey = process.env.GEMINI_API_KEY;
 function response() {
   return { statusCode: 200, headers: {}, setHeader(k,v) { this.headers[k.toLowerCase()] = v; }, end(body) { this.body = body; } };
 }
-async function invoke(fetchImpl, includeImage = true) {
+async function invoke(fetchImpl, includeImage = true, feature = 'chat', installId = crypto.randomUUID()) {
   global.fetch = fetchImpl;
   const res = response();
-  await handler({ method: 'POST', headers: { 'content-length': '100', 'x-opencluely-install-id': crypto.randomUUID() }, body: {
+  await handler({ method: 'POST', headers: {
+    'content-length': '100',
+    'x-opencluely-install-id': installId,
+    'x-opencluely-feature': feature
+  }, body: {
     model: 'gemini-3.5-flash-lite',
     request: { contents: [{ role: 'user', parts: [{ text: includeImage ? 'Describe this image' : 'Reply briefly to this text chat test.' }, ...(includeImage ? [{ inlineData: { mimeType: 'image/png', data: 'aGVsbG8=' } }] : [])] }] }
   } }, res);
@@ -90,6 +94,24 @@ async function main() {
   assert.equal(quotaExhausted.body.providerCode, 'RESOURCE_EXHAUSTED');
   assert.match(quotaExhausted.body.error, /retries are disabled/i);
   console.log('PASS: quota exhaustion stops after one provider request without trying fallback models.');
+  const sharedInstall = crypto.randomUUID();
+  const screenBudget = await invoke(async () => ({
+    ok: true, status: 200,
+    json: async () => ({ candidates: [{ content: { parts: [{ text: 'SCREEN_BUDGET_OK' }] } }] })
+  }), true, 'screen-vision', sharedInstall);
+  const chatBudget = await invoke(async () => ({
+    ok: true, status: 200,
+    json: async () => ({ candidates: [{ content: { parts: [{ text: 'CHAT_BUDGET_OK' }] } }] })
+  }), false, 'chat', sharedInstall);
+  assert.equal(screenBudget.status, 200);
+  assert.equal(chatBudget.status, 200);
+  const counters = globalThis.__openCluelyGeminiCounters;
+  assert.ok(counters.has('install:' + sharedInstall + ':screen-vision'),
+    'screen vision must use its own per-install budget');
+  assert.ok(counters.has('install:' + sharedInstall + ':chat'),
+    'chat must use a separate per-install budget');
+  console.log('PASS: live screen vision and conversational chat have isolated request budgets.');
+
 }
 main().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => {
   global.fetch = originalFetch;
