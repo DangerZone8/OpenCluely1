@@ -85,13 +85,18 @@ async function main() {
   console.log('PASS: ordinary text chat uses one fast-model request; screen vision keeps bounded fallback.');
   const textFailureCalls = [];
   const textFailure = await invoke(async url => {
-    textFailureCalls.push(decodeURIComponent(url.match(/models\/([^:]+)/)[1]));
-    return { ok: false, status: 503, json: async () => ({ error: { status: 'UNAVAILABLE', message: 'high demand' } }) };
+    const model = decodeURIComponent(url.match(/models\/([^:]+)/)[1]);
+    textFailureCalls.push(model);
+    if (model === 'gemini-3.5-flash-lite') {
+      return { ok: false, status: 503, json: async () => ({ error: { status: 'UNAVAILABLE', message: 'high demand' } }) };
+    }
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'FAST_TEXT_FALLBACK_OK' }] } }] }) };
   }, false, 'chat');
-  assert.equal(textFailure.status, 502);
-  assert.deepEqual(textFailureCalls, ['gemini-3.5-flash-lite'],
-    'ordinary chat must not wait through sequential alternate-model attempts after a transient failure');
-  console.log('PASS: ordinary chat returns after its single fast-model attempt; screen vision alone may use a bounded model fallback.');
+  assert.equal(textFailure.status, 200);
+  assert.equal(textFailure.body.text, 'FAST_TEXT_FALLBACK_OK');
+  assert.deepEqual(textFailureCalls, ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'],
+    'ordinary chat must use one alternate model after an explicit transient provider failure');
+  console.log('PASS: ordinary chat keeps one-call fast path and retries once on an explicit transient model failure.');
 
 
   const quotaCalls = [];
