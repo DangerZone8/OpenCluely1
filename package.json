@@ -94,9 +94,9 @@
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "OpenCluely uses the microphone to transcribe your speech locally with Whisper.",
-        "NSCameraUsageDescription": "OpenCluely does not record video; this entitlement is only present for media-capture compatibility.",
-        "NSScreenCaptureUsageDescription": "OpenCluely captures the screen to read on-screen content for AI assistance."
+        "NSMicrophoneUsageDescription": "Slickly AI uses the microphone to transcribe your speech locally with Whisper.",
+        "NSCameraUsageDescription": "Slickly AI does not record video; this entitlement is only present for media-capture compatibility.",
+        "NSScreenCaptureUsageDescription": "Slickly AI captures the screen to read on-screen content for AI assistance."
       }
     },
     "win": {
@@ -163,10 +163,10 @@
       "perMachine": false,
       "include": "scripts/post-install-nsis.nsh",
       "deleteAppDataOnUninstall": false,
-      "artifactName": "Slickly AI-Setup-${version}.${ext}"
+      "artifactName": "Slickly-AI-Setup-${version}.${ext}"
     },
     "dmg": {
-      "title": "Slickly AI AI Assistant",
+      "title": "Slickly AI Assistant",
       "backgroundColor": "#000000",
       "window": {
         "width": 600,
