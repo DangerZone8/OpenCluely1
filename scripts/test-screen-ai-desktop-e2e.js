@@ -135,6 +135,37 @@ async function main() {
     await connectCdp(target);
     await cdp('Runtime.enable');
 
+    // Provide a deterministic test display stream inside the real Electron renderer.
+    // The UI buttons, canvas frame extraction, preload IPC, main-process LLM service,
+    // hosted Gemini vision request, and response rendering remain real.
+    // Only the OS-native display picker is replaced because CI has no interactive user.
+    const displayStub = await evaluate(`(() => {
+      if (!navigator.mediaDevices?.getDisplayMedia) throw new Error('getDisplayMedia is unavailable');
+      navigator.mediaDevices.getDisplayMedia = async () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1280; canvas.height = 720;
+        const context = canvas.getContext('2d');
+        let frame = 0;
+        const paint = () => {
+          context.fillStyle = '#f7f7f7';
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          context.fillStyle = '#111111';
+          context.font = 'bold 42px sans-serif';
+          context.fillText('Cleverly Desktop Screen AI E2E', 60, 110);
+          context.font = '30px sans-serif';
+          context.fillText('Analyze this screen and reply with a short summary.', 60, 180);
+          context.fillText('Fresh test frame: ' + (++frame), 60, 240);
+        };
+        paint();
+        const timer = setInterval(paint, 500);
+        const stream = canvas.captureStream(2);
+        stream.getTracks().forEach(track => track.addEventListener('ended', () => clearInterval(timer), { once: true }));
+        return stream;
+      };
+      return 'synthetic desktop display stream ready';
+    })()`);
+    assert.match(displayStub, /ready/, 'Could not prepare deterministic display stream');
+
     // Click the actual visible UI control. No direct call to the capture function.
     let before = await evaluate("document.querySelectorAll('#chatMessages .message.assistant').length");
     await evaluate("document.querySelector('#screenCaptureBtn')?.click()");
@@ -163,6 +194,7 @@ async function main() {
     try {
       const log = fs.readFileSync(logPath, 'utf8');
       if (process.env.CI && /FATAL|uncaught exception/i.test(log)) console.error('Electron log contains fatal markers.');
+      if (process.exitCode && log) console.error('Electron diagnostic log (tail):\\n' + log.slice(-5000));
     } catch (_) {}
     fs.rmSync(userData, { recursive: true, force: true });
   }
