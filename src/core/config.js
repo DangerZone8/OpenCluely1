@@ -11,9 +11,9 @@ class ConfigManager {
   loadConfiguration() {
     this.config = {
       app: {
-        name: 'OpenCluely',
+        name: 'Slickly AI',
         version: require('../../package.json').version,
-        processTitle: 'OpenCluely',
+        processTitle: 'Slickly AI',
         dataDir: this.appDataDir,
         isDevelopment: this.env === 'development',
         isProduction: this.env === 'production'
