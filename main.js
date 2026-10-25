@@ -75,7 +75,7 @@ function redactSensitiveSettings(settings) {
 // exhaust the X11 client limit, producing "Maximum number of clients reached".
 //
 // Disabling hardware acceleration and the GPU subprocess forces Chromium to
-// render via the CPU (SwiftShader). Cleverly's UI is light enough that
+// render via the CPU (SwiftShader). Slickly AI's UI is light enough that
 // this is imperceptible, and it eliminates the GPU crash entirely.
 if (process.platform === "linux") {
   app.disableHardwareAcceleration();
@@ -165,7 +165,7 @@ class ApplicationController {
 
     // Window configurations for reference
     this.windowConfigs = {
-      main: { title: "Cleverly" },
+      main: { title: "Slickly AI" },
       chat: { title: "Chat" },
       llmResponse: { title: "AI Response" },
       settings: { title: "Settings" },
@@ -181,8 +181,8 @@ class ApplicationController {
     }
 
     // Keep the real product identity visible so users can find the app.
-    if (app && typeof app.setName === 'function') app.setName("Cleverly");
-    process.title = "Cleverly";
+    if (app && typeof app.setName === 'function') app.setName("Slickly AI");
+    process.title = "Slickly AI";
 
     if (
       process.platform === "darwin" &&
@@ -266,8 +266,8 @@ class ApplicationController {
     this.starting = true;
 
     // Restore the real product identity at startup for discoverability.
-    app.setName("Cleverly");
-    process.title = "Cleverly";
+    app.setName("Slickly AI");
+    process.title = "Slickly AI";
 
     logger.info("Application starting", {
       version: config.get("app.version"),
@@ -304,7 +304,7 @@ class ApplicationController {
       await windowManager.initializeWindows({ showMainWindow: true });
       this.setupGlobalShortcuts();
 
-      // Keep the packaged Cleverly identity and icon; do not disguise it.
+      // Keep the packaged Slickly AI identity and icon; do not disguise it.
 
       this.starting = false;
       this.isReady = true;
@@ -359,7 +359,7 @@ class ApplicationController {
         this.isReady = true;
         try {
           await windowManager.showMainWindow();
-          logger.warn("Keeping Cleverly open after a non-fatal startup error");
+          logger.warn("Keeping Slickly AI open after a non-fatal startup error");
         } catch (showError) {
           logger.error("Could not recover main window after startup failure", {
             error: showError.message,
@@ -478,7 +478,7 @@ class ApplicationController {
         buttons.push("Cancel");
         const choice = await dialog.showMessageBox({
           type: "question",
-          title: "Cleverly screen capture",
+          title: "Slickly AI screen capture",
           message: "Choose the screen or window to capture.",
           buttons,
           cancelId: buttons.length - 1,
@@ -589,8 +589,8 @@ class ApplicationController {
     }
     const parentWindow = BrowserWindow.fromWebContents(event.sender);
     const result = await dialog.showSaveDialog(parentWindow || undefined, {
-      title: "Save Cleverly screen recording",
-      defaultPath: path.join(app.getPath("videos"), `Cleverly-Recording-${new Date().toISOString().replace(/[:.]/g, "-")}.webm`),
+      title: "Save Slickly AI screen recording",
+      defaultPath: path.join(app.getPath("videos"), `Slickly AI-Recording-${new Date().toISOString().replace(/[:.]/g, "-")}.webm`),
       buttonLabel: "Save recording",
       filters: [{ name: "WebM video", extensions: ["webm"] }]
     });
@@ -828,7 +828,7 @@ class ApplicationController {
         const sessionHistory = sessionManager.getOptimizedHistory();
         const result = await this.processWithLLM(text.trim(), sessionHistory, { generalAssistant: true });
         if (!result || result.success === false) {
-          return { success: false, error: result?.error || "Cleverly could not complete the message." };
+          return { success: false, error: result?.error || "Slickly AI could not complete the message." };
         }
         return { success: true };
       } catch (error) {
@@ -836,7 +836,7 @@ class ApplicationController {
           error: error.message,
           text: text.substring(0, 100)
         });
-        return { success: false, error: error.message || "Cleverly could not complete the message." };
+        return { success: false, error: error.message || "Slickly AI could not complete the message." };
       }
     });
 
@@ -1425,7 +1425,7 @@ class ApplicationController {
       });
 
       this.broadcastLLMError(error.message);
-      return { success: false, error: error.message || "Cleverly could not complete the request." };
+      return { success: false, error: error.message || "Slickly AI could not complete the request." };
     }
   }
 
