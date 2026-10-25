@@ -5,7 +5,10 @@ const WINDOW_MS = 60 * 1000;
 const MAX_PER_WINDOW = 10;
 // Conservative per-IP and per-install budget for the shared free-tier provider key.
 // This is a best-effort guard; durable project-wide enforcement needs a shared store.
-const MAX_PER_DAY = 12;
+const MAX_PER_DAY = 120;
+// Continuous screen vision is budgeted separately from conversational chat.
+// At a six-second frame interval, 180 frames allows about 18 minutes of live use/day.
+const MAX_SCREEN_PER_DAY = 180;
 const counters = globalThis.__openCluelyGeminiCounters || new Map();
 globalThis.__openCluelyGeminiCounters = counters;
 
@@ -19,7 +22,7 @@ function respond(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-function rateLimit(key, now) {
+function rateLimit(key, now, maxPerWindow = MAX_PER_WINDOW, maxPerDay = MAX_PER_DAY) {
   let entry = counters.get(key);
   if (!entry) {
     entry = { windowStart: now, windowCount: 0, dayStart: now, dayCount: 0 };
@@ -35,7 +38,7 @@ function rateLimit(key, now) {
   entry.windowCount += 1;
   entry.dayCount += 1;
   counters.set(key, entry);
-  return entry.windowCount <= MAX_PER_WINDOW && entry.dayCount <= MAX_PER_DAY;
+  return entry.windowCount <= maxPerWindow && entry.dayCount <= maxPerDay;
 }
 
 module.exports = async function handler(req, res) {
@@ -88,9 +91,16 @@ module.exports = async function handler(req, res) {
   }
   const now = Date.now();
   const ip = String(req.headers['x-real-ip'] || req.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
-  if (!rateLimit('ip:' + ip, now) || !rateLimit('install:' + installId, now)) {
+  const feature = req.headers['x-opencluely-feature'] === 'screen-vision' ? 'screen-vision' : 'chat';
+  const dailyLimit = feature === 'screen-vision' ? MAX_SCREEN_PER_DAY : MAX_PER_DAY;
+  // Isolate screen-frame traffic from chat/audio so a live session cannot
+  // consume the conversational budget. Each feature still has bounded limits.
+  if (
+    !rateLimit('ip:' + ip + ':' + feature, now, MAX_PER_WINDOW, dailyLimit) ||
+    !rateLimit('install:' + installId + ':' + feature, now, MAX_PER_WINDOW, dailyLimit)
+  ) {
     res.setHeader('Retry-After', '60');
-    return respond(res, 429, { error: 'Cleverly AI request limit reached. Wait a minute and try again.' });
+    return respond(res, 429, { error: 'Cleverly AI ' + feature + ' request limit reached. Wait a minute and try again.' });
   }
 
   const request = body.request;
