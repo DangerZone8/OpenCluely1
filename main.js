@@ -1317,7 +1317,7 @@ class ApplicationController {
       llmResult.metadata = { ...llmResult.metadata, messageId };
 
       sessionManager.addModelResponse(llmResult.response, {
-        skill: this.activeSkill,
+        skill: 'general',
         processingTime: llmResult.metadata.processingTime,
         usedFallback: llmResult.metadata.usedFallback,
         isImageAnalysis: true
@@ -1354,7 +1354,7 @@ class ApplicationController {
   async processWithLLM(text, sessionHistory, options = {}) {
     try {
       // Add user input to session memory
-      sessionManager.addUserInput(text, 'llm_input');
+      sessionManager.addUserInput(text, 'llm_input', 'general');
 
       // Check if current skill needs programming language context
       const skillsRequiringProgrammingLanguage = ['dsa'];
@@ -1442,7 +1442,7 @@ class ApplicationController {
     }
 
     // Route speech UI events according to the user's response-target setting.
-    sessionManager.addUserInput(fragment, 'speech');
+    sessionManager.addUserInput(fragment, 'speech', 'general');
     this.sendToVoiceResponseWindows("transcription-received", { text: fragment });
 
     this._utteranceBuffer = this._utteranceBuffer
@@ -1562,7 +1562,7 @@ class ApplicationController {
 
       // Add LLM response to session memory
       sessionManager.addModelResponse(llmResult.response, {
-        skill: this.activeSkill,
+        skill: 'general',
         processingTime: llmResult.metadata.processingTime,
         usedFallback: llmResult.metadata.usedFallback,
         isTranscriptionResponse: true

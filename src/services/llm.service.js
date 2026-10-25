@@ -625,7 +625,7 @@ class LLMService {
     }
     const history = Array.isArray(sessionMemory) ? sessionMemory : [];
     const contents = history
-      .filter((entry) => entry && ['user', 'model', 'assistant'].includes(entry.role) && typeof entry.content === 'string' && entry.content.trim())
+      .filter((entry) => entry && ['user', 'model', 'assistant'].includes(entry.role) && typeof entry.content === 'string' && entry.content.trim() && (!entry.skill || entry.skill === 'general'))
       .slice(-12)
       .map((entry) => ({
         role: entry.role === 'assistant' ? 'model' : entry.role,

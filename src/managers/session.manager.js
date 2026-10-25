@@ -82,11 +82,11 @@ class SessionManager {
   /**
    * Add a conversation event with proper role classification
    */
-  addConversationEvent({ role, content, action = null, metadata = {} }) {
+  addConversationEvent({ role, content, skill = this.currentSkill, action = null, metadata = {} }) {
     const event = this.createConversationEvent({
       role,
       content,
-      skill: this.currentSkill,
+      skill,
       action: action || this.inferActionFromRole(role),
       metadata
     });
@@ -108,10 +108,11 @@ class SessionManager {
   /**
    * Add user transcription or chat input
    */
-  addUserInput(text, source = 'chat') {
+  addUserInput(text, source = 'chat', skill = this.currentSkill) {
     return this.addConversationEvent({
       role: 'user',
       content: text,
+      skill,
       action: source === 'speech' ? 'speech_transcription' : 'chat_input',
       metadata: {
         source,
@@ -127,6 +128,7 @@ class SessionManager {
     return this.addConversationEvent({
       role: 'model',
       content: text,
+      skill: metadata.skill || this.currentSkill,
       action: 'llm_response',
       metadata: {
         ...metadata,

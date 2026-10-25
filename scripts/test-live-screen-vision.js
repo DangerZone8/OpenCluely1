@@ -14,7 +14,8 @@ const installId = crypto.randomUUID();
 const image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lS8AAAAASUVORK5CYII=';
 
 async function main() {
-  const expectedRevision = 'v175-fast-chat-2026-10-25-d';
+  const expectedRevisions = new Set(['v175-fast-chat-2026-10-25-d', 'v175-fast-chat-2026-10-25-e']);
+  const expectedRevisionLabel = [...expectedRevisions].join(' or ');
   const failures = [];
 
   // Try every configured hosted endpoint end-to-end. A correctly-versioned but
@@ -25,15 +26,15 @@ async function main() {
       try {
         const probe = await fetch(candidate, { method: 'GET', signal: AbortSignal.timeout(8000) });
         revision = probe.headers.get('x-opencluely-api-revision');
-        if (revision === expectedRevision) break;
+        if (expectedRevisions.has(revision)) break;
         console.log('Hosted API ' + candidate + ' has revision ' + String(revision) + ' (attempt ' + attempt + '/3).');
       } catch (error) {
         console.log('Hosted API probe failed for ' + candidate + ' (' + error.message + '), attempt ' + attempt + '/3.');
       }
       if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 2000));
     }
-    if (revision !== expectedRevision) {
-      failures.push(candidate + ': expected revision ' + expectedRevision + ', got ' + String(revision));
+    if (!expectedRevisions.has(revision)) {
+      failures.push(candidate + ': expected revision ' + expectedRevisionLabel + ', got ' + String(revision));
       continue;
     }
 
@@ -65,7 +66,7 @@ async function main() {
     let result = {};
     try { result = JSON.parse(raw); } catch {}
     const apiRevision = response.headers.get('x-opencluely-api-revision');
-    if (apiRevision !== expectedRevision || response.status !== 200 ||
+    if (!expectedRevisions.has(apiRevision) || response.status !== 200 ||
         typeof result.text !== 'string' || !result.text.trim()) {
       const failure = candidate + ': revision=' + String(apiRevision) +
         ', HTTP=' + response.status + ', body=' + String(raw).slice(0, 400);

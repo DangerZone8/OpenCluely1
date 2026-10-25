@@ -3,6 +3,9 @@
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
 const WINDOW_MS = 60 * 1000;
 const MAX_PER_WINDOW = 10;
+// A single live-screen session sends about 9 frames/minute at the 6.5s UI interval.
+// Leave room for a manual capture and one transient retry without weakening chat limits.
+const MAX_SCREEN_PER_WINDOW = 20;
 // Conservative per-IP and per-install budget for the shared free-tier provider key.
 // This is a best-effort guard; durable project-wide enforcement needs a shared store.
 const MAX_PER_DAY = 120;
@@ -18,7 +21,7 @@ function respond(res, status, body) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   // Fingerprint the deployed handler so production-alias drift is observable in E2E logs.
-  res.setHeader('X-OpenCluely-API-Revision', 'v175-fast-chat-2026-10-25-d');
+  res.setHeader('X-OpenCluely-API-Revision', 'v175-fast-chat-2026-10-25-e');
   res.end(JSON.stringify(body));
 }
 
@@ -96,8 +99,8 @@ module.exports = async function handler(req, res) {
   // Isolate screen-frame traffic from chat/audio so a live session cannot
   // consume the conversational budget. Each feature still has bounded limits.
   if (
-    !rateLimit('ip:' + ip + ':' + feature, now, MAX_PER_WINDOW, dailyLimit) ||
-    !rateLimit('install:' + installId + ':' + feature, now, MAX_PER_WINDOW, dailyLimit)
+    !rateLimit('ip:' + ip + ':' + feature, now, feature === 'screen-vision' ? MAX_SCREEN_PER_WINDOW : MAX_PER_WINDOW, dailyLimit) ||
+    !rateLimit('install:' + installId + ':' + feature, now, feature === 'screen-vision' ? MAX_SCREEN_PER_WINDOW : MAX_PER_WINDOW, dailyLimit)
   ) {
     res.setHeader('Retry-After', '60');
     return respond(res, 429, { error: 'Cleverly AI ' + feature + ' request limit reached. Wait a minute and try again.' });
@@ -122,16 +125,17 @@ module.exports = async function handler(req, res) {
   // Keep the configured fast model first for every request. Permit one alternate
   // only after an explicit provider response (e.g. model unavailable); transport
   // failures/timeouts break immediately below instead of serially delaying chat.
-  // Preserve v1.0.175's fast chat behavior: ordinary text/voice requests
-  // get exactly one request to the selected fast model. Only image/screen
-  // analysis may try one distinct model fallback after a transient/model error.
-  const fallbackModels = feature === 'screen-vision'
-    ? [
-        model,
-        ...['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.8-flash']
-          .filter(candidate => candidate !== model)
-      ].slice(0, 2)
-    : [model];
+  // Preserve the fast path: successful chat requests make one provider call.
+  // If Gemini explicitly reports a transient/model-specific failure, allow one
+  // distinct alternate model for both chat and vision. Transport failures and
+  // quota exhaustion still stop immediately to avoid wasting time/quota.
+  const fallbackCandidates = feature === 'screen-vision'
+    ? ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.8-flash']
+    : ['gemini-3.1-flash-lite', 'gemini-3.5-flash'];
+  const fallbackModels = [
+    model,
+    ...fallbackCandidates.filter(candidate => candidate !== model)
+  ].slice(0, 2);
   let lastFailure = null;
   const attemptedModels = [];
   // Bound the whole request while allowing a fast alternate when the provider

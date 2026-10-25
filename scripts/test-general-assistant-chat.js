@@ -32,6 +32,22 @@ async function run() {
   assert.match(capturedRequest.systemInstruction.parts[0].text, /never as OpenCluely/);
   assert.match(capturedRequest.systemInstruction.parts[0].text, /Respond naturally/);
   assert.match(capturedRequest.systemInstruction.parts[0].text, /conversation history/);
+  const mixedSkillHistory = [
+    { role: 'user', content: 'Solve this graph problem', skill: 'dsa' },
+    { role: 'model', content: 'This appears to be a data structures and algorithms problem. Consider breaking it down into smaller components and identifying the appropriate algorithm or data structure to use.', skill: 'dsa' },
+    { role: 'user', content: 'Earlier I asked about lunch.', skill: 'general' },
+    { role: 'model', content: 'We were discussing lunch options.', skill: 'general' }
+  ];
+  let isolatedRequest;
+  llmService.executeStreamingRequest = async (request) => { isolatedRequest = request; return 'Hello!'; };
+  await llmService.processGeneralAssistantStream('hi', mixedSkillHistory);
+  assert.deepEqual(isolatedRequest.contents.map(item => item.parts[0].text), [
+    'Earlier I asked about lunch.',
+    'We were discussing lunch options.',
+    'hi'
+  ], 'General chat must not inherit DSA-specific history or canned coding responses.');
+  assert.doesNotMatch(JSON.stringify(isolatedRequest.contents), /data structures and algorithms|graph problem/i);
+
   let identityCalls = 0;
   const originalExecute = llmService.executeStreamingRequest;
   llmService.executeStreamingRequest = async () => { identityCalls++; return 'unexpected'; };
