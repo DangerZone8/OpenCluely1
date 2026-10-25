@@ -82,7 +82,7 @@ class LLMService {
     // preventing multiple dead aliases from multiplying the wait indefinitely.
     // The hosted API now permits a bounded alternate-model attempt; give it
     // enough time to finish without allowing dead aliases to multiply latency.
-    const configuredTimeout = config.get('llm.gemini.timeout') || 22000;
+    const configuredTimeout = Math.max(config.get('llm.gemini.timeout') || 15000, 22000);
     const totalTimeout = Math.max(20000, Math.min(configuredTimeout + 8000, 30000));
     const deadline = Date.now() + totalTimeout;
     const payload = JSON.stringify({ model: modelName, request: geminiRequest });
