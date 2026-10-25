@@ -27,7 +27,7 @@ async function main() {
     const model = decodeURIComponent(url.match(/models\/([^:]+)/)[1]); calls.push(model);
     if (model === 'gemini-3.5-flash-lite') return { ok: false, status: 503, json: async () => ({ error: { status: 'UNAVAILABLE', message: 'high demand' } }) };
     return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'SCREEN_TEST_OK' }] } }] }) };
-  });
+  }, true, 'screen-vision');
   assert.equal(recovered.status, 200);
   assert.equal(recovered.body.text, 'SCREEN_TEST_OK');
   assert.equal(recovered.body.model, 'gemini-3.1-flash-lite');
@@ -38,7 +38,7 @@ async function main() {
     const model = decodeURIComponent(url.match(/models\/([^:]+)/)[1]); invalidCalls.push(model);
     if (model === 'gemini-3.5-flash-lite') return { ok: false, status: 400, json: async () => ({ error: { status: 'INVALID_ARGUMENT', message: 'model-specific argument rejected' } }) };
     return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'SCREEN_TEST_OK' }] } }] }) };
-  });
+  }, true, 'screen-vision');
   assert.equal(modelRejected.status, 200);
   assert.equal(modelRejected.body.model, 'gemini-3.1-flash-lite');
   assert.deepEqual(invalidCalls, ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']);
@@ -48,7 +48,7 @@ async function main() {
     const model = decodeURIComponent(url.match(/models\/([^:]+)/)[1]); notFoundCalls.push(model);
     if (model === 'gemini-3.5-flash-lite') return { ok: false, status: 404, json: async () => ({ error: { status: 'NOT_FOUND', message: 'model not found' } }) };
     return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'SCREEN_TEST_OK' }] } }] }) };
-  });
+  }, true, 'screen-vision');
   assert.equal(missingModel.status, 200);
   assert.equal(missingModel.body.model, 'gemini-3.1-flash-lite');
   assert.deepEqual(notFoundCalls, ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']);
@@ -58,7 +58,7 @@ async function main() {
   const exhausted = await invoke(async url => {
     failed.push(decodeURIComponent(url.match(/models\/([^:]+)/)[1]));
     return { ok: false, status: 503, json: async () => ({ error: { status: 'UNAVAILABLE', message: 'high demand' } }) };
-  });
+  }, true, 'screen-vision');
   assert.equal(exhausted.status, 502);
   assert.equal(failed.length, 2, 'proxy should cap fallback to two models within its request deadline');
   assert.equal(new Set(failed).size, 2, 'proxy must use distinct fallback models');
@@ -83,6 +83,16 @@ async function main() {
   assert.equal(fastText.body.text, 'FAST_TEXT_OK');
   assert.equal(textCalls.length, 1, 'ordinary chat must use one fast-model request without serial fallback');
   console.log('PASS: ordinary text chat uses one fast-model request; screen vision keeps bounded fallback.');
+  const textFailureCalls = [];
+  const textFailure = await invoke(async url => {
+    textFailureCalls.push(decodeURIComponent(url.match(/models\\/([^:]+)/)[1]));
+    return { ok: false, status: 503, json: async () => ({ error: { status: 'UNAVAILABLE', message: 'high demand' } }) };
+  }, false, 'chat');
+  assert.equal(textFailure.status, 502);
+  assert.deepEqual(textFailureCalls, ['gemini-3.5-flash-lite'],
+    'ordinary chat must not wait through sequential alternate-model attempts after a transient failure');
+  console.log('PASS: ordinary chat returns after its single fast-model attempt; screen vision alone may use a bounded model fallback.');
+
 
   const quotaCalls = [];
   const quotaExhausted = await invoke(async url => {
