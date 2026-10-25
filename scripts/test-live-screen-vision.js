@@ -14,7 +14,7 @@ const installId = crypto.randomUUID();
 const image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lS8AAAAASUVORK5CYII=';
 
 async function main() {
-  const expectedRevision = 'bounded-fallback-2026-10-24-b';
+  const expectedRevision = 'screen-budget-2026-10-25-c';
   const failures = [];
 
   // Try every configured hosted endpoint end-to-end. A correctly-versioned but
@@ -43,7 +43,8 @@ async function main() {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-opencluely-install-id': installId
+        'x-opencluely-install-id': installId,
+        'x-opencluely-feature': 'screen-vision'
       },
       body: JSON.stringify({
         model: 'gemini-3.5-flash-lite',
