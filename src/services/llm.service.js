@@ -219,7 +219,7 @@ class LLMService {
           });
         } catch (error) {
           clearTimeout(timer);
-          const fallbackBudget = Math.min(2500, endpointDeadline - Date.now(), deadline - Date.now());
+          const fallbackBudget = Math.min(10000, endpointDeadline - Date.now(), deadline - Date.now());
           if (fallbackBudget <= 0) {
             networkFailures.push(new NodeURL(endpoint).host + ': connection timed out');
             continue;
