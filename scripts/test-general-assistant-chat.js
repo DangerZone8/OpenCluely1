@@ -28,7 +28,7 @@ async function run() {
   assert.equal(capturedRequest.contents.length, 3, 'Recent conversation should be passed to Gemini');
   assert.equal(capturedRequest.contents[1].role, 'model');
   assert.equal(capturedRequest.contents[1].parts[0].text, 'Option B is cheaper.');
-  assert.match(capturedRequest.systemInstruction.parts[0].text, /You are Cleverly/);
+  assert.match(capturedRequest.systemInstruction.parts[0].text, /You are Slickly AI/);
   assert.match(capturedRequest.systemInstruction.parts[0].text, /never as OpenCluely/);
   assert.match(capturedRequest.systemInstruction.parts[0].text, /Respond naturally/);
   assert.match(capturedRequest.systemInstruction.parts[0].text, /conversation history/);
@@ -54,10 +54,10 @@ async function run() {
   const identityDeltas = [];
   const identity = await llmService.processGeneralAssistantStream("Hey, what do I call you?", [], delta => identityDeltas.push(delta));
   llmService.executeStreamingRequest = originalExecute;
-  assert.equal(identity.response, "I'm Cleverly, your AI assistant.");
-  assert.deepEqual(identityDeltas, ["I'm Cleverly, your AI assistant."]);
+  assert.equal(identity.response, "I'm Slickly AI, your AI assistant.");
+  assert.deepEqual(identityDeltas, ["I'm Slickly AI, your AI assistant."]);
   assert.equal(identityCalls, 0, 'identity questions must not call Gemini or consume API quota');
-  console.log('General assistant context, Cleverly identity, and streaming tests passed.');
+  console.log('General assistant context, Slickly AI identity, and streaming tests passed.');
 }
 
 run().catch((error) => {
