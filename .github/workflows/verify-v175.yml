@@ -45,7 +45,11 @@ jobs:
       - name: Verify live hosted screen vision
         run: npm run test:screen-vision-live
 
+      # The production proxy is updated only after merge/deploy. On PRs,
+      # test the handler fallback with unit tests; run this real production
+      # endpoint check on main after Vercel can deploy the changed API route.
       - name: Verify live Gemini fast-chat behavior
+        if: github.event_name != 'pull_request'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
