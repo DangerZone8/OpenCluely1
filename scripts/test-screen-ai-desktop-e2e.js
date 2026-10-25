@@ -118,7 +118,7 @@ async function main() {
   };
   delete env.ELECTRON_RUN_AS_NODE;
   child = spawn(electronPath, [
-    '--no-sandbox', '--disable-gpu',
+    '--no-sandbox', '--disable-gpu', '--remote-allow-origins=*',
     `--remote-debugging-port=${port}`,
     `--user-data-dir=${userData}`,
     '.'
