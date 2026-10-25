@@ -1,0 +1,47 @@
+name: Verify v175 Chat and Screen AI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-v175-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Source checks and live AI verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run local regression checks
+        run: npm run check
+
+      - name: Verify live hosted screen vision
+        run: npm run test:screen-vision-live
+
+      - name: Verify live Gemini fast-chat behavior
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "::error::GEMINI_API_KEY Actions secret is missing; live fast-chat verification cannot be claimed."
+            exit 1
+          fi
+          npm run test:gemini-live
