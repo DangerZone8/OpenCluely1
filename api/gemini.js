@@ -122,10 +122,16 @@ module.exports = async function handler(req, res) {
   // Keep the configured fast model first for every request. Permit one alternate
   // only after an explicit provider response (e.g. model unavailable); transport
   // failures/timeouts break immediately below instead of serially delaying chat.
-  const fallbackModels = [
-    model,
-    ...['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.8-flash'].filter(candidate => candidate !== model)
-  ].slice(0, 2);
+  // Preserve v1.0.175's fast chat behavior: ordinary text/voice requests
+  // get exactly one request to the selected fast model. Only image/screen
+  // analysis may try one distinct model fallback after a transient/model error.
+  const fallbackModels = feature === 'screen-vision'
+    ? [
+        model,
+        ...['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.8-flash']
+          .filter(candidate => candidate !== model)
+      ].slice(0, 2)
+    : [model];
   let lastFailure = null;
   const attemptedModels = [];
   // Bound the whole request while allowing a fast alternate when the provider
