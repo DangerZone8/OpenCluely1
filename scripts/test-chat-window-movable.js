@@ -60,8 +60,8 @@ assert.match(main, /ipcMain\.handle\("analyze-live-screen-frame"[\s\S]*?llmServi
   'Main process must route screen frames directly to visual AI analysis');
 assert.match(html, /async function startLiveScreenMode\(/,
   'Screen control must start a live AI viewing session');
-assert.match(html, /const LIVE_FRAME_INTERVAL_MS = 1500/,
-  'Live screen AI must use a responsive frame interval while enabled');
+assert.match(html, /const LIVE_FRAME_INTERVAL_MS = 6500/,
+  'Live screen AI must respect the hosted screen-vision request budget while enabled');
 assert.match(html, /setTimeout\(sendFrame, LIVE_FRAME_INTERVAL_MS\)/,
   'Live screen AI must schedule the next fresh frame after the previous analysis completes');
 assert.match(html, /liveScreenFrameInFlight/,
