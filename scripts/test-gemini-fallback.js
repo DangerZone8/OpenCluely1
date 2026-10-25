@@ -85,7 +85,7 @@ async function main() {
   console.log('PASS: ordinary text chat uses one fast-model request; screen vision keeps bounded fallback.');
   const textFailureCalls = [];
   const textFailure = await invoke(async url => {
-    textFailureCalls.push(decodeURIComponent(url.match(/models\\/([^:]+)/)[1]));
+    textFailureCalls.push(decodeURIComponent(url.match(/models\/([^:]+)/)[1]));
     return { ok: false, status: 503, json: async () => ({ error: { status: 'UNAVAILABLE', message: 'high demand' } }) };
   }, false, 'chat');
   assert.equal(textFailure.status, 502);
