@@ -108,7 +108,7 @@
           const find = function (pattern) { return assets.find(function (asset) { return pattern.test(asset.name); }); };
           const windows = find(/^Slickly-AI-Setup-.*\.exe$/i) || find(/\.exe$/i);
           const macArm = find(/arm64.*\.dmg$/i) || find(/.*arm64.*\.zip$/i);
-          const macIntel = find(/^(?!.*arm64).*Slickly AI.*\.dmg$/i) || find(/^(?!.*arm64).*\.zip$/i);
+          const macIntel = find(/^(?!.*arm64).*Slickly-AI.*\.dmg$/i) || find(/^(?!.*arm64).*\.zip$/i);
           const linux = find(/\.AppImage$/i) || find(/_amd64\.deb$/i) || find(/\.deb$/i);
           activate(links.windows, windows, "Windows");
           const isAppleSilicon = /Macintosh|Mac OS X/i.test(navigator.userAgent || "") && /Apple/i.test(navigator.userAgent || "");
