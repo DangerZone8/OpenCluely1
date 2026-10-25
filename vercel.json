@@ -4,5 +4,10 @@
   "installCommand": "echo 'Static Vercel deployment: no npm install required'",
   "outputDirectory": "web-dist",
   "cleanUrls": true,
-  "trailingSlash": false
+  "trailingSlash": false,
+  "functions": {
+    "api/gemini.js": {
+      "maxDuration": 30
+    }
+  }
 }
