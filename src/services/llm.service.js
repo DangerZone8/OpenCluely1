@@ -622,7 +622,7 @@ class LLMService {
     }
   }
 
-  isSlickly AIIdentityQuestion(text) {
+  isSlicklyAIIdentityQuestion(text) {
     const question = String(text || '').toLowerCase().replace(/[’]/g, "'").trim();
     return /\b(?:your name|what name do you go by|what do you call yourself|what(?:'s| is) the name of (?:you|this ai|this assistant)|tell me your name|say your name|remind me (?:of )?your name|who are you|who am i (?:talking to|chatting with|speaking to)|who is this|what should i call you|what can i call you|what do i call you|are you called [^?!.]+|is your name [^?!.]+|are you (?:opencluely|cleverly|gemini|chatgpt|an? ai|the assistant)|introduce yourself)\b/.test(question);
   }
@@ -632,7 +632,7 @@ class LLMService {
     if (!this.isInitialized) throw new Error('LLM service not initialized. Check Gemini API key configuration.');
     const startTime = Date.now();
     this.requestCount++;
-    if (this.isSlickly AIIdentityQuestion(text)) {
+    if (this.isSlicklyAIIdentityQuestion(text)) {
       const response = "I'm Slickly AI, your AI assistant.";
       if (typeof onDelta === 'function') onDelta(response);
       return { response, metadata: { skill: 'general', programmingLanguage: null, processingTime: Date.now() - startTime, requestId: this.requestCount, usedFallback: false, streamed: true, identityResponse: true } };
