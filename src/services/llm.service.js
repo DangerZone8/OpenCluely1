@@ -92,17 +92,10 @@ class LLMService {
       'x-opencluely-install-id': this.getRemoteInstallationId(),
       ...(containsImage ? { 'x-opencluely-feature': 'screen-vision' } : {})
     };
-    const configuredEndpoints = [
-      process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT,
-      this.remoteEndpoint
-    ];
-    // Always try the known-good production alias first. A stale or locally
-    // overridden OPENCLUELY_AI_ENDPOINT must never send a packaged desktop app
-    // to localhost or make an unhealthy alias consume the request deadline.
-    const hostedEndpoints = [
-      'https://opencluelys.vercel.app/api/gemini',
-      'https://opencluely-iota.vercel.app/api/gemini'
-    ];
+    // Screen/chat requests must never inherit a localhost endpoint from a
+    // developer .env or a stale persisted setting. Keep the production aliases
+    // as the source of truth, and only add an explicitly configured HTTPS
+    // fallback if it is not a loopback address.
     const isUsableHostedEndpoint = (value) => {
       if (typeof value !== 'string' || !value.trim()) return false;
       try {
@@ -113,19 +106,32 @@ class LLMService {
         return false;
       }
     };
-    // Always try both known production aliases before custom overrides. This
-    // guarantees a stale/misconfigured OPENCLUELY_AI_ENDPOINT cannot push the
-    // known backup out of the three-attempt budget. Keep a custom fallback as
-    // the third choice when it is distinct from both production aliases.
-    const endpoints = [...new Set([
-      hostedEndpoints[0],
-      hostedEndpoints[1],
-      ...configuredEndpoints.filter(isUsableHostedEndpoint)
-    ])].slice(0, 3);
+    const hostedEndpoints = [
+      'https://opencluelys.vercel.app/api/gemini',
+      'https://opencluely-iota.vercel.app/api/gemini'
+    ];
+    const configuredFallback = process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT;
+    const endpoints = [
+      ...hostedEndpoints,
+      ...(isUsableHostedEndpoint(configuredFallback) &&
+          !hostedEndpoints.includes(configuredFallback.trim())
+        ? [configuredFallback.trim()] : [])
+    ];
 
-    // Keep a runtime invariant at the network boundary: no request may ever
-    // be sent to a loopback or non-HTTPS destination, even if a future config
-    // change accidentally bypasses the configured-endpoint filter.
+    // Emit diagnostics before any network call; this log is intentionally
+    // before validation so a CI failure shows the exact resolved runtime list.
+    logger.info('Hosted AI endpoint resolution', {
+      sourceFile: __filename,
+      candidates: endpoints.map(endpoint => {
+        try { return new URL(endpoint).host; } catch { return '[invalid URL]'; }
+      }),
+      configuredEndpointHost: (() => {
+        try { return new URL(this.remoteEndpoint).host; } catch { return '[invalid URL]'; }
+      })(),
+      fallbackEndpointHost: (() => {
+        try { return new URL(configuredFallback || '').host; } catch { return '[invalid URL]'; }
+      })()
+    });
     const unsafeEndpoints = endpoints.filter(endpoint => !isUsableHostedEndpoint(endpoint));
     if (unsafeEndpoints.length) {
       throw new Error('Refusing unsafe hosted Cleverly AI endpoint(s): ' +
@@ -133,16 +139,6 @@ class LLMService {
           try { return new URL(endpoint).host; } catch { return '[invalid URL]'; }
         }).join(', '));
     }
-    logger.info('Screen/chat hosted endpoint candidates', {
-      sourceFile: __filename,
-      candidates: endpoints.map(endpoint => new URL(endpoint).host),
-      configuredEndpointHost: (() => {
-        try { return new URL(this.remoteEndpoint).host; } catch { return '[invalid URL]'; }
-      })(),
-      fallbackEndpointHost: (() => {
-        try { return new URL(process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT || '').host; } catch { return '[invalid URL]'; }
-      })()
-    });
 
     const parseResponse = (status, rawBody) => {
       let result = {};
