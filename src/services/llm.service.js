@@ -83,10 +83,14 @@ class LLMService {
     const totalTimeout = Math.max(20000, Math.min(configuredTimeout * 2, 30000));
     const deadline = Date.now() + totalTimeout;
     const payload = JSON.stringify({ model: modelName, request: geminiRequest });
+    const containsImage = (geminiRequest.contents || []).some(message =>
+      Array.isArray(message?.parts) && message.parts.some(part => part && (part.inlineData || part.inline_data || part.fileData))
+    );
     const headers = {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(payload),
-      'x-opencluely-install-id': this.getRemoteInstallationId()
+      'x-opencluely-install-id': this.getRemoteInstallationId(),
+      ...(containsImage ? { 'x-opencluely-feature': 'screen-vision' } : {})
     };
     const configuredEndpoints = [
       process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT,
