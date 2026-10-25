@@ -66,16 +66,26 @@ async function main() {
     process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT = 'https://healthy.example/api/gemini';
     const originalFetch = global.fetch;
     const endpointCalls = [];
+    let primaryAttempts = 0;
     global.fetch = async (url) => {
-      endpointCalls.push(String(url));
-      if (String(url).includes('opencluelys.vercel.app') || String(url).includes('opencluely-iota.vercel.app') || String(url).includes('misconfigured.example')) {
+      const target = String(url);
+      endpointCalls.push(target);
+      if (target.includes('opencluelys.vercel.app')) {
+        primaryAttempts += 1;
+        return {
+          status: primaryAttempts === 1 ? 502 : 503,
+          headers: { get: () => 'quota-guard-2026-10-22-a' },
+          text: async () => JSON.stringify({ error: 'temporary provider failure' })
+        };
+      }
+      if (target.includes('opencluely-iota.vercel.app') || target.includes('misconfigured.example')) {
         return {
           status: 503,
           headers: { get: () => 'quota-guard-2026-10-22-a' },
           text: async () => JSON.stringify({ error: 'not configured' })
         };
       }
-      if (String(url).includes('healthy.example')) {
+      if (target.includes('healthy.example')) {
         return {
           status: 200,
           headers: { get: () => 'quota-guard-2026-10-22-a' },
@@ -90,6 +100,7 @@ async function main() {
       });
       assert.equal(hostedResponse, 'Fallback host works.');
       assert.deepEqual(endpointCalls, [
+        'https://opencluelys.vercel.app/api/gemini',
         'https://opencluelys.vercel.app/api/gemini',
         'https://opencluely-iota.vercel.app/api/gemini',
         'https://healthy.example/api/gemini'
