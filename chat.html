@@ -1527,6 +1527,7 @@
       let liveScreenVideo = null;
       let liveScreenTimer = null;
       let liveScreenFrameInFlight = false;
+      let liveScreenConsecutiveErrors = 0;
       let lastLiveScreenAnswer = '';
 
       async function captureAndAskAI(instruction, stream = null) {
@@ -1616,6 +1617,7 @@
             const bytes = new Uint8Array(await blob.arrayBuffer());
             const result = await whysperAPI.analyzeScreenFrame(bytes, 'image/jpeg',
               'You are observing a live desktop session. Compare this frame with the previous observation. Prior observation: ' + (lastLiveScreenAnswer || 'none yet') + '. Prioritize newly changed content, visible errors, code edits, dialogs, and anything that needs attention. If nothing useful changed, respond exactly NO_UPDATE. Do not repeat the previous answer.');
+            liveScreenConsecutiveErrors = 0;
             const answer = result?.response?.trim();
             if (answer && answer !== 'NO_UPDATE' && liveScreenStream === streamAtStart) {
               lastLiveScreenAnswer = answer.slice(0, 1200);
@@ -1623,8 +1625,16 @@
             }
           } catch (error) {
             if (liveScreenStream === streamAtStart) {
-              addMessage('Live screen AI error: ' + (error.message || String(error)), 'error');
-              stopLiveScreenMode();
+              liveScreenConsecutiveErrors += 1;
+              if (liveScreenConsecutiveErrors === 1) {
+                addMessage('Live screen AI had a temporary request failure and is retrying: ' + (error.message || String(error)), 'system');
+              }
+              // One transient provider/network error must not terminate a live
+              // session. Stop only after three consecutive failed frame requests.
+              if (liveScreenConsecutiveErrors >= 3) {
+                addMessage('Live screen AI stopped after three consecutive failed requests. Last error: ' + (error.message || String(error)), 'error');
+                stopLiveScreenMode();
+              }
             }
           } finally {
             liveScreenFrameInFlight = false;
@@ -1649,6 +1659,7 @@
         }
         liveScreenVideo = null;
         liveScreenFrameInFlight = false;
+        liveScreenConsecutiveErrors = 0;
         lastLiveScreenAnswer = '';
         if (screenRecordBtn) {
           screenRecordBtn.title = 'Start live screen AI (analyze screen continuously)';
