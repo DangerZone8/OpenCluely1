@@ -43,7 +43,7 @@ async function run() {
   await llmService.processGeneralAssistantStream('hi', mixedSkillHistory);
   assert.deepEqual(isolatedRequest.contents.map(item => item.parts[0].text), [
     'Earlier I asked about lunch.',
-    'We were discussing lunch.',
+    'We were discussing lunch options.',
     'hi'
   ], 'General chat must not inherit DSA-specific history or canned coding responses.');
   assert.doesNotMatch(JSON.stringify(isolatedRequest.contents), /data structures and algorithms|graph problem/i);
