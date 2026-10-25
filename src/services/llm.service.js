@@ -1,3 +1,4 @@
+const { URL: NodeURL } = require('node:url');
 const { GoogleGenAI } = require('@google/genai');
 const logger = require('../core/logger').createServiceLogger('LLM');
 const config = require('../core/config');
@@ -99,7 +100,7 @@ class LLMService {
     const isUsableHostedEndpoint = (value) => {
       if (typeof value !== 'string' || !value.trim()) return false;
       try {
-        const url = new URL(value.trim());
+        const url = new NodeURL(value.trim());
         return url.protocol === 'https:' &&
           !['localhost', '127.0.0.1', '::1', '[::1]'].includes(url.hostname.toLowerCase());
       } catch {
@@ -122,21 +123,22 @@ class LLMService {
     // before validation so a CI failure shows the exact resolved runtime list.
     logger.info('Hosted AI endpoint resolution', {
       sourceFile: __filename,
+      globalUrlMatchesNode: globalThis.URL === NodeURL,
       candidates: endpoints.map(endpoint => {
-        try { return new URL(endpoint).host; } catch { return '[invalid URL]'; }
+        try { return new NodeURL(endpoint).host; } catch { return '[invalid URL]'; }
       }),
       configuredEndpointHost: (() => {
-        try { return new URL(this.remoteEndpoint).host; } catch { return '[invalid URL]'; }
+        try { return new NodeURL(this.remoteEndpoint).host; } catch { return '[invalid URL]'; }
       })(),
       fallbackEndpointHost: (() => {
-        try { return new URL(configuredFallback || '').host; } catch { return '[invalid URL]'; }
+        try { return new NodeURL(configuredFallback || '').host; } catch { return '[invalid URL]'; }
       })()
     });
     const unsafeEndpoints = endpoints.filter(endpoint => !isUsableHostedEndpoint(endpoint));
     if (unsafeEndpoints.length) {
       throw new Error('Refusing unsafe hosted Cleverly AI endpoint(s): ' +
         unsafeEndpoints.map(endpoint => {
-          try { return new URL(endpoint).host; } catch { return '[invalid URL]'; }
+          try { return new NodeURL(endpoint).host; } catch { return '[invalid URL]'; }
         }).join(', '));
     }
 
@@ -162,7 +164,7 @@ class LLMService {
     const useHttpsFallback = (endpoint, primaryError, timeoutMs) => new Promise((resolve, reject) => {
       const https = require('https');
       let url;
-      try { url = new URL(endpoint); } catch {
+      try { url = new NodeURL(endpoint); } catch {
         reject(new Error('Hosted Cleverly AI endpoint URL is invalid.'));
         return;
       }
@@ -219,7 +221,7 @@ class LLMService {
           clearTimeout(timer);
           const fallbackBudget = Math.min(2500, endpointDeadline - Date.now(), deadline - Date.now());
           if (fallbackBudget <= 0) {
-            networkFailures.push(new URL(endpoint).host + ': connection timed out');
+            networkFailures.push(new NodeURL(endpoint).host + ': connection timed out');
             continue;
           }
           try {
@@ -227,12 +229,12 @@ class LLMService {
           } catch (fallbackError) {
             if (fallbackError.isHostedResponseError) {
               if (fallbackError.statusCode >= 500 && fallbackError.statusCode !== 429) {
-                networkFailures.push(new URL(endpoint).host + ': HTTP ' + fallbackError.statusCode);
+                networkFailures.push(new NodeURL(endpoint).host + ': HTTP ' + fallbackError.statusCode);
                 continue;
               }
               throw fallbackError;
             }
-            networkFailures.push(new URL(endpoint).host + ': ' + fallbackError.message);
+            networkFailures.push(new NodeURL(endpoint).host + ': ' + fallbackError.message);
             continue;
           }
         }
@@ -244,7 +246,7 @@ class LLMService {
           // 5xx is a server/deployment problem: try the next alias. A 429 or
           // any other client error is authoritative and must not fan out.
           if (response.status >= 500 && response.status !== 429) {
-            networkFailures.push(new URL(endpoint).host + ': HTTP ' + response.status);
+            networkFailures.push(new NodeURL(endpoint).host + ': HTTP ' + response.status);
             continue;
           }
           throw error;
