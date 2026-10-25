@@ -42,6 +42,12 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: xvfb-run -a npm run test:screen-ai-desktop-e2e
 
+      - name: Verify new cleverly-lime production endpoint
+        env:
+          VERIFY_ONLY_ENDPOINT: https://cleverly-lime.vercel.app/api/gemini
+          ALLOW_OLD_API_REVISION: 'false'
+        run: npm run test:screen-vision-live
+
       - name: Verify live hosted screen vision
         env:
           ALLOW_OLD_API_REVISION: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
