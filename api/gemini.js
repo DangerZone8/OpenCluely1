@@ -129,9 +129,13 @@ module.exports = async function handler(req, res) {
   // If Gemini explicitly reports a transient/model-specific failure, allow one
   // distinct alternate model for both chat and vision. Transport failures and
   // quota exhaustion still stop immediately to avoid wasting time/quota.
+  // Direct GitHub Actions verification confirmed gemini-3.5-flash-lite can
+  // respond while gemini-3.8-flash returns 503 high demand. Prefer that known
+  // working low-latency fallback before the larger flash model. Keep only one
+  // alternate attempt per request so successful fast chat stays one-call.
   const fallbackCandidates = feature === 'screen-vision'
-    ? ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.6-flash', 'gemini-3.8-flash']
-    : ['gemini-3.5-flash', 'gemini-3.1-flash-lite'];
+    ? ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.6-flash', 'gemini-3.8-flash']
+    : ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.1-flash-lite'];
   const fallbackModels = [
     model,
     ...fallbackCandidates.filter(candidate => candidate !== model)
