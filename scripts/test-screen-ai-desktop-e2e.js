@@ -188,17 +188,21 @@ async function main() {
       'Live Screen AI button did not enter active state: ' + JSON.stringify(liveStarted));
     const live = await waitForResult(before, 100000, 'Live Screen AI');
     console.log('PASS Live Screen AI initial frame:', live.response.slice(0, 240).replace(/\s+/g, ' '));
-    // Reproduce the reported ~2-minute regression. Keep live mode active across
-    // multiple provider-backed frame intervals; a single successful frame is not
-    // sufficient evidence that quota handling and endpoint recovery remain stable.
-    const liveResponseCountBeforeSustain = await evaluate("document.querySelectorAll('#chatMessages .message.assistant').length");
-    await sleep(125000);
-    const sustained = await evaluate("(() => ({ active: document.querySelector('#screenRecordBtn')?.classList.contains('recording'), assistantCount: document.querySelectorAll('#chatMessages .message.assistant').length, errors: Array.from(document.querySelectorAll('#chatMessages .message.error')).map(e => e.innerText), system: Array.from(document.querySelectorAll('#chatMessages .message.system')).map(e => e.innerText) }))()");
-    assert.equal(sustained.active, true, 'Live Screen AI must remain active after 125 seconds');
-    assert.ok(sustained.assistantCount > liveResponseCountBeforeSustain, 'Live Screen AI must continue producing responses during the sustained run');
-    assert.doesNotMatch(sustained.errors.join('\n') + '\n' + sustained.system.join('\n'), /Live screen AI stopped after three consecutive failed requests|request limit reached|Could not connect to any hosted Slickly AI endpoint|fetch failed|usage limit reached/i,
-      'Live Screen AI must not regress into endpoint/quota errors during sustained use: ' + JSON.stringify(sustained));
-    console.log('PASS Live Screen AI sustained 125-second run: still active, continued responses, no endpoint/quota error.');
+    // Run the quota-expensive 125-second soak only for a manually requested
+    // verification. Every main push still clicks both real UI controls and checks
+    // real provider-backed responses, without spending a long loop of extra calls.
+    if (process.env.SLICKLY_E2E_SUSTAINED === '1') {
+      const liveResponseCountBeforeSustain = await evaluate("document.querySelectorAll('#chatMessages .message.assistant').length");
+      await sleep(125000);
+      const sustained = await evaluate("(() => ({ active: document.querySelector('#screenRecordBtn')?.classList.contains('recording'), assistantCount: document.querySelectorAll('#chatMessages .message.assistant').length, errors: Array.from(document.querySelectorAll('#chatMessages .message.error')).map(e => e.innerText), system: Array.from(document.querySelectorAll('#chatMessages .message.system')).map(e => e.innerText) }))()");
+      assert.equal(sustained.active, true, 'Live Screen AI must remain active after 125 seconds');
+      assert.ok(sustained.assistantCount > liveResponseCountBeforeSustain, 'Live Screen AI must continue producing responses during the sustained run');
+      assert.doesNotMatch(sustained.errors.join('\n') + '\n' + sustained.system.join('\n'), /Live screen AI stopped after three consecutive failed requests|request limit reached|Could not connect to any hosted Slickly AI endpoint|fetch failed|usage limit reached/i,
+        'Live Screen AI must not regress into endpoint/quota errors during sustained use: ' + JSON.stringify(sustained));
+      console.log('PASS Live Screen AI sustained 125-second run: still active, continued responses, no endpoint/quota error.');
+    } else {
+      console.log('INFO: 125-second sustained-use check is reserved for manual workflow dispatch.');
+    }
     await evaluate("document.querySelector('#screenRecordBtn')?.click()");
     console.log(JSON.stringify({ status: 'PASS', tests: ['Capture Screen and Ask AI real UI click + live response', 'Live Screen AI real UI click + fresh-frame response'], provider: 'real Gemini/hosted vision request', userData }, null, 2));
   } finally {
