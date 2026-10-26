@@ -66,3 +66,24 @@ jobs:
             exit 1
           fi
           npm run test:gemini-live
+
+
+  production-stability-diagnostic:
+    name: Diagnose production quota vs timeout over 2.5 minutes
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Probe production chat and screen vision for 150 seconds
+        env:
+          SLICKLY_DIAGNOSTIC_ENDPOINT: https://cleverly-lime.vercel.app/api/gemini
+          SLICKLY_DIAGNOSTIC_DURATION_MS: '150000'
+          SLICKLY_DIAGNOSTIC_INTERVAL_MS: '8000'
+        run: node scripts/test-production-ai-stability.js
