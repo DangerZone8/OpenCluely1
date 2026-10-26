@@ -42,7 +42,8 @@
     "node-record-lpcm16": "^1.0.1",
     "prismjs": "^1.30.0",
     "winston": "^3.17.0",
-    "winston-daily-rotate-file": "^4.7.1"
+    "winston-daily-rotate-file": "^4.7.1",
+    "electron-updater": "^6.6.2"
   },
   "devDependencies": {
     "electron": "^44.7.2",
@@ -172,6 +173,13 @@
         "width": 600,
         "height": 400
       }
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "DangerZone8",
+        "repo": "OpenCluely1"
+      }
+    ]
   }
 }
