@@ -119,8 +119,9 @@ async function main() {
     // runner's direct Google API fetch can fail independently of the app, and
     // a locally configured endpoint must never send this test to localhost.
     GEMINI_API_KEY: '',
-    OPENCLUELY_AI_ENDPOINT: 'https://slicklyai.vercel.app/api/gemini',
-    OPENCLUELY_AI_FALLBACK_ENDPOINT: 'https://cleverly-lime.vercel.app/api/gemini'
+    SLICKLY_E2E_AI_ENDPOINT: process.env.SLICKLY_E2E_AI_ENDPOINT || '',
+    OPENCLUELY_AI_ENDPOINT: process.env.SLICKLY_E2E_AI_ENDPOINT || 'https://slicklyai.vercel.app/api/gemini',
+    OPENCLUELY_AI_FALLBACK_ENDPOINT: process.env.SLICKLY_E2E_AI_ENDPOINT || process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT || 'https://cleverly-lime.vercel.app/api/gemini'
   };
   delete env.ELECTRON_RUN_AS_NODE;
   child = spawn(electronPath, [

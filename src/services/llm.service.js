@@ -114,8 +114,9 @@ class LLMService {
         return false;
       }
     };
-    const primaryHostedEndpoint = 'https://slicklyai.vercel.app/api/gemini';
-    const backupHostedEndpoint = 'https://cleverly-lime.vercel.app/api/gemini';
+    const strictTestEndpoint = String(process.env.SLICKLY_E2E_AI_ENDPOINT || '').trim();
+    const primaryHostedEndpoint = strictTestEndpoint || 'https://slicklyai.vercel.app/api/gemini';
+    const backupHostedEndpoint = strictTestEndpoint || 'https://cleverly-lime.vercel.app/api/gemini';
     // Explicit test override is intentionally exclusive: CI must exercise the
     // PR's actual Vercel preview, not silently pass by falling back to production.
     // This variable is only set by the screen-AI E2E workflow.
@@ -126,7 +127,9 @@ class LLMService {
     // Keep the backup reachable within the global deadline. Retry the primary
     // once only after an explicit HTTP 5xx response; network timeouts move to
     // the backup instead of consuming the entire deadline on the same host.
-    const hostedEndpoints = [primaryHostedEndpoint, backupHostedEndpoint, 'https://opencluelys.vercel.app/api/gemini', 'https://opencluely-iota.vercel.app/api/gemini'];
+    const hostedEndpoints = strictTestEndpoint
+      ? [strictTestEndpoint]
+      : [primaryHostedEndpoint, backupHostedEndpoint, 'https://opencluelys.vercel.app/api/gemini', 'https://opencluely-iota.vercel.app/api/gemini'];
     const configuredFallback = process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT;
     const endpoints = e2eEndpoint
       ? [e2eEndpoint.trim()]
