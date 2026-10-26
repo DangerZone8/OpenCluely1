@@ -377,7 +377,7 @@ class ApplicationController {
   startAutoUpdates() {
     // Auto-update only in installed builds. Development runs and CI's unpacked
     // Electron UI tests must never contact the release feed or install updates.
-    if (!app.isPackaged || process.env.SLICKLY_DISABLE_AUTO_UPDATE === "1") return;
+    if (!app.isPackaged || process.env.CI === "true" || process.env.SLICKLY_DISABLE_AUTO_UPDATE === "1") return;
     try {
       autoUpdater.autoDownload = true;
       autoUpdater.autoInstallOnAppQuit = true;
