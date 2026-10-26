@@ -131,7 +131,6 @@ module.exports = async function handler(req, res) {
   // Retry the same model with the next independently quota-managed key when
   // Google explicitly reports RESOURCE_EXHAUSTED. This must be a key loop,
   // not a model-loop continue: there is deliberately no alternate model.
-  const model = 'gemini-3-flash-preview';
   let lastFailure = null;
   const requestDeadline = Date.now() + 8200;
   for (let keyIndex = 0; keyIndex < keys.length; keyIndex += 1) {
