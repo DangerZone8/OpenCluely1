@@ -21,7 +21,7 @@ function respond(res, status, body) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   // Fingerprint the deployed handler so production-alias drift is observable in E2E logs.
-  res.setHeader('X-OpenCluely-API-Revision', 'v175-fast-chat-2026-10-27-l');
+  res.setHeader('X-OpenCluely-API-Revision', 'v175-fast-chat-2026-10-27-k');
   res.end(JSON.stringify(body));
 }
 
