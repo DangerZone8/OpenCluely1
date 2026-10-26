@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: verify-v175-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   source-checks:
