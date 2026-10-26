@@ -35,7 +35,7 @@ class LLMService {
     try {
       this.client = new GoogleGenAI({ apiKey });
       
-      // Use the configured model name (default: gemini-3.5-flash)
+      // Use the configured model name (default: gemini-3-flash-preview)
       this.model = config.get('llm.gemini.model');
       this.isInitialized = true;
       
