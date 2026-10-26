@@ -43,6 +43,44 @@ async function executeProviderRequest(request, env = process.env, fetchImpl = fe
   const provider = getProvider(env);
   if (provider.id === 'gemini') return null;
   if (!provider.apiKey) throw new Error('Add a ' + provider.label + ' API key in Settings or select a provider with a configured key.');
+
+  // OpenAI exposes a separate transcription endpoint. Convert captured audio to
+  // text before invoking chat completion so the capture-audio feature can still
+  // work with an OpenAI BYOK key rather than sending raw audio to chat/completions.
+  const audioPart = (request.contents || []).flatMap(item => item.parts || [])
+    .find(part => part.inlineData?.data && /^audio\\//i.test(part.inlineData.mimeType || ''));
+  if (audioPart) {
+    if (provider.id !== 'openai') {
+      throw new Error('Raw audio analysis is not supported by ' + provider.label + ' chat endpoints. Use Gemini or OpenAI for captured-audio analysis, or use the app’s Speech Recognition settings.');
+    }
+    const mimeType = String(audioPart.inlineData.mimeType || 'audio/webm').split(';')[0];
+    const extension = ({ 'audio/webm': 'webm', 'audio/wav': 'wav', 'audio/mpeg': 'mp3', 'audio/mp4': 'mp4', 'audio/ogg': 'ogg', 'audio/flac': 'flac', 'audio/aac': 'aac' })[mimeType] || 'webm';
+    const form = new FormData();
+    form.append('file', new Blob([Buffer.from(audioPart.inlineData.data, 'base64')], { type: mimeType }), 'capture.' + extension);
+    form.append('model', 'gpt-4o-mini-transcribe');
+    const transcriptionResponse = await fetchImpl('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { authorization: 'Bearer ' + provider.apiKey },
+      body: form
+    });
+    const transcription = await transcriptionResponse.json().catch(() => ({}));
+    if (!transcriptionResponse.ok || typeof transcription.text !== 'string' || !transcription.text.trim()) {
+      throw new Error('OpenAI audio transcription failed (HTTP ' + transcriptionResponse.status + '): ' + (transcription.error?.message || 'empty transcript'));
+    }
+    request = {
+      ...request,
+      contents: request.contents.map(item => ({
+        ...item,
+        parts: [
+          ...(item.parts || []).filter(part => !(part.inlineData?.data && /^audio\\//i.test(part.inlineData.mimeType || ''))),
+          ...(item.parts || []).some(part => part.inlineData?.data && /^audio\\//i.test(part.inlineData.mimeType || ''))
+            ? [{ text: 'Audio transcription (from the captured clip):\\n' + transcription.text.trim() }]
+            : []
+        ]
+      }))
+    };
+  }
+
   const messages = extractParts(request);
   if (!messages.length) throw new Error('AI request has no supported text or image content.');
   const maxTokens = Math.min(Number(request.generationConfig?.maxOutputTokens) || 2048, 8192);
