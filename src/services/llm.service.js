@@ -93,7 +93,12 @@ class LLMService {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(payload),
       'x-opencluely-install-id': this.getRemoteInstallationId(),
-      ...(containsImage ? { 'x-opencluely-feature': 'screen-vision' } : {})
+      ...(containsImage ? { 'x-opencluely-feature': 'screen-vision' } : {}),
+      // Used only by CI to access Vercel-protected preview deployments. Never
+      // configure this secret in a packaged desktop release.
+      ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+        ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+        : {})
     };
     // Screen/chat requests must never inherit a localhost endpoint from a
     // developer .env or a stale persisted setting. Keep the production aliases
