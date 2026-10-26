@@ -34,7 +34,7 @@ class LLMService {
     const apiKey = config.getApiKey('GEMINI');
     
     if (!apiKey || apiKey === 'your-api-key-here') {
-      this.model = config.get('llm.gemini.model');
+      this.model = provider.model || config.get('llm.gemini.model');
       this.remoteOnly = true;
       this.isInitialized = true;
       logger.info('No local Gemini key found; using the hosted Slickly AI AI service.');
