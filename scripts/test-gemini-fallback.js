@@ -42,7 +42,7 @@ async function main() {
   const gemini3Calls = [];
   const gemini3Primary = await invoke(async url => {
     const model = decodeURIComponent(url.match(/models\\/([^:]+)/)[1]);
-    gemini3Calls.push(model);
+    const model = decodeURIComponent(url.match(/models\/([^:]+)/)[1]);
     return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'GEMINI_3_FLASH_OK' }] } }] }) };
   }, true, 'screen-vision', crypto.randomUUID(), 'gemini-3-flash-preview');
   assert.equal(gemini3Primary.status, 200);
