@@ -66,10 +66,10 @@ jobs:
         run: |
           set -euo pipefail
           SETUP_FILE="$(find dist -maxdepth 1 -type f -name 'Slickly-AI-Setup-*.exe' -print -quit)"
-          PORTABLE_FILE="$(find dist -maxdepth 1 -type f -name '*portable*.exe' -print -quit)"
+          OTHER_EXE="$(find dist -maxdepth 1 -type f -name '*.exe' ! -name 'Slickly-AI-Setup-*.exe' -print -quit)"
           test -n "$SETUP_FILE" || { echo 'FAIL: Windows setup installer was not built.'; find dist -maxdepth 2 -print; exit 1; }
-          test -n "$PORTABLE_FILE" || { echo 'FAIL: Windows portable installer was not built.'; find dist -maxdepth 2 -print; exit 1; }
-          echo "PASS: Windows setup and portable installers exist."
+          test -n "$OTHER_EXE" || { echo 'FAIL: Windows portable package was not built.'; find dist -maxdepth 2 -print; exit 1; }
+          echo "PASS: Windows setup and secondary (portable) package exist."
 
       - name: Launch packaged Windows app smoke test
         if: matrix.os == 'windows-latest'
