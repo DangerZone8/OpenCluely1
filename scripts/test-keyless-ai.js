@@ -9,6 +9,7 @@ async function testHostedClient() {
   const originalRemoteOnly = llm.remoteOnly;
   const originalInitialized = llm.isInitialized;
   const originalClient = llm.client;
+  const originalStrictEndpoint = process.env.SLICKLY_E2E_AI_ENDPOINT;
   const installId = 'a9d32e1c-8f42-4e65-a4ef-91d46f3f4b82';
   let seen;
   try {
@@ -49,6 +50,33 @@ async function testHostedClient() {
     assert.equal(audio.response, 'Hosted AI response works.');
     assert.match(seen.body.request.contents[0].parts[0].text, /Listen to this audio/);
 
+    // A provider quota exhaustion on the production alias should not prevent
+    // trying an independent backup deployment. App-level 429s remain terminal.
+    delete process.env.SLICKLY_E2E_AI_ENDPOINT;
+    const fallbackCalls = [];
+    global.fetch = async (url) => {
+      fallbackCalls.push(String(url));
+      if (String(url).includes('slicklyai.vercel.app')) {
+        return {
+          ok: false,
+          status: 429,
+          text: async () => JSON.stringify({
+            error: 'Gemini usage limit reached.',
+            providerCode: 'RESOURCE_EXHAUSTED',
+            providerStatus: 429
+          })
+        };
+      }
+      return { ok: true, status: 200, text: async () => JSON.stringify({ text: 'Backup deployment response.' }) };
+    };
+    const fallbackResponse = await llm.executeRequest(request);
+    assert.equal(fallbackResponse, 'Backup deployment response.');
+    assert.deepEqual(fallbackCalls, [
+      'https://slicklyai.vercel.app/api/gemini',
+      'https://cleverly-lime.vercel.app/api/gemini'
+    ]);
+    console.log('PASS: provider quota exhaustion fails over once to an independent hosted deployment.');
+
     console.log('PASS: keyless hosted AI supports chat, screen vision, and audio analysis without exposing a Gemini key.');
   } finally {
     global.fetch = originalFetch;
@@ -56,6 +84,8 @@ async function testHostedClient() {
     llm.remoteOnly = originalRemoteOnly;
     llm.isInitialized = originalInitialized;
     llm.client = originalClient;
+    if (originalStrictEndpoint === undefined) delete process.env.SLICKLY_E2E_AI_ENDPOINT;
+    else process.env.SLICKLY_E2E_AI_ENDPOINT = originalStrictEndpoint;
   }
 }
 
