@@ -39,7 +39,7 @@ async function request(feature, index) {
           ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
           : {})
       },
-      body: JSON.stringify({ model: 'gemini-3.5-flash-lite', request }),
+      body: JSON.stringify({ model: 'gemini-3-flash-preview', request }),
       signal: AbortSignal.timeout(30000)
     });
     const raw = await response.text();
@@ -75,7 +75,12 @@ async function main() {
   let nextVision = true;
   while (Date.now() - started < durationMs) {
     const feature = nextVision ? 'screen-vision' : 'chat';
-    results.push(await request(feature, ++index));
+    const result = await request(feature, ++index);
+    results.push(result);
+    if (result.classification === 'QUOTA_OR_RATE_LIMIT') {
+      console.error('Stopping diagnostic immediately: provider quota/rate limit is exhausted; further calls would waste requests without adding diagnostic value.');
+      break;
+    }
     nextVision = !nextVision;
     const remaining = durationMs - (Date.now() - started);
     if (remaining > 0) await new Promise(resolve => setTimeout(resolve, Math.min(intervalMs, remaining)));
