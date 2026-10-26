@@ -44,18 +44,38 @@ class CaptureService {
         }
       }
 
-      const buffer = finalImage.toPNG();
-      logger.logPerformance('Screenshot capture', startTime, {
+      // Screen-aware AI needs readable UI text, not lossless full-resolution PNGs.
+      // Downscale very large displays and encode as JPEG to reduce request bytes.
+      const originalSize = finalImage.getSize();
+      const maxWidth = 1600;
+      const maxHeight = 1000;
+      const scale = Math.min(1, maxWidth / originalSize.width, maxHeight / originalSize.height);
+      if (scale < 1) {
+        finalImage = finalImage.resize({
+          width: Math.max(1, Math.round(originalSize.width * scale)),
+          height: Math.max(1, Math.round(originalSize.height * scale)),
+          quality: 'good'
+        });
+      }
+      const jpegQuality = 72;
+      const buffer = finalImage.toJPEG(jpegQuality);
+      logger.logPerformance('Compressed screenshot capture', startTime, {
         bytes: buffer.length,
-        dimensions: finalImage.getSize()
+        originalDimensions: originalSize,
+        dimensions: finalImage.getSize(),
+        mimeType: 'image/jpeg',
+        jpegQuality
       });
 
       return {
         imageBuffer: buffer,
-        mimeType: 'image/png',
+        mimeType: 'image/jpeg',
         metadata: {
           timestamp: new Date().toISOString(),
           source: metadata,
+          originalDimensions: originalSize,
+          dimensions: finalImage.getSize(),
+          compression: { format: 'jpeg', quality: jpegQuality, maxWidth, maxHeight },
           processingTime: Date.now() - startTime
         }
       };
