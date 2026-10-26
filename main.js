@@ -1821,7 +1821,12 @@ class ApplicationController {
         (process.env.WHISPER_MANUAL_CAPTURE === "true" ? "manual" : "vad"),
       whisperResponseTarget: process.env.WHISPER_RESPONSE_TARGET || "both",
       whisperSegmentMs: process.env.WHISPER_SEGMENT_MS || "4000",
+      aiProvider: process.env.AI_PROVIDER || "gemini",
+      aiModel: process.env.AI_MODEL || "",
       geminiKey: process.env.GEMINI_API_KEY || "",
+      openaiKey: process.env.OPENAI_API_KEY || "",
+      xaiKey: process.env.XAI_API_KEY || "",
+      anthropicKey: process.env.ANTHROPIC_API_KEY || "",
 
       azureConfigured: !!process.env.AZURE_SPEECH_KEY && !!process.env.AZURE_SPEECH_REGION,
       speechAvailable: this.speechAvailable
@@ -1890,9 +1895,19 @@ class ApplicationController {
       if (settings.whisperSegmentMs !== undefined) {
         envUpdates.WHISPER_SEGMENT_MS = String(settings.whisperSegmentMs);
       }
-      if (settings.geminiKey !== undefined) {
-        envUpdates.GEMINI_API_KEY = settings.geminiKey;
+      if (settings.geminiKey !== undefined) envUpdates.GEMINI_API_KEY = settings.geminiKey;
+      if (["gemini", "openai", "xai", "anthropic"].includes(settings.aiProvider)) {
+        envUpdates.AI_PROVIDER = settings.aiProvider;
       }
+      if (settings.aiModel !== undefined) {
+        const selectedProvider = ["gemini", "openai", "xai", "anthropic"].includes(settings.aiProvider)
+          ? settings.aiProvider : (process.env.AI_PROVIDER || "gemini");
+        const modelEnv = { gemini: "GEMINI_MODEL", openai: "OPENAI_MODEL", xai: "XAI_MODEL", anthropic: "ANTHROPIC_MODEL" }[selectedProvider];
+        if (modelEnv) envUpdates[modelEnv] = String(settings.aiModel || "").trim();
+      }
+      if (settings.openaiKey !== undefined) envUpdates.OPENAI_API_KEY = settings.openaiKey;
+      if (settings.xaiKey !== undefined) envUpdates.XAI_API_KEY = settings.xaiKey;
+      if (settings.anthropicKey !== undefined) envUpdates.ANTHROPIC_API_KEY = settings.anthropicKey;
 
       // Capture the previous whisper command BEFORE persisting — persistEnvUpdates
       // mutates process.env in place, so comparing afterwards would always read
@@ -1907,14 +1922,16 @@ class ApplicationController {
       // connection button in the onboarding wizard fails with
       // "Service not initialized" because the client was first created
       // at app startup, before any key was set.
-      if (settings.geminiKey !== undefined && envUpdates.GEMINI_API_KEY !== undefined) {
+      const aiSettingsChanged = ["geminiKey", "openaiKey", "xaiKey", "anthropicKey", "aiProvider", "aiModel"]
+        .some(key => settings[key] !== undefined);
+      if (aiSettingsChanged) {
         try {
           llmService.initializeClient();
-          logger.info("LLM service reinitialized after Gemini key update");
-        } catch (e) {
-          logger.warn("Failed to reinitialize LLM service after Gemini key update", {
-            error: e.message
+          logger.info("LLM service reinitialized after AI provider settings update", {
+            provider: process.env.AI_PROVIDER || "gemini"
           });
+        } catch (e) {
+          logger.warn("Failed to reinitialize LLM service after AI settings update", { error: e.message });
         }
       }
 
