@@ -70,9 +70,9 @@ async function main() {
     throw new TypeError('fetch failed');
   });
   assert.equal(networkFailed.status, 502);
-  assert.equal(networkCalls.length, 1, 'network failure must not waste the remaining deadline trying other model IDs');
+  assert.equal(networkCalls.length, 2, 'a timed-out model may be overloaded, so try exactly one distinct fallback within the overall deadline');
   assert.equal(networkFailed.body.providerCode, 'NETWORK_OR_TIMEOUT');
-  console.log('PASS: provider network failure stops after one request instead of serially timing out on fallback models.');
+  console.log('PASS: provider timeout gets one bounded alternate-model attempt.');
 
   const textCalls = [];
   const fastText = await invoke(async url => {
