@@ -176,6 +176,10 @@ class LLMService {
           : 'Hosted Slickly AI AI request failed (' + status + '). Response: ' + responsePreview);
         error.isHostedResponseError = true;
         error.statusCode = status;
+        // Preserve the proxy's structured provider code so the client can
+        // distinguish exhausted provider quota from this app's own rate limit.
+        error.providerCode = typeof result.providerCode === 'string' ? result.providerCode : '';
+        error.providerStatus = Number.isFinite(result.providerStatus) ? result.providerStatus : null;
         throw error;
       }
       if (typeof result.text !== 'string' || !result.text.trim()) {
@@ -255,6 +259,14 @@ class LLMService {
             return await useHttpsFallback(endpoint, error, fallbackBudget);
           } catch (fallbackError) {
             if (fallbackError.isHostedResponseError) {
+              if (fallbackError.statusCode === 429 && fallbackError.providerCode === 'RESOURCE_EXHAUSTED') {
+                // Provider quota belongs to the deployment's server-side key.
+                // A separate hosted alias may be configured with an independent
+                // project/key; try it once rather than failing before the app's
+                // existing endpoint failover can help. Do not retry this host.
+                networkFailures.push(new NodeURL(endpoint).host + ': provider quota exhausted');
+                continue;
+              }
               if (fallbackError.statusCode >= 500 && fallbackError.statusCode !== 429) {
                 networkFailures.push(new NodeURL(endpoint).host + ': HTTP ' + fallbackError.statusCode);
                 if (endpoint === primaryHostedEndpoint && !primaryRetryUsed) {
@@ -276,6 +288,10 @@ class LLMService {
         } catch (error) {
           // 5xx is a server/deployment problem: try the next alias. A 429 or
           // any other client error is authoritative and must not fan out.
+          if (response.status === 429 && error.providerCode === 'RESOURCE_EXHAUSTED') {
+            networkFailures.push(new NodeURL(endpoint).host + ': provider quota exhausted');
+            continue;
+          }
           if (response.status >= 500 && response.status !== 429) {
             networkFailures.push(new NodeURL(endpoint).host + ': HTTP ' + response.status);
             if (endpoint === primaryHostedEndpoint && !primaryRetryUsed) {
