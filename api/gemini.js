@@ -210,6 +210,7 @@ module.exports = async function handler(req, res) {
         // are enforced before this loop and must not consume another key.
         if (providerCode === 'RESOURCE_EXHAUSTED' && keyIndex + 1 < keys.length) {
           keyIndex += 1;
+          key = keys[keyIndex];
           tryAnotherModel = true;
           continue;
         }
