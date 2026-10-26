@@ -21,7 +21,7 @@ function respond(res, status, body) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   // Fingerprint the deployed handler so production-alias drift is observable in E2E logs.
-  res.setHeader('X-OpenCluely-API-Revision', 'v175-fast-chat-2026-10-27-k');
+  res.setHeader('X-OpenCluely-API-Revision', 'v175-fast-chat-2026-10-27-l');
   res.end(JSON.stringify(body));
 }
 
@@ -126,8 +126,8 @@ module.exports = async function handler(req, res) {
   }
 
   const request = body.request;
-  // Strict single-model policy: use Gemini 3.5 Flash Lite for higher request quotas and lower rate-limit risk.
-  const model = 'gemini-3.5-flash-lite';
+  // Strict single-model policy: use Gemini 3.1 Flash Lite for higher request quotas and lower rate-limit risk.
+  const model = 'gemini-3.1-flash-lite';
   if (!request || typeof request !== 'object' || !Array.isArray(request.contents) || request.contents.length === 0) {
     return respond(res, 400, { error: 'AI request is missing content.' });
   }
@@ -135,7 +135,7 @@ module.exports = async function handler(req, res) {
   const isVisionRequest = request.contents.some(item =>
     Array.isArray(item?.parts) && item.parts.some(part => part && (part.inlineData || part.fileData))
   );
-  // Strict single-model policy: only Gemini 3.5 Flash Lite is allowed.
+  // Strict single-model policy: only Gemini 3.1 Flash Lite is allowed.
   // Retry the same model with the next independently quota-managed key when
   // Google explicitly reports RESOURCE_EXHAUSTED. This must be a key loop,
   // not a model-loop continue: there is deliberately no alternate model.
