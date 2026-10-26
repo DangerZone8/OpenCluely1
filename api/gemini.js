@@ -119,13 +119,14 @@ module.exports = async function handler(req, res) {
 
   const request = body.request;
   const allowedModels = new Set([
+    'gemini-3-flash-preview',
     'gemini-3.1-flash-lite',
     'gemini-3.5-flash-lite',
     'gemini-3.5-flash',
     'gemini-3.6-flash',
     'gemini-3.8-flash'
   ]);
-  const model = allowedModels.has(body.model) ? body.model : 'gemini-3.5-flash-lite';
+  const model = allowedModels.has(body.model) ? body.model : 'gemini-3-flash-preview';
   if (!request || typeof request !== 'object' || !Array.isArray(request.contents) || request.contents.length === 0) {
     return respond(res, 400, { error: 'AI request is missing content.' });
   }
@@ -145,8 +146,8 @@ module.exports = async function handler(req, res) {
   // working low-latency fallback before the larger flash model. Keep only one
   // alternate attempt per request so successful fast chat stays one-call.
   const fallbackCandidates = feature === 'screen-vision'
-    ? ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.6-flash', 'gemini-3.8-flash']
-    : ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'];
+    ? ['gemini-3.5-flash-lite', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.8-flash']
+    : ['gemini-3.5-flash-lite', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite'];
   const fallbackModels = [
     model,
     ...fallbackCandidates.filter(candidate => candidate !== model)
