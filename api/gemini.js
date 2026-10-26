@@ -65,7 +65,7 @@ module.exports = async function handler(req, res) {
     process.env.GOOGLE_API_KEY,
     process.env.GOOGLE_GENAI_API_KEY,
     process.env.GOOGLE_GENERATIVE_AI_API_KEY
-  ].flatMap(value => typeof value === 'string' ? value.split(/[\\n,]+/) : [])
+  ].flatMap(value => typeof value === 'string' ? value.split(/[\n,]+/) : [])
     .map(value => value.trim())
     .filter(Boolean)
     .filter((value, index, all) => all.indexOf(value) === index);
