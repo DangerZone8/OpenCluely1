@@ -29,6 +29,24 @@ jobs:
       - name: Run local regression checks
         run: npm run check
 
+  production-api-revision:
+    name: Production API revision (quota-free)
+    needs: source-checks
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify production revision without calling Gemini
+        env:
+          VERIFY_ONLY_ENDPOINT: https://slicklyai.vercel.app/api/gemini
+          SLICKLY_EXPECTED_API_REVISION: v175-fast-chat-2026-10-26-i
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: node scripts/test-production-api-revision.js
+
   production-screen-vision:
     name: Production AI verification — screen vision
     needs: source-checks
