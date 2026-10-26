@@ -67,8 +67,8 @@ jobs:
               catch { continue; }
               const project = deployment.projects?.find(item => item.name === 'slicklyai' && item.previewUrl);
               if (project) {
-                const host = String(project.previewUrl).replace(/^https?:\\/\\//i, '').replace(/\\/$/, '');
-                if (!/^[a-z0-9.-]+\\.vercel\\.app$/i.test(host)) {
+                const host = String(project.previewUrl).replace(/^https?:\/\//i, '').replace(/\/$/, '');
+                if (!/^[a-z0-9.-]+\.vercel\.app$/i.test(host)) {
                   throw new Error('Vercel returned an unexpected preview host.');
                 }
                 previewUrl = 'https://' + host;
@@ -78,7 +78,7 @@ jobs:
             if (!previewUrl) {
               throw new Error('No Slickly AI preview URL found in Vercel PR comments. A live screen-AI test cannot be claimed.');
             }
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'url=' + previewUrl + '\\n');
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'url=' + previewUrl + '\n');
             console.log('Using Slickly AI PR preview: ' + previewUrl);
           })().catch(error => { console.error(error); process.exitCode = 1; });
           NODE
