@@ -32,8 +32,8 @@ async function testHostedClient() {
     };
     const response = await llm.executeRequest(request);
     assert.equal(response, 'Hosted AI response works.');
-    assert.equal(seen.url, 'https://cleverly-lime.vercel.app/api/gemini',
-      'hosted client must try the known-good production endpoint before a configured alias');
+    assert.equal(seen.url, 'https://slicklyai.vercel.app/api/gemini',
+      'hosted client must try the Slickly AI production endpoint before legacy aliases');
     assert.equal(seen.options.headers['x-opencluely-install-id'], installId);
     assert.equal(seen.body.model, llm.model);
     assert.deepEqual(seen.body.request, request);
