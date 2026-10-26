@@ -13,7 +13,7 @@ const originalGoogleGenerativeAiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 function response() {
   return { statusCode: 200, headers: {}, setHeader(k,v) { this.headers[k.toLowerCase()] = v; }, end(body) { this.body = body; } };
 }
-async function invoke(fetchImpl, includeImage = true, feature = 'chat', installId = crypto.randomUUID()) {
+async function invoke(fetchImpl, includeImage = true, feature = 'chat', installId = crypto.randomUUID(), modelName = 'gemini-3.5-flash-lite') {
   global.fetch = fetchImpl;
   const res = response();
   await handler({ method: 'POST', headers: {
@@ -21,7 +21,7 @@ async function invoke(fetchImpl, includeImage = true, feature = 'chat', installI
     'x-opencluely-install-id': installId,
     'x-opencluely-feature': feature
   }, body: {
-    model: 'gemini-3.5-flash-lite',
+    model: modelName,
     request: { contents: [{ role: 'user', parts: [{ text: includeImage ? 'Describe this image' : 'Reply briefly to this text chat test.' }, ...(includeImage ? [{ inlineData: { mimeType: 'image/png', data: 'aGVsbG8=' } }] : [])] }] }
   } }, res);
   return { status: res.statusCode, body: JSON.parse(res.body) };
@@ -39,6 +39,18 @@ async function main() {
   assert.equal(recovered.body.model, 'gemini-3.5-flash');
   assert.deepEqual(calls, ['gemini-3.5-flash-lite', 'gemini-3.5-flash']);
   console.log('PASS: transient Gemini 503 falls back to an alternate model and succeeds.');
+  const gemini3Calls = [];
+  const gemini3Primary = await invoke(async url => {
+    const model = decodeURIComponent(url.match(/models\\/([^:]+)/)[1]);
+    gemini3Calls.push(model);
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'GEMINI_3_FLASH_OK' }] } }] }) };
+  }, true, 'screen-vision', crypto.randomUUID(), 'gemini-3-flash-preview');
+  assert.equal(gemini3Primary.status, 200);
+  assert.equal(gemini3Primary.body.model, 'gemini-3-flash-preview');
+  assert.deepEqual(gemini3Calls, ['gemini-3-flash-preview'],
+    'Gemini 3 Flash must be the primary model for screen vision when explicitly selected.');
+  console.log('PASS: Gemini 3 Flash preview is accepted and used as the primary screen-vision model.');
+
   const invalidCalls = [];
   const modelRejected = await invoke(async url => {
     const model = decodeURIComponent(url.match(/models\/([^:]+)/)[1]); invalidCalls.push(model);
