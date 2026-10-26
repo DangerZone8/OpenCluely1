@@ -172,7 +172,7 @@ async function testProxyHandler() {
     assert.equal(response.statusCode, 200, 'quota exhaustion on primary key should fail over');
     assert.equal(JSON.parse(response.body).text, 'Backup key response.');
     assert.equal(keyAttempts.length, 2, 'failover should make one bounded backup attempt');
-    assert.deepEqual(keyAttempts.map(attempt => attempt.model), ['gemini-3-flash-preview', 'gemini-3-flash-preview'], 'key failover must stay on Gemini 3 only');
+    assert.deepEqual(keyAttempts.map(attempt => attempt.model), ['gemini-3.1-flash-lite', 'gemini-3.1-flash-lite'], 'key failover must stay on Gemini 3 only');
     assert.equal(keyAttempts[1].key, 'backup-server-secret-not-a-real-key');
     console.log('PASS: provider quota exhaustion fails over to a backup Gemini key without exposing secrets.');
     console.log('PASS: hosted Gemini proxy keeps its secret server-side and validates keyless requests.');
