@@ -3,6 +3,7 @@ const { GoogleGenAI } = require('@google/genai');
 const logger = require('../core/logger').createServiceLogger('LLM');
 const config = require('../core/config');
 const { promptLoader } = require('../../prompt-loader');
+const { getProvider, executeProviderRequest } = require('./provider-adapter');
 
 class LLMService {
   constructor() {
@@ -22,6 +23,14 @@ class LLMService {
     this.client = null;
     this.isInitialized = false;
     this.remoteOnly = false;
+    const provider = getProvider();
+    if (provider.id !== 'gemini') {
+      this.model = provider.model;
+      this.remoteOnly = false;
+      this.isInitialized = true;
+      logger.info('Configured local AI provider', { provider: provider.id, model: provider.model, hasApiKey: Boolean(provider.apiKey) });
+      return;
+    }
     const apiKey = config.getApiKey('GEMINI');
     
     if (!apiKey || apiKey === 'your-api-key-here') {
@@ -1152,6 +1161,12 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
   }
 
   async executeRequest(geminiRequest) {
+    const provider = getProvider();
+    if (provider.id !== 'gemini') {
+      const text = await executeProviderRequest(geminiRequest);
+      if (typeof text === 'string' && text.trim()) return text.trim();
+      throw new Error('Selected AI provider did not return a response.');
+    }
     if (this.remoteOnly) {
       return this.executeRemoteRequest(geminiRequest);
     }
@@ -1408,6 +1423,12 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
    * for each chunk.
    */
   async executeStreamingRequest(geminiRequest, onDelta) {
+    const provider = getProvider();
+    if (provider.id !== 'gemini') {
+      const fullText = await this.executeRequest(geminiRequest);
+      if (typeof onDelta === 'function') onDelta(fullText);
+      return fullText;
+    }
     if (this.remoteOnly) {
       const fullText = await this.executeRemoteRequest(geminiRequest);
       if (typeof onDelta === 'function') onDelta(fullText);
