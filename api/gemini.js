@@ -190,7 +190,8 @@ module.exports = async function handler(req, res) {
         error: 'The AI service could not complete this request.',
         providerStatus: upstream.status,
         providerCode: lastFailure.code,
-        providerMessage: lastFailure.message
+        providerMessage: lastFailure.message,
+        attemptedModels: [model]
       });
     } catch (error) {
       lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
