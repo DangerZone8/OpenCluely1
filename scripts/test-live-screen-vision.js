@@ -15,7 +15,7 @@ const installId = crypto.randomUUID();
 const image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lS8AAAAASUVORK5CYII=';
 
 async function main() {
-  const expectedRevisions = new Set(['v175-fast-chat-2026-10-25-e']);
+  const expectedRevisions = new Set(['v175-fast-chat-2026-10-26-f']);
   if (process.env.ALLOW_OLD_API_REVISION === 'true') {
     expectedRevisions.add('v175-fast-chat-2026-10-25-d');
   }
