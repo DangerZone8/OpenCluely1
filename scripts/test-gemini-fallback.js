@@ -57,10 +57,10 @@ async function main() {
     }) };
   });
   assert.equal(unavailable.status, 502);
-  assert.deepEqual(unavailableCalls, ['gemini-3-flash-preview'],
-    'must never call a different model after Gemini 3 fails');
+  assert.deepEqual(unavailableCalls, ['gemini-3-flash-preview', 'gemini-3-flash-preview'],
+    'may retry Gemini 3 once for a transient failure, but must never call a different model');
   assert.deepEqual(unavailable.body.attemptedModels, ['gemini-3-flash-preview']);
-  console.log('PASS: Gemini 3 failure returns a bounded error without trying another model.');
+  console.log('PASS: transient Gemini 3 failures get one bounded same-model retry, without model fallback.');
 
   const quotaCalls = [];
   const quota = await invoke(async url => {
