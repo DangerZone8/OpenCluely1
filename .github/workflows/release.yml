@@ -258,6 +258,44 @@ jobs:
           Write-Host "PASS: packaged app stayed running and exposed a visible window: $($proc.MainWindowTitle)"
           Stop-Process -Id $proc.Id -Force
 
+      - name: Launch packaged macOS release artifact smoke test
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP_FILE="$(find dist -maxdepth 1 -type f -name '*.zip' -print -quit)"
+          if [ -z "$ZIP_FILE" ]; then
+            echo "FAIL: macOS zip artifact was not produced."
+            find dist -maxdepth 2 -print
+            exit 1
+          fi
+          EXTRACT_DIR="$RUNNER_TEMP/slickly-ai-macos-release-smoke"
+          rm -rf "$EXTRACT_DIR"
+          mkdir -p "$EXTRACT_DIR"
+          ditto -x -k "$ZIP_FILE" "$EXTRACT_DIR"
+          APP_PATH="$(find "$EXTRACT_DIR" -maxdepth 4 -type d -name '*.app' -print -quit)"
+          if [ -z "$APP_PATH" ]; then
+            echo "FAIL: macOS zip did not contain an .app bundle."
+            find "$EXTRACT_DIR" -maxdepth 4 -print
+            exit 1
+          fi
+          EXECUTABLE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP_PATH/Contents/Info.plist")"
+          APP_BIN="$APP_PATH/Contents/MacOS/$EXECUTABLE"
+          if [ ! -x "$APP_BIN" ]; then
+            echo "FAIL: macOS release executable missing: $APP_BIN"
+            exit 1
+          fi
+          set +e
+          timeout --signal=TERM --kill-after=5s 20s "$APP_BIN" --disable-gpu --user-data-dir="$RUNNER_TEMP/slickly-ai-macos-release-userdata"
+          APP_EXIT=$?
+          set -e
+          if [ "$APP_EXIT" -eq 124 ] || [ "$APP_EXIT" -eq 137 ] || [ "$APP_EXIT" -eq 143 ]; then
+            echo "PASS: extracted macOS release app stayed running for the 20-second smoke test."
+          else
+            echo "FAIL: extracted macOS release app exited before timeout (exit $APP_EXIT)."
+            exit 1
+          fi
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
