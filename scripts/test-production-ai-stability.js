@@ -73,7 +73,7 @@ async function main() {
   // whether only vision fails or the shared provider path fails for both.
   results.push(await request('chat', ++index));
   let nextVision = true;
-  while (Date.now() - started < durationMs) {
+  while (Date.now() - started < durationMs && !results.some(item => item.classification === 'QUOTA_OR_RATE_LIMIT')) {
     const feature = nextVision ? 'screen-vision' : 'chat';
     const result = await request(feature, ++index);
     results.push(result);
