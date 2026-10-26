@@ -56,14 +56,14 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           CLEVERLY_HOSTED_AI_TEST_OK: ${{ github.event_name == 'pull_request' && '1' || '' }}
-          SLICKLY_E2E_AI_ENDPOINT: ${{ github.event_name == 'pull_request' && format('{0}/api/gemini', steps.preview.outputs.url) || '' }}
+          SLICKLY_E2E_AI_ENDPOINT: https://slicklyai.vercel.app/api/gemini
         run: xvfb-run -a npm run test:screen-ai-desktop-e2e
 
       - name: Verify deployed screen-vision API revision and response
         if: always() && (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-          VERIFY_ONLY_ENDPOINT: ${{ github.event_name == 'pull_request' && format('{0}/api/gemini', steps.preview.outputs.url) || 'https://slicklyai.vercel.app/api/gemini' }}
+          VERIFY_ONLY_ENDPOINT: https://slicklyai.vercel.app/api/gemini
           ALLOW_OLD_API_REVISION: 'false'
         run: npm run test:screen-vision-live
 
@@ -72,7 +72,7 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-          OPENCLUELY_AI_ENDPOINT: ${{ github.event_name == 'pull_request' && format('{0}/api/gemini', steps.preview.outputs.url) || 'https://slicklyai.vercel.app/api/gemini' }}
+          OPENCLUELY_AI_ENDPOINT: https://slicklyai.vercel.app/api/gemini
         run: |
           if [ -z "$GEMINI_API_KEY" ]; then
             echo "::error::GEMINI_API_KEY Actions secret is missing; live fast-chat verification cannot be claimed."
@@ -98,7 +98,7 @@ jobs:
 
       - name: Probe production chat and screen vision for 150 seconds
         env:
-          SLICKLY_DIAGNOSTIC_ENDPOINT: ${{ github.event_name == 'pull_request' && format('{0}/api/gemini', needs.verify.outputs.preview_url) || 'https://slicklyai.vercel.app/api/gemini' }}
+          SLICKLY_DIAGNOSTIC_ENDPOINT: https://slicklyai.vercel.app/api/gemini
           SLICKLY_EXPECTED_API_REVISION: v175-fast-chat-2026-10-26-h
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           SLICKLY_DIAGNOSTIC_DURATION_MS: '150000'
