@@ -17,6 +17,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const whisperResponseTargetSelect = document.getElementById('whisperResponseTarget');
     const whisperSegmentMsInput = document.getElementById('whisperSegmentMs');
     const geminiKeyInput = document.getElementById('geminiKey');
+    const openaiKeyInput = document.getElementById('openaiKey');
+    const xaiKeyInput = document.getElementById('xaiKey');
+    const anthropicKeyInput = document.getElementById('anthropicKey');
+    const aiProviderSelect = document.getElementById('aiProvider');
+    const aiModelInput = document.getElementById('aiModel');
     const windowGapInput = document.getElementById('windowGap');
     const codingLanguageSelect = document.getElementById('codingLanguage');
     const activeSkillSelect = document.getElementById('activeSkill');
@@ -88,6 +93,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (whisperResponseTargetSelect) whisperResponseTargetSelect.value = settings.whisperResponseTarget || 'both';
         if (whisperSegmentMsInput) whisperSegmentMsInput.value = settings.whisperSegmentMs || '';
         if (geminiKeyInput) geminiKeyInput.value = settings.geminiKey || '';
+        if (openaiKeyInput) openaiKeyInput.value = settings.openaiKey || '';
+        if (xaiKeyInput) xaiKeyInput.value = settings.xaiKey || '';
+        if (anthropicKeyInput) anthropicKeyInput.value = settings.anthropicKey || '';
+        if (aiProviderSelect) aiProviderSelect.value = settings.aiProvider || 'gemini';
+        if (aiModelInput) aiModelInput.value = settings.aiModel || '';
+        updateAIProviderFieldStates();
         if (windowGapInput) windowGapInput.value = settings.windowGap || '';
 
         // Set C++ as default if no coding language is specified
@@ -147,11 +158,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (whisperResponseTargetSelect) settings.whisperResponseTarget = whisperResponseTargetSelect.value;
         if (whisperSegmentMsInput) settings.whisperSegmentMs = whisperSegmentMsInput.value;
         if (geminiKeyInput) settings.geminiKey = geminiKeyInput.value;
+        if (openaiKeyInput) settings.openaiKey = openaiKeyInput.value;
+        if (xaiKeyInput) settings.xaiKey = xaiKeyInput.value;
+        if (anthropicKeyInput) settings.anthropicKey = anthropicKeyInput.value;
+        if (aiProviderSelect) settings.aiProvider = aiProviderSelect.value;
+        if (aiModelInput) settings.aiModel = aiModelInput.value;
         if (windowGapInput) settings.windowGap = windowGapInput.value;
         if (codingLanguageSelect) settings.codingLanguage = codingLanguageSelect.value;
         if (activeSkillSelect) settings.activeSkill = activeSkillSelect.value;
         
         window.api.send('save-settings', settings);
+    };
+
+    const updateAIProviderFieldStates = () => {
+        const selected = aiProviderSelect ? aiProviderSelect.value : 'gemini';
+        document.querySelectorAll('.ai-key-field').forEach(field => {
+            field.style.display = field.dataset.provider === selected ? '' : 'none';
+        });
     };
 
     const updateSpeechFieldStates = () => {
@@ -196,6 +219,10 @@ document.addEventListener('DOMContentLoaded', () => {
         whisperResponseTargetSelect,
         whisperSegmentMsInput,
         geminiKeyInput,
+        openaiKeyInput,
+        xaiKeyInput,
+        anthropicKeyInput,
+        aiModelInput,
         windowGapInput
     ];
 
@@ -237,6 +264,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     updateSpeechFieldStates();
+    updateAIProviderFieldStates();
+    if (aiProviderSelect) {
+        aiProviderSelect.addEventListener('change', () => {
+            updateAIProviderFieldStates();
+            saveSettings();
+        });
+    }
 
     // Initialize icon grid with correct paths
     const initializeIconGrid = () => {
