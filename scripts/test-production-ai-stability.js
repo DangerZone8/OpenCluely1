@@ -34,7 +34,10 @@ async function request(feature, index) {
       headers: {
         'content-type': 'application/json',
         'x-opencluely-install-id': crypto.randomUUID(),
-        'x-opencluely-feature': feature
+        'x-opencluely-feature': feature,
+        ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+          ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+          : {})
       },
       body: JSON.stringify({ model: 'gemini-3.5-flash-lite', request }),
       signal: AbortSignal.timeout(30000)
@@ -81,7 +84,7 @@ async function main() {
   for (const item of results) counts[item.classification] = (counts[item.classification] || 0) + 1;
   const vision = results.filter(item => item.feature === 'screen-vision');
   const chat = results.filter(item => item.feature === 'chat');
-  const revisionMismatch = results.filter(item => item.revision && item.revision !== expectedRevision).length;
+  const revisionMismatch = results.filter(item => item.revision !== expectedRevision).length;
   console.log(JSON.stringify({
     event: 'summary', elapsedMs: Date.now() - started, total: results.length,
     counts, visionTotal: vision.length, visionOk: vision.filter(x => x.classification === 'OK').length,
