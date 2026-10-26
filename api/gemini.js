@@ -21,7 +21,7 @@ function respond(res, status, body) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   // Fingerprint the deployed handler so production-alias drift is observable in E2E logs.
-  res.setHeader('X-OpenCluely-API-Revision', 'v175-fast-chat-2026-10-27-j');
+  res.setHeader('X-OpenCluely-API-Revision', 'v175-fast-chat-2026-10-27-k');
   res.end(JSON.stringify(body));
 }
 
@@ -143,76 +143,84 @@ module.exports = async function handler(req, res) {
   const attemptedKeySources = [];
   const requestDeadline = Date.now() + 8200;
   for (let keyIndex = 0; keyIndex < keys.length; keyIndex += 1) {
-    const remainingMs = requestDeadline - Date.now();
-    if (remainingMs <= 0) {
-      lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
-      break;
-    }
     const keySource = keyEntries[keyIndex].source;
-    attemptedKeySources.push(keySource);
-    console.info('[Slickly Gemini provider attempt]', JSON.stringify({ model, keySource, keyIndex: keyIndex + 1, configuredKeyCount: keys.length }));
-    try {
-      const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': keys[keyIndex]
-        },
-        body: JSON.stringify({
-          contents: request.contents,
-          generationConfig: request.generationConfig || {},
-          ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
-        }),
-        signal: AbortSignal.timeout(Math.min(4000, remainingMs))
-      });
-      const result = await upstream.json().catch(() => ({}));
-      if (upstream.ok) {
-        const text = (result.candidates || [])
-          .flatMap(item => item.content && Array.isArray(item.content.parts) ? item.content.parts : [])
-          .map(part => typeof part.text === 'string' ? part.text : '')
-          .filter(Boolean)
-          .join('\\n')
-          .trim();
-        if (text) return respond(res, 200, { text, model });
-        lastFailure = { status: 502, code: 'EMPTY_RESPONSE', message: 'The model returned no text.' };
+    // Retry brief upstream overloads once on the same key/model. This is a
+    // bounded transient retry, not a model fallback or quota-bypass mechanism.
+    for (let providerAttempt = 1; providerAttempt <= 2; providerAttempt += 1) {
+      const remainingMs = requestDeadline - Date.now();
+      if (remainingMs <= 0) {
+        lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
         break;
       }
-
-      const providerCode = typeof result.error?.status === 'string' ? result.error.status : '';
-      console.warn('[Slickly Gemini provider response]', JSON.stringify({ model, keySource, status: upstream.status, providerCode: providerCode || null }));
-      lastFailure = {
-        status: upstream.status,
-        code: providerCode || undefined,
-        message: typeof result.error?.message === 'string' ? result.error.message.slice(0, 180) : undefined
-      };
-      if (providerCode === 'RESOURCE_EXHAUSTED' && keyIndex + 1 < keys.length) {
-        // Try the next configured key, always using the exact same model.
-        continue;
-      }
-      if (providerCode === 'RESOURCE_EXHAUSTED' || upstream.status === 429) {
-        return respond(res, 429, {
-          error: providerCode === 'RESOURCE_EXHAUSTED'
-            ? 'Gemini quota is exhausted for all configured API keys. Configure GEMINI_API_KEYS with keys from independently quota-managed Google AI projects, or wait for quota reset.'
-            : 'Gemini rate limit reached. Please wait before retrying.',
-          providerStatus: upstream.status,
-          providerCode: providerCode || 'RATE_LIMITED',
-          attemptedKeySources,
-          configuredKeyCount: keys.length,
-          retryAfterSeconds: 3600
+      if (!attemptedKeySources.includes(keySource)) attemptedKeySources.push(keySource);
+      console.info('[Slickly Gemini provider attempt]', JSON.stringify({ model, keySource, keyIndex: keyIndex + 1, providerAttempt, configuredKeyCount: keys.length }));
+      try {
+        const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': keys[keyIndex] },
+          body: JSON.stringify({
+            contents: request.contents,
+            generationConfig: request.generationConfig || {},
+            ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
+          }),
+          signal: AbortSignal.timeout(Math.min(3200, remainingMs))
         });
+        const result = await upstream.json().catch(() => ({}));
+        if (upstream.ok) {
+          const text = (result.candidates || [])
+            .flatMap(item => item.content && Array.isArray(item.content.parts) ? item.content.parts : [])
+            .map(part => typeof part.text === 'string' ? part.text : '')
+            .filter(Boolean)
+            .join('\\n')
+            .trim();
+          if (text) return respond(res, 200, { text, model });
+          lastFailure = { status: 502, code: 'EMPTY_RESPONSE', message: 'The model returned no text.' };
+          break;
+        }
+        const providerCode = typeof result.error?.status === 'string' ? result.error.status : '';
+        console.warn('[Slickly Gemini provider response]', JSON.stringify({ model, keySource, providerAttempt, status: upstream.status, providerCode: providerCode || null }));
+        lastFailure = {
+          status: upstream.status,
+          code: providerCode || undefined,
+          message: typeof result.error?.message === 'string' ? result.error.message.slice(0, 180) : undefined
+        };
+        if (providerCode === 'RESOURCE_EXHAUSTED' && keyIndex + 1 < keys.length) break;
+        const transient = [500, 502, 503, 504].includes(upstream.status) ||
+          ['UNAVAILABLE', 'INTERNAL', 'DEADLINE_EXCEEDED'].includes(providerCode);
+        if (transient && providerAttempt < 2 && Date.now() + 250 < requestDeadline) {
+          await new Promise(resolve => setTimeout(resolve, 250));
+          continue;
+        }
+        if (providerCode === 'RESOURCE_EXHAUSTED' || upstream.status === 429) {
+          return respond(res, 429, {
+            error: providerCode === 'RESOURCE_EXHAUSTED'
+              ? 'Gemini quota is exhausted for all configured API keys. Configure GEMINI_API_KEYS with keys from independently quota-managed Google AI projects, or wait for quota reset.'
+              : 'Gemini rate limit reached. Please wait before retrying.',
+            providerStatus: upstream.status,
+            providerCode: providerCode || 'RATE_LIMITED',
+            attemptedKeySources,
+            configuredKeyCount: keys.length,
+            retryAfterSeconds: 3600
+          });
+        }
+        return respond(res, 502, {
+          error: 'The AI service could not complete this request.',
+          providerStatus: upstream.status,
+          providerCode: lastFailure.code,
+          providerMessage: lastFailure.message,
+          attemptedModels: [model]
+        });
+      } catch (error) {
+        lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
+        if (providerAttempt < 2 && Date.now() + 250 < requestDeadline) {
+          await new Promise(resolve => setTimeout(resolve, 250));
+          continue;
+        }
+        break;
       }
-      return respond(res, 502, {
-        error: 'The AI service could not complete this request.',
-        providerStatus: upstream.status,
-        providerCode: lastFailure.code,
-        providerMessage: lastFailure.message,
-        attemptedModels: [model]
-      });
-    } catch (error) {
-      lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
-      // Transport failures are not quota evidence; do not fan out across keys.
-      break;
     }
+    if (lastFailure?.code === 'RESOURCE_EXHAUSTED' && keyIndex + 1 < keys.length) continue;
+    if (lastFailure?.code === 'NETWORK_OR_TIMEOUT' || lastFailure?.status === 0) break;
   }
 
   const providerStatus = lastFailure?.status || 503;
