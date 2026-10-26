@@ -103,6 +103,7 @@ async function main() {
         'https://cleverly-lime.vercel.app/api/gemini',
         'https://cleverly-lime.vercel.app/api/gemini',
         'https://opencluelys.vercel.app/api/gemini',
+        'https://opencluely-iota.vercel.app/api/gemini',
         'https://healthy.example/api/gemini'
       ]);
     } finally {
