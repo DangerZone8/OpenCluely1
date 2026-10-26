@@ -2,6 +2,7 @@ const path = require("path");
 const fs = require("fs");
 const { fileURLToPath } = require("url");
 const { app, BrowserWindow, globalShortcut, session, ipcMain, dialog, desktopCapturer } = require("electron");
+const { autoUpdater } = require("electron-updater");
 
 // ── Resolve a stable .env location ──
 // In packaged builds process.cwd() is unstable and frequently read-only
@@ -212,6 +213,7 @@ class ApplicationController {
         }, { useSystemPicker: false });
       }
       await this.onAppReady();
+      this.startAutoUpdates();
       if (process.env.CLEVERLY_E2E_SCREEN_CAPTURE === "1") {
         // Expose the real chat renderer only in the desktop E2E run.
         windowManager.showChatWindow();
@@ -369,6 +371,39 @@ class ApplicationController {
         logger.error("No usable main window exists; exiting after startup failure");
         app.quit();
       }
+    }
+  }
+
+  startAutoUpdates() {
+    // Auto-update only in installed builds. Development runs and CI's unpacked
+    // Electron UI tests must never contact the release feed or install updates.
+    if (!app.isPackaged || process.env.SLICKLY_DISABLE_AUTO_UPDATE === "1") return;
+    try {
+      autoUpdater.autoDownload = true;
+      autoUpdater.autoInstallOnAppQuit = true;
+      autoUpdater.allowPrerelease = false;
+      autoUpdater.logger = logger;
+      autoUpdater.on("checking-for-update", () => logger.info("Checking for Slickly AI updates"));
+      autoUpdater.on("update-available", info => logger.info("Slickly AI update available", { version: info.version }));
+      autoUpdater.on("update-not-available", info => logger.info("Slickly AI is up to date", { version: info.version }));
+      autoUpdater.on("download-progress", progress => logger.info("Slickly AI update download progress", {
+        percent: Math.round(progress.percent || 0),
+        transferred: progress.transferred,
+        total: progress.total
+      }));
+      autoUpdater.on("update-downloaded", info => logger.info("Slickly AI update downloaded; it will install on quit", { version: info.version }));
+      autoUpdater.on("error", error => logger.warn("Slickly AI auto-update check/download failed", { error: error.message }));
+      autoUpdater.checkForUpdatesAndNotify().catch(error => {
+        logger.warn("Initial Slickly AI auto-update check failed", { error: error.message });
+      });
+      const timer = setInterval(() => {
+        autoUpdater.checkForUpdates().catch(error => {
+          logger.warn("Scheduled Slickly AI auto-update check failed", { error: error.message });
+        });
+      }, 6 * 60 * 60 * 1000);
+      timer.unref?.();
+    } catch (error) {
+      logger.warn("Could not initialize Slickly AI auto-updates", { error: error.message });
     }
   }
 
