@@ -69,7 +69,7 @@ async function main() {
           : {})
       },
       body: JSON.stringify({
-        model: 'gemini-3.5-flash-lite',
+        model: 'gemini-3-flash-preview',
         request: {
           contents: [{
             role: 'user',
