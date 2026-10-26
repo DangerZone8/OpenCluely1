@@ -48,7 +48,7 @@ async function executeProviderRequest(request, env = process.env, fetchImpl = fe
   // text before invoking chat completion so the capture-audio feature can still
   // work with an OpenAI BYOK key rather than sending raw audio to chat/completions.
   const audioPart = (request.contents || []).flatMap(item => item.parts || [])
-    .find(part => part.inlineData?.data && /^audio\\//i.test(part.inlineData.mimeType || ''));
+    .find(part => part.inlineData?.data && /^audio\//i.test(part.inlineData.mimeType || ''));
   if (audioPart) {
     if (provider.id !== 'openai') {
       throw new Error('Raw audio analysis is not supported by ' + provider.label + ' chat endpoints. Use Gemini or OpenAI for captured-audio analysis, or use the app’s Speech Recognition settings.');
@@ -72,9 +72,9 @@ async function executeProviderRequest(request, env = process.env, fetchImpl = fe
       contents: request.contents.map(item => ({
         ...item,
         parts: [
-          ...(item.parts || []).filter(part => !(part.inlineData?.data && /^audio\\//i.test(part.inlineData.mimeType || ''))),
-          ...(item.parts || []).some(part => part.inlineData?.data && /^audio\\//i.test(part.inlineData.mimeType || ''))
-            ? [{ text: 'Audio transcription (from the captured clip):\\n' + transcription.text.trim() }]
+          ...(item.parts || []).filter(part => !(part.inlineData?.data && /^audio\//i.test(part.inlineData.mimeType || ''))),
+          ...(item.parts || []).some(part => part.inlineData?.data && /^audio\//i.test(part.inlineData.mimeType || ''))
+            ? [{ text: 'Audio transcription (from the captured clip):\n' + transcription.text.trim() }]
             : []
         ]
       }))
