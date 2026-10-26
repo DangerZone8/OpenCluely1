@@ -53,10 +53,10 @@ async function main() {
   }, 'screen-vision');
   assert.equal(success.status, 200);
   assert.equal(success.body.text, 'GEMINI_3_ONLY_OK');
-  assert.equal(success.body.model, 'gemini-3-flash-preview');
-  assert.deepEqual(successCalls, ['gemini-3-flash-preview']);
+  assert.equal(success.body.model, 'gemini-3.5-flash-lite');
+  assert.deepEqual(successCalls, ['gemini-3.5-flash-lite']);
   assert.equal(timeoutCalls[0], 12000, 'screen vision must get the longer 12-second upstream attempt window');
-  console.log('PASS: screen vision uses Gemini 3 Flash Preview only and gets a 12-second provider attempt window.');
+  console.log('PASS: screen vision uses Gemini 3.5 Flash Lite only and gets a 12-second provider attempt window.');
 
   const unavailableCalls = [];
   const unavailable = await invoke(async url => {
@@ -66,10 +66,10 @@ async function main() {
     }) };
   });
   assert.equal(unavailable.status, 502);
-  assert.deepEqual(unavailableCalls, ['gemini-3-flash-preview', 'gemini-3-flash-preview'],
+  assert.deepEqual(unavailableCalls, ['gemini-3.5-flash-lite', 'gemini-3.5-flash-lite'],
     'may retry Gemini 3 once for a transient failure, but must never call a different model');
   assert.equal(timeoutCalls[1], 3200, 'normal chat must retain its short fast-response attempt window');
-  assert.deepEqual(unavailable.body.attemptedModels, ['gemini-3-flash-preview']);
+  assert.deepEqual(unavailable.body.attemptedModels, ['gemini-3.5-flash-lite']);
   console.log('PASS: transient Gemini 3 failures get one bounded same-model retry, without model fallback.');
 
   const quotaCalls = [];
@@ -81,7 +81,7 @@ async function main() {
   });
   assert.equal(quota.status, 429);
   assert.equal(quota.body.providerCode, 'RESOURCE_EXHAUSTED');
-  assert.deepEqual(quotaCalls, ['gemini-3-flash-preview']);
+  assert.deepEqual(quotaCalls, ['gemini-3.5-flash-lite']);
   console.log('PASS: quota exhaustion does not trigger calls to other models.');
 
   const installId = crypto.randomUUID();
