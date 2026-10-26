@@ -150,15 +150,21 @@ jobs:
             artifact_glob: |
               dist/*.AppImage
               dist/*.deb
+              dist/latest*.yml
+              dist/*.blockmap
           - os: windows-latest
             script: win
             artifact_glob: |
               dist/*.exe
+              dist/latest*.yml
+              dist/*.blockmap
           - os: macos-latest
             script: mac
             artifact_glob: |
               dist/*.dmg
               dist/*.zip
+              dist/latest*.yml
+              dist/*.blockmap
 
     steps:
       - name: Checkout
@@ -398,11 +404,11 @@ jobs:
           cat > RELEASE_BODY.md << 'BODY_EOF'
           ## Installation
 
-          Choose the artifact for your platform:
+          Choose the artifact for your platform. Installed builds check for updates automatically and apply downloaded updates on quit/relaunch:
 
           | Platform | File | Notes |
           |---|---|---|
-          | **Windows** | `Cleverly-Setup-*.exe` | NSIS installer — installs app + adds to Start Menu |
+          | **Windows** | `Slickly-AI-Setup-*.exe` | NSIS installer — installs app + adds to Start Menu |
           | **Linux** | `*.deb` | Debian/Ubuntu — auto-pulls system deps (Python, ffmpeg, GTK) |
           | **Linux** | `*.AppImage` | Universal — no install, just `chmod +x` and run |
           | **macOS** | `*.dmg` / `*.zip` | Intel and Apple Silicon builds; unsigned, so first launch may require approval in Privacy & Security |
@@ -411,7 +417,7 @@ jobs:
 
           ## First Run
 
-          On first launch, Cleverly opens the **Settings** window automatically for your **Google Gemini API key**.
+          On first launch, Slickly AI opens the **Settings** window automatically. Users can select Gemini, OpenAI, xAI (Grok), or Anthropic (Claude) and enter their own provider API key.
           Get a free key from [Google AI Studio](https://aistudio.google.com/). You can also edit `.env` directly.
 
           ## Optional: Local Whisper (offline speech)
@@ -447,17 +453,13 @@ jobs:
       - name: Flatten artifacts
         run: |
           mkdir -p release
-          # Pick only the primary installer per platform. This intentionally drops:
-          #   - Windows portable EXE (we ship the NSIS installer)
-          #   - .blockmap files (electron-updater diff metadata)
-          #   - latest-*.yml (electron-updater channel metadata)
-          #   - Source archives (GitHub auto-generates these from the tag)
-          # macOS DMG and ZIP are included as installable downloads.
-          #
-          # The order below is the order files appear in the release page.
-          find artifacts -type f -name 'Cleverly-Setup-*.exe' \
+          # Keep update manifests and blockmaps alongside the installers.
+          # electron-updater requires latest*.yml metadata for automatic updates.
+          # The Windows portable EXE is intentionally omitted; NSIS is the
+          # supported Windows auto-update target.
+          find artifacts -type f -name 'Slickly-AI-Setup-*.exe' \
             -exec cp -v {} release/ \;
-          find artifacts -type f -name 'cleverly_*_amd64.deb' \
+          find artifacts -type f -name 'slickly-ai_*_amd64.deb' \
             -exec cp -v {} release/ \;
           find artifacts -type f -name '*.AppImage' \
             -exec cp -v {} release/ \;
@@ -465,6 +467,10 @@ jobs:
             -exec cp -v {} release/ \;
           find artifacts -type f -name '*.zip' \
             -exec cp -v {} release/ \;
+          find artifacts -type f -name 'latest*.yml' \\
+            -exec cp -v {} release/ \\
+          find artifacts -type f -name '*.blockmap' \\
+            -exec cp -v {} release/ \\;
           echo "--- Files selected for release ---"
           ls -la release/
 
