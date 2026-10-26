@@ -49,8 +49,8 @@ jobs:
 
   production-screen-vision:
     name: Production AI verification — screen vision
-    needs: source-checks
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: [source-checks, production-api-revision, production-fast-chat]
+    if: always() && needs.source-checks.result == 'success' && needs.production-api-revision.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -68,7 +68,7 @@ jobs:
           ALLOW_OLD_API_REVISION: 'false'
         run: npm run test:screen-vision-live
       - name: Diagnose backup endpoints if production screen vision fails
-        if: always() && steps.livevision.outcome == 'failure'
+        if: always() && steps.livevision.outcome == 'failure' && github.event_name == 'workflow_dispatch'
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           ALLOW_OLD_API_REVISION: 'true'
@@ -76,8 +76,8 @@ jobs:
 
   production-fast-chat:
     name: Production AI verification — fast chat
-    needs: source-checks
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: [source-checks, production-api-revision]
+    if: always() && needs.source-checks.result == 'success' && needs.production-api-revision.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
@@ -101,8 +101,8 @@ jobs:
 
   direct-gemini-diagnostic:
     name: Test Gemini directly from GitHub Actions
-    needs: source-checks
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: [source-checks, desktop-screen-ai-e2e]
+    if: always() && needs.source-checks.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
@@ -117,8 +117,8 @@ jobs:
 
   desktop-screen-ai-e2e:
     name: Real desktop UI E2E — Capture Screen and Live Screen AI
-    needs: source-checks
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: [source-checks, production-api-revision, production-screen-vision]
+    if: always() && needs.source-checks.result == 'success' && needs.production-api-revision.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
