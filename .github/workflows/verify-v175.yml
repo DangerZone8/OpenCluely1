@@ -87,3 +87,21 @@ jobs:
           SLICKLY_DIAGNOSTIC_DURATION_MS: '150000'
           SLICKLY_DIAGNOSTIC_INTERVAL_MS: '8000'
         run: node scripts/test-production-ai-stability.js
+
+  direct-gemini-diagnostic:
+    name: Test Gemini directly from GitHub Actions
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Probe Google Gemini directly (no Vercel proxy)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: node scripts/test-direct-gemini-connectivity.js
