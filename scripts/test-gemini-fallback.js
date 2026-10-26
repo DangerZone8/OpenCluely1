@@ -41,8 +41,7 @@ async function main() {
   console.log('PASS: transient Gemini 503 falls back to an alternate model and succeeds.');
   const gemini3Calls = [];
   const gemini3Primary = await invoke(async url => {
-    const model = decodeURIComponent(url.match(/models\\/([^:]+)/)[1]);
-    const model = decodeURIComponent(url.match(/models\/([^:]+)/)[1]);
+    const model = decodeURIComponent(url.match(/models\/([^:]+)/)[1]); gemini3Calls.push(model);
     return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'GEMINI_3_FLASH_OK' }] } }] }) };
   }, true, 'screen-vision', crypto.randomUUID(), 'gemini-3-flash-preview');
   assert.equal(gemini3Primary.status, 200);
