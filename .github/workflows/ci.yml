@@ -97,6 +97,33 @@ jobs:
           }
           Stop-Process -Id $proc.Id -Force
 
+      - name: Launch packaged macOS app smoke test
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_PATH="$(find dist -maxdepth 4 -type d -name '*.app' -print -quit)"
+          if [ -z "$APP_PATH" ]; then
+            echo "FAIL: no packaged macOS .app bundle was produced."
+            find dist -maxdepth 3 -print
+            exit 1
+          fi
+          APP_BIN="$APP_PATH/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP_PATH/Contents/Info.plist")"
+          if [ ! -x "$APP_BIN" ]; then
+            echo "FAIL: packaged macOS executable missing: $APP_BIN"
+            exit 1
+          fi
+          set +e
+          timeout --signal=TERM --kill-after=5s 20s "$APP_BIN" --disable-gpu --user-data-dir="$TMPDIR/slickly-ai-macos-smoke"
+          APP_EXIT=$?
+          set -e
+          if [ "$APP_EXIT" -eq 124 ] || [ "$APP_EXIT" -eq 137 ] || [ "$APP_EXIT" -eq 143 ]; then
+            echo "PASS: packaged macOS app stayed running for the 20-second smoke test."
+          else
+            echo "FAIL: packaged macOS app exited before timeout (exit $APP_EXIT)."
+            exit 1
+          fi
+
       - name: Build Linux installer for runtime smoke test
         if: matrix.os == 'ubuntu-latest'
         shell: bash
