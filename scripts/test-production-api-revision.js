@@ -1,7 +1,7 @@
 'use strict';
 
 const endpoint = process.env.VERIFY_ONLY_ENDPOINT || 'https://slicklyai.vercel.app/api/gemini';
-const expected = process.env.SLICKLY_EXPECTED_API_REVISION || 'v175-fast-chat-2026-10-27-l';
+const expected = process.env.SLICKLY_EXPECTED_API_REVISION || 'v175-fast-chat-2026-10-27-k';
 
 async function main() {
   const headers = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
