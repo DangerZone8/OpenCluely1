@@ -140,7 +140,7 @@ module.exports = async function handler(req, res) {
   const attemptedModels = [];
   // Bound the whole request while allowing a fast alternate when the provider
   // promptly rejects a model. The first attempt remains the normal fast path.
-  const requestDeadline = Date.now() + 20000;
+  const requestDeadline = Date.now() + 28000;
 
   for (const candidate of fallbackModels) {
     const remainingMs = requestDeadline - Date.now();
@@ -159,7 +159,7 @@ module.exports = async function handler(req, res) {
           generationConfig: request.generationConfig || {},
           ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
         }),
-        signal: AbortSignal.timeout(Math.min(12000, remainingMs))
+        signal: AbortSignal.timeout(Math.min(18000, remainingMs))
       });
       const result = await upstream.json().catch(() => ({}));
       if (upstream.ok) {
@@ -210,9 +210,12 @@ module.exports = async function handler(req, res) {
       tryAnotherModel = true;
     } catch (error) {
       lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
-      // A timeout/network failure is shared by all model IDs. Do not spend the
-      // remaining deadline retrying the same unreachable provider host.
-      break;
+      // A timed-out model may be overloaded while an alternate model is healthy.
+      // Retry exactly one distinct fallback when enough deadline remains; the
+      // bounded overall deadline and two-model cap prevent unbounded fan-out.
+      lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
+      tryAnotherModel = true;
+      if (requestDeadline - Date.now() < 7000) break;
     }
     if (!tryAnotherModel) break;
   }
