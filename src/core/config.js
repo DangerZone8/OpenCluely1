@@ -40,7 +40,7 @@ class ConfigManager {
 
       llm: {
         gemini: {
-          model: 'gemini-3-flash-preview',
+          model: 'gemini-3.1-flash-lite',
           fallbackModels: [],
           maxRetries: 1,
           timeout: 15000,
