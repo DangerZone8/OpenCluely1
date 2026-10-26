@@ -8,7 +8,7 @@ const crypto = require('node:crypto');
 const endpoint = process.env.SLICKLY_DIAGNOSTIC_ENDPOINT || 'https://cleverly-lime.vercel.app/api/gemini';
 const durationMs = Number(process.env.SLICKLY_DIAGNOSTIC_DURATION_MS || 150000);
 const intervalMs = Number(process.env.SLICKLY_DIAGNOSTIC_INTERVAL_MS || 8000);
-const expectedRevision = process.env.SLICKLY_EXPECTED_API_REVISION || 'v175-fast-chat-2026-10-26-f';
+const expectedRevision = process.env.SLICKLY_EXPECTED_API_REVISION || 'v175-fast-chat-2026-10-26-g';
 const image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lS8AAAAASUVORK5CYII=';
 
 function classify(status, body) {
@@ -37,7 +37,7 @@ async function request(feature, index) {
         'x-opencluely-feature': feature
       },
       body: JSON.stringify({ model: 'gemini-3.5-flash-lite', request }),
-      signal: AbortSignal.timeout(25000)
+      signal: AbortSignal.timeout(9500)
     });
     const raw = await response.text();
     let body = {};
