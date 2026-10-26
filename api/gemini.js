@@ -134,8 +134,8 @@ module.exports = async function handler(req, res) {
   // working low-latency fallback before the larger flash model. Keep only one
   // alternate attempt per request so successful fast chat stays one-call.
   const fallbackCandidates = feature === 'screen-vision'
-    ? ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.8-flash']
-    : ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.5-flash'];
+    ? ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.6-flash', 'gemini-3.8-flash']
+    : ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'];
   const fallbackModels = [
     model,
     ...fallbackCandidates.filter(candidate => candidate !== model)
