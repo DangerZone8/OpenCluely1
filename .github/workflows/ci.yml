@@ -54,11 +54,22 @@ jobs:
       - name: Verify Vercel static-site build
         run: node scripts/build-vercel.js
 
-      - name: Build unpacked desktop application
+      - name: Build desktop installer packages and unpacked application
         shell: bash
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npm run build:${{ matrix.script }} -- --dir --publish never
+        run: npm run build:${{ matrix.script }} -- --publish never
+
+      - name: Verify Windows installer packages were built
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SETUP_FILE="$(find dist -maxdepth 1 -type f -name 'Slickly-AI-Setup-*.exe' -print -quit)"
+          PORTABLE_FILE="$(find dist -maxdepth 1 -type f -name '*portable*.exe' -print -quit)"
+          test -n "$SETUP_FILE" || { echo 'FAIL: Windows setup installer was not built.'; find dist -maxdepth 2 -print; exit 1; }
+          test -n "$PORTABLE_FILE" || { echo 'FAIL: Windows portable installer was not built.'; find dist -maxdepth 2 -print; exit 1; }
+          echo "PASS: Windows setup and portable installers exist."
 
       - name: Launch packaged Windows app smoke test
         if: matrix.os == 'windows-latest'
@@ -96,6 +107,17 @@ jobs:
             throw "Live Electron chat UI integration test failed (exit $LASTEXITCODE)."
           }
           Stop-Process -Id $proc.Id -Force
+
+      - name: Verify macOS installer packages were built
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG_FILE="$(find dist -maxdepth 1 -type f -name '*.dmg' -print -quit)"
+          ZIP_FILE="$(find dist -maxdepth 1 -type f -name '*.zip' -print -quit)"
+          test -n "$DMG_FILE" || { echo 'FAIL: macOS DMG installer was not built.'; find dist -maxdepth 2 -print; exit 1; }
+          test -n "$ZIP_FILE" || { echo 'FAIL: macOS ZIP package was not built.'; find dist -maxdepth 2 -print; exit 1; }
+          echo "PASS: macOS DMG and ZIP packages exist."
 
       - name: Launch packaged macOS app smoke test
         if: matrix.os == 'macos-latest'
@@ -138,12 +160,48 @@ jobs:
           }, 20000);
           NODE
 
-      - name: Build Linux installer for runtime smoke test
+      - name: Verify Linux installer packages were built
         if: matrix.os == 'ubuntu-latest'
         shell: bash
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npx electron-builder --linux deb --publish never
+        run: |
+          set -euo pipefail
+          DEB_FILE="$(find dist -maxdepth 1 -type f -name 'slickly-ai_*_amd64.deb' -print -quit)"
+          APPIMAGE_FILE="$(find dist -maxdepth 1 -type f -name '*.AppImage' -print -quit)"
+          test -n "$DEB_FILE" || { echo 'FAIL: Linux .deb installer was not built.'; find dist -maxdepth 2 -print; exit 1; }
+          test -n "$APPIMAGE_FILE" || { echo 'FAIL: Linux AppImage was not built.'; find dist -maxdepth 2 -print; exit 1; }
+          echo "PASS: Linux installer packages exist: $DEB_FILE and $APPIMAGE_FILE"
+
+      - name: Upload Windows installer artifacts
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: slickly-ai-windows-installers
+          path: |
+            dist/*.exe
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload macOS installer artifacts
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: slickly-ai-macos-installers
+          path: |
+            dist/*.dmg
+            dist/*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload Linux installer artifacts
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: slickly-ai-linux-installers
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Install and launch the packaged app in a virtual desktop
         if: matrix.os == 'ubuntu-latest'
