@@ -92,6 +92,8 @@ async function testHostedClient() {
 async function testProxyHandler() {
   const handler = require('../api/gemini');
   const originalKey = process.env.GEMINI_API_KEY;
+  const originalKey2 = process.env.GEMINI_API_KEY_2;
+  const originalKeys = process.env.GEMINI_API_KEYS;
   const originalGoogleKey = process.env.GOOGLE_API_KEY;
   const originalFetch = global.fetch;
   const installId = '2f78a8d0-9913-4ab5-a2e3-cc3c02e5d601';
@@ -114,6 +116,8 @@ async function testProxyHandler() {
     assert.equal(response.statusCode, 503, 'Proxy must fail closed when server secret is not configured');
 
     process.env.GEMINI_API_KEY = 'test-server-secret-not-a-real-key';
+    delete process.env.GEMINI_API_KEY_2;
+    delete process.env.GEMINI_API_KEYS;
     global.fetch = async (url, options) => {
       assert.match(url, /generativelanguage\.googleapis\.com/);
       assert.equal(options.headers['x-goog-api-key'], 'test-server-secret-not-a-real-key');
@@ -135,10 +139,49 @@ async function testProxyHandler() {
     }, response);
     assert.equal(response.statusCode, 200);
     assert.equal(JSON.parse(response.body).text, 'Proxy response.');
+
+    // An exhausted provider project must fail over to a separately quota-managed
+    // server-side key rather than stopping chat and screen vision immediately.
+    process.env.GEMINI_API_KEY_2 = 'backup-server-secret-not-a-real-key';
+    const keyAttempts = [];
+    global.fetch = async (url, options) => {
+      keyAttempts.push({ model: decodeURIComponent(String(url).split('/models/')[1].split(':')[0]), key: options.headers['x-goog-api-key'] });
+      if (options.headers['x-goog-api-key'] === 'test-server-secret-not-a-real-key') {
+        return {
+          ok: false,
+          status: 429,
+          json: async () => ({ error: { status: 'RESOURCE_EXHAUSTED', message: 'quota exhausted' } })
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ candidates: [{ content: { parts: [{ text: 'Backup key response.' }] } }] })
+      };
+    };
+    response = makeResponse();
+    await handler({
+      method: 'POST',
+      headers: {
+        'content-length': '150',
+        'x-opencluely-install-id': '3f78a8d0-9913-4ab5-a2e3-cc3c02e5d601',
+        'x-forwarded-for': '198.51.100.43'
+      },
+      body: { model: 'gemini-3.1-flash-lite', request: { contents: [{ role: 'user', parts: [{ text: 'hello' }] }] } }
+    }, response);
+    assert.equal(response.statusCode, 200, 'quota exhaustion on primary key should fail over');
+    assert.equal(JSON.parse(response.body).text, 'Backup key response.');
+    assert.equal(keyAttempts.length, 2, 'failover should make one bounded backup attempt');
+    assert.equal(keyAttempts[1].key, 'backup-server-secret-not-a-real-key');
+    console.log('PASS: provider quota exhaustion fails over to a backup Gemini key without exposing secrets.');
     console.log('PASS: hosted Gemini proxy keeps its secret server-side and validates keyless requests.');
   } finally {
     if (originalKey === undefined) delete process.env.GEMINI_API_KEY;
     else process.env.GEMINI_API_KEY = originalKey;
+    if (originalKey2 === undefined) delete process.env.GEMINI_API_KEY_2;
+    else process.env.GEMINI_API_KEY_2 = originalKey2;
+    if (originalKeys === undefined) delete process.env.GEMINI_API_KEYS;
+    else process.env.GEMINI_API_KEYS = originalKeys;
     if (originalGoogleKey === undefined) delete process.env.GOOGLE_API_KEY;
     else process.env.GOOGLE_API_KEY = originalGoogleKey;
     global.fetch = originalFetch;
