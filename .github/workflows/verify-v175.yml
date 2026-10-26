@@ -67,6 +67,16 @@ jobs:
           ALLOW_OLD_API_REVISION: 'false'
         run: npm run test:screen-vision-live
 
+      # Separate recovery check: if the production key is quota-exhausted, try each
+      # existing hosted alias to see whether an independent deployment can answer.
+      # The strict production check above remains required and is not masked by this.
+      - name: Verify hosted backup screen-vision recovery
+        if: always() && (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          ALLOW_OLD_API_REVISION: 'true'
+        run: npm run test:screen-vision-live
+
       - name: Verify live Gemini fast-chat behavior
         if: always() && (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
         env:
