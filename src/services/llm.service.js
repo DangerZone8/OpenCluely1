@@ -164,9 +164,13 @@ class LLMService {
       let result = {};
       try { result = JSON.parse(rawBody); } catch {}
       if (status < 200 || status >= 300) {
+        // Vercel edge failures often return HTML rather than our JSON error shape.
+        // Keep a short, sanitized preview so diagnostics can distinguish an edge
+        // 502/503 from a JSON provider error without logging request payloads or keys.
+        const responsePreview = String(rawBody || '').replace(/\\s+/g, ' ').slice(0, 220);
         const error = new Error(typeof result.error === 'string'
           ? result.error
-          : 'Hosted Slickly AI AI request failed (' + status + ').');
+          : 'Hosted Slickly AI AI request failed (' + status + '). Response: ' + responsePreview);
         error.isHostedResponseError = true;
         error.statusCode = status;
         throw error;
