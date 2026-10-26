@@ -134,20 +134,20 @@ module.exports = async function handler(req, res) {
   // working low-latency fallback before the larger flash model. Keep only one
   // alternate attempt per request so successful fast chat stays one-call.
   const fallbackCandidates = feature === 'screen-vision'
-    ? ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.6-flash', 'gemini-3.8-flash']
-    : ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.1-flash-lite'];
+    ? ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.8-flash']
+    : ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.5-flash'];
   const fallbackModels = [
     model,
     ...fallbackCandidates.filter(candidate => candidate !== model)
   ].slice(0, 2);
   let lastFailure = null;
   const attemptedModels = [];
-  // Bound the whole request while allowing a fast alternate when the provider
-  // promptly rejects a model. The first attempt remains the normal fast path.
-  // vercel.json explicitly allows 30 seconds for this route. Cap each model
-  // attempt at 12 seconds so a slow first model cannot starve the alternate;
-  // the 28-second overall deadline still leaves time for a ~15-second fallback.
-  const requestDeadline = Date.now() + 28000;
+  // Keep this handler compatible with Vercel deployments whose effective
+  // serverless ceiling is 10 seconds even when a newer config requests more.
+  // A long provider wait otherwise ends in a platform-generated 502 before
+  // the alternate model can run. Use a short primary attempt and reserve the
+  // remaining budget for the lighter fallback plus response serialization.
+  const requestDeadline = Date.now() + 8200;
 
   for (const candidate of fallbackModels) {
     const remainingMs = requestDeadline - Date.now();
@@ -166,7 +166,7 @@ module.exports = async function handler(req, res) {
           generationConfig: request.generationConfig || {},
           ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
         }),
-        signal: AbortSignal.timeout(Math.min(12000, remainingMs))
+        signal: AbortSignal.timeout(Math.min(4000, remainingMs))
       });
       const result = await upstream.json().catch(() => ({}));
       if (upstream.ok) {
@@ -221,7 +221,7 @@ module.exports = async function handler(req, res) {
       // time to serialize a response before the platform kills the invocation.
       lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
       tryAnotherModel = true;
-      if (requestDeadline - Date.now() < 7000) break;
+      if (requestDeadline - Date.now() < 3500) break;
     }
     if (!tryAnotherModel) break;
   }
