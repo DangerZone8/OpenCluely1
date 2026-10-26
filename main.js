@@ -1822,7 +1822,7 @@ class ApplicationController {
       whisperResponseTarget: process.env.WHISPER_RESPONSE_TARGET || "both",
       whisperSegmentMs: process.env.WHISPER_SEGMENT_MS || "4000",
       aiProvider: process.env.AI_PROVIDER || "gemini",
-      aiModel: process.env.AI_MODEL || "",
+      aiModel: process.env[({ gemini: "GEMINI_MODEL", openai: "OPENAI_MODEL", xai: "XAI_MODEL", anthropic: "ANTHROPIC_MODEL" }[process.env.AI_PROVIDER || "gemini"])] || "",
       geminiKey: process.env.GEMINI_API_KEY || "",
       openaiKey: process.env.OPENAI_API_KEY || "",
       xaiKey: process.env.XAI_API_KEY || "",
