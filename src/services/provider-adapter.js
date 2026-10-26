@@ -73,9 +73,9 @@ async function executeProviderRequest(request, env = process.env, fetchImpl = fe
         ...item,
         parts: [
           ...(item.parts || []).filter(part => !(part.inlineData?.data && /^audio\//i.test(part.inlineData.mimeType || ''))),
-          ...(item.parts || []).some(part => part.inlineData?.data && /^audio\//i.test(part.inlineData.mimeType || ''))
+          ...((item.parts || []).some(part => part.inlineData?.data && /^audio\//i.test(part.inlineData.mimeType || ''))
             ? [{ text: 'Audio transcription (from the captured clip):\n' + transcription.text.trim() }]
-            : []
+            : [])
         ]
       }))
     };
