@@ -35,6 +35,8 @@ function makeImage(width = 100, height = 50) {
   return {
     crop(area) { this.lastCrop = area; return this; },
     toPNG() { return Buffer.from('png-test'); },
+    resize(options) { this.lastResize = options; return this; },
+    toJPEG(quality) { this.lastJpegQuality = quality; return Buffer.from('jpeg-test'); },
     getSize() { return { width, height }; }
   };
 }
@@ -47,8 +49,10 @@ async function run() {
   const image = makeImage();
   captureService.captureScreenshot = async () => ({ image, metadata: { displayId: 1 } });
   const result = await captureService.captureAndProcess({ area: { x: 1, y: 2, width: 10, height: 12 } });
-  assert.equal(result.mimeType, 'image/png');
-  assert.equal(result.imageBuffer.toString(), 'png-test');
+  assert.equal(result.mimeType, 'image/jpeg');
+  assert.equal(result.imageBuffer.toString(), 'jpeg-test');
+  assert.equal(image.lastJpegQuality, 72, 'screen frames should use compressed JPEG encoding');
+  assert.ok(result.metadata.compression, 'compression settings should be observable in capture metadata');
   assert.deepEqual(image.lastCrop, { x: 1, y: 2, width: 10, height: 12 });
   assert.equal(captureService.isProcessing, false, 'processing lock must clear after success');
 
