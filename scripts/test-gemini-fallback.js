@@ -36,8 +36,8 @@ async function main() {
   }, true, 'screen-vision');
   assert.equal(recovered.status, 200);
   assert.equal(recovered.body.text, 'SCREEN_TEST_OK');
-  assert.equal(recovered.body.model, 'gemini-3.5-flash');
-  assert.deepEqual(calls, ['gemini-3.5-flash-lite', 'gemini-3.5-flash']);
+  assert.equal(recovered.body.model, 'gemini-3.6-flash');
+  assert.deepEqual(calls, ['gemini-3.5-flash-lite', 'gemini-3.6-flash']);
   console.log('PASS: transient Gemini 503 falls back to an alternate model and succeeds.');
   const gemini3Calls = [];
   const gemini3Primary = await invoke(async url => {
@@ -57,8 +57,8 @@ async function main() {
     return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'SCREEN_TEST_OK' }] } }] }) };
   }, true, 'screen-vision');
   assert.equal(modelRejected.status, 200);
-  assert.equal(modelRejected.body.model, 'gemini-3.5-flash');
-  assert.deepEqual(invalidCalls, ['gemini-3.5-flash-lite', 'gemini-3.5-flash']);
+  assert.equal(modelRejected.body.model, 'gemini-3.6-flash');
+  assert.deepEqual(invalidCalls, ['gemini-3.5-flash-lite', 'gemini-3.6-flash']);
   console.log('PASS: model-specific INVALID_ARGUMENT switches to a supported fallback model.');
   const notFoundCalls = [];
   const missingModel = await invoke(async url => {
@@ -67,8 +67,8 @@ async function main() {
     return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'SCREEN_TEST_OK' }] } }] }) };
   }, true, 'screen-vision');
   assert.equal(missingModel.status, 200);
-  assert.equal(missingModel.body.model, 'gemini-3.5-flash');
-  assert.deepEqual(notFoundCalls, ['gemini-3.5-flash-lite', 'gemini-3.5-flash']);
+  assert.equal(missingModel.body.model, 'gemini-3.6-flash');
+  assert.deepEqual(notFoundCalls, ['gemini-3.5-flash-lite', 'gemini-3.6-flash']);
   console.log('PASS: a retired/unavailable Gemini model name falls back to a supported model.');
 
   const failed = [];
@@ -111,7 +111,7 @@ async function main() {
   }, false, 'chat');
   assert.equal(textFailure.status, 200);
   assert.equal(textFailure.body.text, 'FAST_TEXT_FALLBACK_OK');
-  assert.deepEqual(textFailureCalls, ['gemini-3.5-flash-lite', 'gemini-3.5-flash'],
+  assert.deepEqual(textFailureCalls, ['gemini-3.5-flash-lite', 'gemini-3.6-flash'],
     'ordinary chat must use one alternate model after an explicit transient provider failure');
   console.log('PASS: ordinary chat keeps one-call fast path and retries once on an explicit transient model failure.');
 
