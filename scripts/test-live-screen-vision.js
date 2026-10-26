@@ -30,10 +30,20 @@ async function main() {
     let revision = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        const probe = await fetch(candidate, { method: 'GET', signal: AbortSignal.timeout(8000) });
+        const probe = await fetch(candidate, {
+          method: 'GET',
+          headers: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+            ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+            : {},
+          signal: AbortSignal.timeout(8000)
+        });
         revision = probe.headers.get('x-opencluely-api-revision');
         if (expectedRevisions.has(revision)) break;
-        console.log('Hosted API ' + candidate + ' has revision ' + String(revision) + ' (attempt ' + attempt + '/3).');
+        const probeBody = (await probe.text().catch(() => '')).replace(/\\s+/g, ' ').slice(0, 180);
+        console.log('Hosted API ' + candidate + ' probe HTTP=' + probe.status +
+          ', content-type=' + String(probe.headers.get('content-type')) +
+          ', revision=' + String(revision) + ', body=' + probeBody +
+          ' (attempt ' + attempt + '/3).');
       } catch (error) {
         console.log('Hosted API probe failed for ' + candidate + ' (' + error.message + '), attempt ' + attempt + '/3.');
       }
@@ -51,7 +61,10 @@ async function main() {
       headers: {
         'content-type': 'application/json',
         'x-opencluely-install-id': installId,
-        'x-opencluely-feature': 'screen-vision'
+        'x-opencluely-feature': 'screen-vision',
+        ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+          ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+          : {})
       },
       body: JSON.stringify({
         model: 'gemini-3.5-flash-lite',
