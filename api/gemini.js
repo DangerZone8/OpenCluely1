@@ -144,8 +144,9 @@ module.exports = async function handler(req, res) {
   const attemptedModels = [];
   // Bound the whole request while allowing a fast alternate when the provider
   // promptly rejects a model. The first attempt remains the normal fast path.
-  // vercel.json explicitly allows 30 seconds for this route. Keep the overall
-  // provider budget below that ceiling while allowing one alternate-model retry.
+  // vercel.json explicitly allows 30 seconds for this route. Cap each model
+  // attempt at 12 seconds so a slow first model cannot starve the alternate;
+  // the 28-second overall deadline still leaves time for a ~15-second fallback.
   const requestDeadline = Date.now() + 28000;
 
   for (const candidate of fallbackModels) {
@@ -165,7 +166,7 @@ module.exports = async function handler(req, res) {
           generationConfig: request.generationConfig || {},
           ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
         }),
-        signal: AbortSignal.timeout(Math.min(18000, remainingMs))
+        signal: AbortSignal.timeout(Math.min(12000, remainingMs))
       });
       const result = await upstream.json().catch(() => ({}));
       if (upstream.ok) {
