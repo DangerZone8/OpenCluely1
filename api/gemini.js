@@ -141,7 +141,10 @@ module.exports = async function handler(req, res) {
   // not a model-loop continue: there is deliberately no alternate model.
   let lastFailure = null;
   const attemptedKeySources = [];
-  const requestDeadline = Date.now() + 8200;
+  // Vercel allows this function 30 seconds. Give image analysis a larger
+  // per-attempt window because Gemini vision often needs longer than chat,
+  // while preserving the short v175 chat deadline and its fast response path.
+  const requestDeadline = Date.now() + (isVisionRequest ? 26000 : 8200);
   for (let keyIndex = 0; keyIndex < keys.length; keyIndex += 1) {
     const keySource = keyEntries[keyIndex].source;
     // Retry brief upstream overloads once on the same key/model. This is a
@@ -163,7 +166,7 @@ module.exports = async function handler(req, res) {
             generationConfig: request.generationConfig || {},
             ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
           }),
-          signal: AbortSignal.timeout(Math.min(3200, remainingMs))
+          signal: AbortSignal.timeout(Math.min(isVisionRequest ? 12000 : 3200, remainingMs))
         });
         const result = await upstream.json().catch(() => ({}));
         if (upstream.ok) {
