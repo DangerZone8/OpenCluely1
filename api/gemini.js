@@ -52,13 +52,24 @@ module.exports = async function handler(req, res) {
 
   // Accept the common Google/Gemini environment-variable names. Trim whitespace
   // so a copied value with a trailing newline is not treated as a usable key.
-  const key = [
+  // Support an ordered key pool so a deployment can fail over when one
+  // Google AI project reaches its quota. Keys must belong to independently
+  // quota-managed projects; multiple keys from the same project share quota.
+  // Configure GEMINI_API_KEYS as a comma/newline-separated list, or use
+  // GEMINI_API_KEY plus GEMINI_API_KEY_2 / GEMINI_API_KEY_3.
+  const keys = [
+    process.env.GEMINI_API_KEYS,
     process.env.GEMINI_API_KEY,
+    process.env.GEMINI_API_KEY_2,
+    process.env.GEMINI_API_KEY_3,
     process.env.GOOGLE_API_KEY,
     process.env.GOOGLE_GENAI_API_KEY,
     process.env.GOOGLE_GENERATIVE_AI_API_KEY
-  ].map(value => typeof value === 'string' ? value.trim() : '').find(Boolean);
-  if (!key) {
+  ].flatMap(value => typeof value === 'string' ? value.split(/[\\n,]+/) : [])
+    .map(value => value.trim())
+    .filter(Boolean)
+    .filter((value, index, all) => all.indexOf(value) === index);
+  if (!keys.length) {
     // Safe diagnostics: report only whether supported names exist, never values.
     return respond(res, 503, {
       error: 'The Slickly AI service is not configured in this deployment. Verify the Production environment variables and redeploy.',
@@ -142,6 +153,8 @@ module.exports = async function handler(req, res) {
   ].slice(0, 2);
   let lastFailure = null;
   const attemptedModels = [];
+  let keyIndex = 0;
+  let key = keys[keyIndex];
   // Keep this handler compatible with Vercel deployments whose effective
   // serverless ceiling is 10 seconds even when a newer config requests more.
   // A long provider wait otherwise ends in a platform-generated 502 before
@@ -192,8 +205,17 @@ module.exports = async function handler(req, res) {
       };
       // Never fan out to more models after a quota/rate-limit response.
       if (providerCode === 'RESOURCE_EXHAUSTED' || upstream.status === 429) {
+        // Only provider-quota errors trigger key failover. App/IP rate limits
+        // are enforced before this loop and must not consume another key.
+        if (providerCode === 'RESOURCE_EXHAUSTED' && keyIndex + 1 < keys.length) {
+          keyIndex += 1;
+          tryAnotherModel = true;
+          continue;
+        }
         return respond(res, 429, {
-          error: 'Gemini usage limit reached for this API project. Further model retries are disabled to avoid wasting quota. Try again after the provider reset or review the project quota.',
+          error: providerCode === 'RESOURCE_EXHAUSTED'
+            ? 'Gemini quota is exhausted for all configured API keys. Configure GEMINI_API_KEYS with keys from independently quota-managed Google AI projects, or wait for quota reset.'
+            : 'Gemini rate limit reached. Please wait before retrying.',
           providerStatus: upstream.status,
           providerCode: providerCode || 'RATE_LIMITED',
           retryAfterSeconds: 3600
