@@ -70,7 +70,7 @@ async function main() {
     global.fetch = async (url) => {
       const target = String(url);
       endpointCalls.push(target);
-      if (target.includes('cleverly-lime.vercel.app')) {
+      if (target.includes('slicklyai.vercel.app')) {
         primaryAttempts += 1;
         return {
           status: primaryAttempts === 1 ? 502 : 503,
@@ -78,7 +78,7 @@ async function main() {
           text: async () => JSON.stringify({ error: 'temporary provider failure' })
         };
       }
-      if (target.includes('opencluelys.vercel.app') || target.includes('opencluely-iota.vercel.app') || target.includes('misconfigured.example')) {
+      if (target.includes('cleverly-lime.vercel.app') || target.includes('opencluelys.vercel.app') || target.includes('opencluely-iota.vercel.app') || target.includes('misconfigured.example')) {
         return {
           status: 503,
           headers: { get: () => 'quota-guard-2026-10-22-a' },
@@ -100,7 +100,8 @@ async function main() {
       });
       assert.equal(hostedResponse, 'Fallback host works.');
       assert.deepEqual(endpointCalls, [
-        'https://cleverly-lime.vercel.app/api/gemini',
+        'https://slicklyai.vercel.app/api/gemini',
+        'https://slicklyai.vercel.app/api/gemini',
         'https://cleverly-lime.vercel.app/api/gemini',
         'https://opencluelys.vercel.app/api/gemini',
         'https://opencluely-iota.vercel.app/api/gemini',
@@ -110,7 +111,7 @@ async function main() {
       global.fetch = originalFetch;
     }
 
-    console.log('PASS: hosted AI tries both known production aliases before a configured healthy fallback.');
+    console.log('PASS: hosted AI tries Slickly AI first, then every legacy production alias before a configured healthy fallback.');
     console.log('PASS: image requests fall back to hosted vision proxy after direct Gemini fetch failures (streaming and non-streaming).');
   } finally {
     llm.remoteOnly = saved.remoteOnly;

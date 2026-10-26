@@ -6,9 +6,11 @@ const crypto = require('node:crypto');
 const forcedEndpoint = process.env.VERIFY_ONLY_ENDPOINT;
 const endpoints = [...new Set((forcedEndpoint ? [forcedEndpoint] : [
   process.env.OPENCLUELY_AI_ENDPOINT,
-  'https://opencluely-iota.vercel.app/api/gemini',
+  'https://slicklyai.vercel.app/api/gemini',
   process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT,
-  'https://opencluelys.vercel.app/api/gemini'
+  'https://cleverly-lime.vercel.app/api/gemini',
+  'https://opencluelys.vercel.app/api/gemini',
+  'https://opencluely-iota.vercel.app/api/gemini'
 ]).filter(value => typeof value === 'string' && value.trim()))];
 const installId = crypto.randomUUID();
 // Tiny valid 1x1 PNG: exercises the same hosted vision payload shape as Capture Screen and Ask AI.
