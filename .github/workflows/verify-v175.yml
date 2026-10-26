@@ -134,7 +134,9 @@ jobs:
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          SLICKLY_E2E_AI_ENDPOINT: https://slicklyai.vercel.app/api/gemini
+          # Let the desktop exercise its real HTTPS failover if the primary
+          # alias transiently times out. The preceding production-screen-vision
+          # job independently gates the primary endpoint itself.
           SLICKLY_E2E_SUSTAINED: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
         run: xvfb-run -a npm run test:screen-ai-desktop-e2e
 
