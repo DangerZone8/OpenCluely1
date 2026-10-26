@@ -11,9 +11,9 @@ class ConfigManager {
   loadConfiguration() {
     this.config = {
       app: {
-        name: 'OpenCluely',
+        name: 'Slickly AI',
         version: require('../../package.json').version,
-        processTitle: 'OpenCluely',
+        processTitle: 'Slickly AI',
         dataDir: this.appDataDir,
         isDevelopment: this.env === 'development',
         isProduction: this.env === 'production'
@@ -40,12 +40,12 @@ class ConfigManager {
 
       llm: {
         gemini: {
-          model: 'gemini-3.5-flash-lite',
-          fallbackModels: ['gemini-3.5-flash-lite', 'gemini-3.5-flash'],
+          model: 'gemini-3-flash-preview',
+          fallbackModels: [],
           maxRetries: 1,
           timeout: 15000,
-          fallbackEnabled: true,
-          enableFallbackMethod: true,
+          fallbackEnabled: false,
+          enableFallbackMethod: false,
           generation: {
             temperature: 0.7,
             topK: 32,

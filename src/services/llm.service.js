@@ -10,7 +10,7 @@ class LLMService {
     this.model = null;
     this.isInitialized = false;
     this.remoteOnly = false;
-    this.remoteEndpoint = process.env.OPENCLUELY_AI_ENDPOINT || 'https://opencluelys.vercel.app/api/gemini';
+    this.remoteEndpoint = process.env.OPENCLUELY_AI_ENDPOINT || 'https://slicklyai.vercel.app/api/gemini';
     this.installationId = null;
     this.requestCount = 0;
     this.errorCount = 0;
@@ -28,14 +28,14 @@ class LLMService {
       this.model = config.get('llm.gemini.model');
       this.remoteOnly = true;
       this.isInitialized = true;
-      logger.info('No local Gemini key found; using the hosted Cleverly AI service.');
+      logger.info('No local Gemini key found; using the hosted Slickly AI AI service.');
       return;
     }
 
     try {
       this.client = new GoogleGenAI({ apiKey });
       
-      // Use the configured model name (default: gemini-3.5-flash)
+      // Use the configured model name (default: gemini-3-flash-preview)
       this.model = config.get('llm.gemini.model');
       this.isInitialized = true;
       
@@ -80,8 +80,10 @@ class LLMService {
     // multiply the normal timeout by every endpoint and transport fallback.
     // Gemini vision may legitimately take 10-15s; allow that once while still
     // preventing multiple dead aliases from multiplying the wait indefinitely.
-    const configuredTimeout = config.get('llm.gemini.timeout') || 15000;
-    const totalTimeout = Math.max(20000, Math.min(configuredTimeout * 2, 30000));
+    // The hosted API now permits a bounded alternate-model attempt; give it
+    // enough time to finish without allowing dead aliases to multiply latency.
+    const configuredTimeout = Math.max(config.get('llm.gemini.timeout') || 15000, 22000);
+    const totalTimeout = Math.max(20000, Math.min(configuredTimeout + 8000, 30000));
     const deadline = Date.now() + totalTimeout;
     const payload = JSON.stringify({ model: modelName, request: geminiRequest });
     const containsImage = (geminiRequest.contents || []).some(message =>
@@ -91,7 +93,12 @@ class LLMService {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(payload),
       'x-opencluely-install-id': this.getRemoteInstallationId(),
-      ...(containsImage ? { 'x-opencluely-feature': 'screen-vision' } : {})
+      ...(containsImage ? { 'x-opencluely-feature': 'screen-vision' } : {}),
+      // Used only by CI to access Vercel-protected preview deployments. Never
+      // configure this secret in a packaged desktop release.
+      ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+        ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+        : {})
     };
     // Screen/chat requests must never inherit a localhost endpoint from a
     // developer .env or a stale persisted setting. Keep the production aliases
@@ -107,17 +114,31 @@ class LLMService {
         return false;
       }
     };
-    const hostedEndpoints = [
-      'https://opencluelys.vercel.app/api/gemini',
-      'https://opencluely-iota.vercel.app/api/gemini'
-    ];
+    const strictTestEndpoint = String(process.env.SLICKLY_E2E_AI_ENDPOINT || '').trim();
+    const primaryHostedEndpoint = strictTestEndpoint || 'https://slicklyai.vercel.app/api/gemini';
+    const backupHostedEndpoint = strictTestEndpoint || 'https://cleverly-lime.vercel.app/api/gemini';
+    // Explicit test override is intentionally exclusive: CI must exercise the
+    // PR's actual Vercel preview, not silently pass by falling back to production.
+    // This variable is only set by the screen-AI E2E workflow.
+    const e2eEndpoint = process.env.SLICKLY_E2E_AI_ENDPOINT;
+    if (e2eEndpoint && !isUsableHostedEndpoint(e2eEndpoint)) {
+      throw new Error('SLICKLY_E2E_AI_ENDPOINT must be a non-loopback HTTPS URL.');
+    }
+    // Keep the backup reachable within the global deadline. Retry the primary
+    // once only after an explicit HTTP 5xx response; network timeouts move to
+    // the backup instead of consuming the entire deadline on the same host.
+    const hostedEndpoints = strictTestEndpoint
+      ? [strictTestEndpoint]
+      : [primaryHostedEndpoint, backupHostedEndpoint, 'https://opencluelys.vercel.app/api/gemini', 'https://opencluely-iota.vercel.app/api/gemini'];
     const configuredFallback = process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT;
-    const endpoints = [
-      ...hostedEndpoints,
-      ...(isUsableHostedEndpoint(configuredFallback) &&
-          !hostedEndpoints.includes(configuredFallback.trim())
-        ? [configuredFallback.trim()] : [])
-    ];
+    const endpoints = e2eEndpoint
+      ? [e2eEndpoint.trim()]
+      : [
+          ...hostedEndpoints,
+          ...(isUsableHostedEndpoint(configuredFallback) &&
+              !hostedEndpoints.includes(configuredFallback.trim())
+            ? [configuredFallback.trim()] : [])
+        ];
 
     // Emit diagnostics before any network call; this log is intentionally
     // before validation so a CI failure shows the exact resolved runtime list.
@@ -136,7 +157,7 @@ class LLMService {
     });
     const unsafeEndpoints = endpoints.filter(endpoint => !isUsableHostedEndpoint(endpoint));
     if (unsafeEndpoints.length) {
-      throw new Error('Refusing unsafe hosted Cleverly AI endpoint(s): ' +
+      throw new Error('Refusing unsafe hosted Slickly AI AI endpoint(s): ' +
         unsafeEndpoints.map(endpoint => {
           try { return new NodeURL(endpoint).host; } catch { return '[invalid URL]'; }
         }).join(', '));
@@ -146,15 +167,23 @@ class LLMService {
       let result = {};
       try { result = JSON.parse(rawBody); } catch {}
       if (status < 200 || status >= 300) {
+        // Vercel edge failures often return HTML rather than our JSON error shape.
+        // Keep a short, sanitized preview so diagnostics can distinguish an edge
+        // 502/503 from a JSON provider error without logging request payloads or keys.
+        const responsePreview = String(rawBody || '').replace(/\\s+/g, ' ').slice(0, 220);
         const error = new Error(typeof result.error === 'string'
           ? result.error
-          : 'Hosted Cleverly AI request failed (' + status + ').');
+          : 'Hosted Slickly AI AI request failed (' + status + '). Response: ' + responsePreview);
         error.isHostedResponseError = true;
         error.statusCode = status;
+        // Preserve the proxy's structured provider code so the client can
+        // distinguish exhausted provider quota from this app's own rate limit.
+        error.providerCode = typeof result.providerCode === 'string' ? result.providerCode : '';
+        error.providerStatus = Number.isFinite(result.providerStatus) ? result.providerStatus : null;
         throw error;
       }
       if (typeof result.text !== 'string' || !result.text.trim()) {
-        const error = new Error('Hosted Cleverly AI returned an empty response.');
+        const error = new Error('Hosted Slickly AI AI returned an empty response.');
         error.isHostedResponseError = true;
         throw error;
       }
@@ -165,11 +194,11 @@ class LLMService {
       const https = require('https');
       let url;
       try { url = new NodeURL(endpoint); } catch {
-        reject(new Error('Hosted Cleverly AI endpoint URL is invalid.'));
+        reject(new Error('Hosted Slickly AI AI endpoint URL is invalid.'));
         return;
       }
       if (url.protocol !== 'https:') {
-        reject(new Error('Hosted Cleverly AI endpoint must use HTTPS.'));
+        reject(new Error('Hosted Slickly AI AI endpoint must use HTTPS.'));
         return;
       }
       const req = https.request(url, { method: 'POST', headers, timeout: timeoutMs }, (res) => {
@@ -178,7 +207,7 @@ class LLMService {
         res.on('data', (chunk) => {
           size += chunk.length;
           if (size > 1024 * 1024) {
-            req.destroy(new Error('Hosted Cleverly AI response exceeded the 1 MB limit.'));
+            req.destroy(new Error('Hosted Slickly AI AI response exceeded the 1 MB limit.'));
             return;
           }
           chunks.push(chunk);
@@ -189,11 +218,11 @@ class LLMService {
         });
         res.on('error', reject);
       });
-      req.on('timeout', () => req.destroy(new Error('Hosted Cleverly AI request timed out.')));
+      req.on('timeout', () => req.destroy(new Error('Hosted Slickly AI AI request timed out.')));
       req.on('error', (fallbackError) => {
         const cause = primaryError && (primaryError.cause?.code || primaryError.cause?.message);
         const fallbackCause = fallbackError && (fallbackError.code || fallbackError.message);
-        const error = new Error('Could not connect to hosted Cleverly AI at ' + url.host +
+        const error = new Error('Could not connect to hosted Slickly AI AI at ' + url.host +
           '. Network details: ' + String(fallbackCause || cause || 'connection failed'));
         error.cause = fallbackError;
         reject(error);
@@ -202,7 +231,9 @@ class LLMService {
     });
 
     const networkFailures = [];
-    for (const endpoint of endpoints) {
+    let primaryRetryUsed = false;
+    for (let endpointIndex = 0; endpointIndex < endpoints.length; endpointIndex++) {
+      const endpoint = endpoints[endpointIndex];
       const remaining = deadline - Date.now();
       if (remaining <= 0) break;
       // Keep any one alias from monopolizing the UI. The HTTPS fallback shares
@@ -228,8 +259,20 @@ class LLMService {
             return await useHttpsFallback(endpoint, error, fallbackBudget);
           } catch (fallbackError) {
             if (fallbackError.isHostedResponseError) {
+              if (fallbackError.statusCode === 429 && fallbackError.providerCode === 'RESOURCE_EXHAUSTED') {
+                // Provider quota belongs to the deployment's server-side key.
+                // A separate hosted alias may be configured with an independent
+                // project/key; try it once rather than failing before the app's
+                // existing endpoint failover can help. Do not retry this host.
+                networkFailures.push(new NodeURL(endpoint).host + ': provider quota exhausted');
+                continue;
+              }
               if (fallbackError.statusCode >= 500 && fallbackError.statusCode !== 429) {
                 networkFailures.push(new NodeURL(endpoint).host + ': HTTP ' + fallbackError.statusCode);
+                if (endpoint === primaryHostedEndpoint && !primaryRetryUsed) {
+                  primaryRetryUsed = true;
+                  endpointIndex -= 1;
+                }
                 continue;
               }
               throw fallbackError;
@@ -245,8 +288,16 @@ class LLMService {
         } catch (error) {
           // 5xx is a server/deployment problem: try the next alias. A 429 or
           // any other client error is authoritative and must not fan out.
+          if (response.status === 429 && error.providerCode === 'RESOURCE_EXHAUSTED') {
+            networkFailures.push(new NodeURL(endpoint).host + ': provider quota exhausted');
+            continue;
+          }
           if (response.status >= 500 && response.status !== 429) {
             networkFailures.push(new NodeURL(endpoint).host + ': HTTP ' + response.status);
+            if (endpoint === primaryHostedEndpoint && !primaryRetryUsed) {
+              primaryRetryUsed = true;
+              endpointIndex -= 1;
+            }
             continue;
           }
           throw error;
@@ -256,9 +307,9 @@ class LLMService {
       }
     }
     if (Date.now() >= deadline) {
-      throw new Error('Hosted Cleverly AI timed out after ' + totalTimeout + 'ms across all endpoints. ' + networkFailures.join(' | '));
+      throw new Error('Hosted Slickly AI AI timed out after ' + totalTimeout + 'ms across all endpoints. ' + networkFailures.join(' | '));
     }
-    throw new Error('Could not connect to a healthy hosted Cleverly AI endpoint. ' + networkFailures.join(' | '));
+    throw new Error('Could not connect to a healthy hosted Slickly AI AI endpoint. ' + networkFailures.join(' | '));
   }
 
   getGenerationConfig(overrides = {}) {
@@ -608,7 +659,7 @@ class LLMService {
     }
   }
 
-  isCleverlyIdentityQuestion(text) {
+  isSlicklyAIIdentityQuestion(text) {
     const question = String(text || '').toLowerCase().replace(/[’]/g, "'").trim();
     return /\b(?:your name|what name do you go by|what do you call yourself|what(?:'s| is) the name of (?:you|this ai|this assistant)|tell me your name|say your name|remind me (?:of )?your name|who are you|who am i (?:talking to|chatting with|speaking to)|who is this|what should i call you|what can i call you|what do i call you|are you called [^?!.]+|is your name [^?!.]+|are you (?:opencluely|cleverly|gemini|chatgpt|an? ai|the assistant)|introduce yourself)\b/.test(question);
   }
@@ -618,8 +669,8 @@ class LLMService {
     if (!this.isInitialized) throw new Error('LLM service not initialized. Check Gemini API key configuration.');
     const startTime = Date.now();
     this.requestCount++;
-    if (this.isCleverlyIdentityQuestion(text)) {
-      const response = "I'm Cleverly, your AI assistant.";
+    if (this.isSlicklyAIIdentityQuestion(text)) {
+      const response = "I'm Slickly AI, your AI assistant.";
       if (typeof onDelta === 'function') onDelta(response);
       return { response, metadata: { skill: 'general', programmingLanguage: null, processingTime: Date.now() - startTime, requestId: this.requestCount, usedFallback: false, streamed: true, identityResponse: true } };
     }
@@ -636,7 +687,7 @@ class LLMService {
       contents.push({ role: 'user', parts: [{ text: String(text) }] });
     }
     const request = {
-      systemInstruction: { parts: [{ text: "You are Cleverly, the AI assistant. If asked your name directly or indirectly, identify yourself as Cleverly and never as OpenCluely. Respond naturally to everyday conversation, writing, explanations, brainstorming, technology, and programming questions. Do not assume every message is a data-structures-and-algorithms problem. Only provide code when relevant. Respond conversationally to greetings and informal phrases. Use the conversation history to understand follow-up questions, avoid repeating questions already answered, and maintain context." }] },
+      systemInstruction: { parts: [{ text: "You are Slickly AI, the AI assistant. If asked your name directly or indirectly, identify yourself as Slickly AI and never as OpenCluely. Respond naturally to everyday conversation, writing, explanations, brainstorming, technology, and programming questions. Do not assume every message is a data-structures-and-algorithms problem. Only provide code when relevant. Respond conversationally to greetings and informal phrases. Use the conversation history to understand follow-up questions, avoid repeating questions already answered, and maintain context." }] },
       contents
     };
     this.applyGenerationDefaults(request);
@@ -1544,7 +1595,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
    */
   async analyzeScreenFrame(imageBuffer, mimeType = 'image/jpeg', instruction = '') {
     if (!this.isInitialized) {
-      throw new Error('Cleverly AI is unavailable. Please try again later.');
+      throw new Error('Slickly AI AI is unavailable. Please try again later.');
     }
     if (!Buffer.isBuffer(imageBuffer) || imageBuffer.length === 0) {
       throw new TypeError('Screen image data is empty or invalid.');
@@ -1556,7 +1607,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
       throw new Error('Unsupported screen image format: ' + mimeType);
     }
     const request = {
-      systemInstruction: { parts: [{ text: 'You are Cleverly, a real-time visual assistant. Carefully inspect the supplied current screen frame. Describe only relevant visible content, answer visible questions when possible, and do not claim to see anything outside the image. In live mode, mention meaningful changes and avoid repeating the same generic description.' }] },
+      systemInstruction: { parts: [{ text: 'You are Slickly AI, a real-time visual assistant. Carefully inspect the supplied current screen frame. Describe only relevant visible content, answer visible questions when possible, and do not claim to see anything outside the image. In live mode, mention meaningful changes and avoid repeating the same generic description.' }] },
       contents: [{
         role: 'user',
         parts: [
@@ -1578,7 +1629,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
    */
   async processAudioWithGemini(audioBuffer, mimeType = 'audio/webm') {
     if (!this.isInitialized) {
-      throw new Error('Cleverly AI is unavailable. Please try again later.');
+      throw new Error('Slickly AI AI is unavailable. Please try again later.');
     }
     if (!Buffer.isBuffer(audioBuffer) || audioBuffer.length === 0) {
       throw new TypeError('Audio data is empty or invalid.');
@@ -1816,9 +1867,9 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
           contents: [{ role: 'user', parts: [{ text: 'Reply with OK.' }] }],
           generationConfig: this.getGenerationConfig({ temperature: 0, maxOutputTokens: 32 })
         });
-        return { success: true, response, latency: Date.now() - startTime, model: this.model, provider: 'Cleverly hosted AI service' };
+        return { success: true, response, latency: Date.now() - startTime, model: this.model, provider: 'Slickly AI hosted AI service' };
       } catch (error) {
-        return { success: false, error: error.message, provider: 'Cleverly hosted AI service' };
+        return { success: false, error: error.message, provider: 'Slickly AI hosted AI service' };
       }
     }
 

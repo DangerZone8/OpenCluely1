@@ -29,7 +29,7 @@ async function main() {
   }
   assert.equal(typeof greeting.response, 'string', 'General assistant must return a real greeting');
   assert.ok(greeting.response.trim().length > 0, 'General assistant greeting must not be empty');
-  assert.match(greeting.response, /\\b(hi|hello|hey|help|assist)\\b/i,
+  assert.match(greeting.response, /\b(hi|hello|hey|help|assist)\b/i,
     'A plain greeting should receive a conversational reply: ' + greeting.response);
   assert.doesNotMatch(greeting.response, /data structures and algorithms|algorithm or data structure|consider breaking it down into smaller components/i,
     'A plain greeting must not receive the canned DSA answer: ' + greeting.response);

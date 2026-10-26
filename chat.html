@@ -1035,7 +1035,7 @@
           systemAudioListenBtn.classList.add('recording');
         }
         showListeningAnimation();
-        addMessage('Live listening to ' + sourceLabel + '. Cleverly sends recent audio to Gemini about every 6 seconds while listening; click again to stop.', 'system');
+        addMessage('Live listening to ' + sourceLabel + '. Slickly AI sends recent audio to Gemini about every 6 seconds while listening; click again to stop.', 'system');
         scheduleAudioSegmentRotation(stream, sourceLabel);
       }
 
@@ -1565,7 +1565,7 @@
 
       async function askAIAboutScreen() {
         if (!navigator.mediaDevices?.getDisplayMedia) throw new Error('Screen capture is not supported by this build.');
-        addMessage('Choose a screen or window. Cleverly will send one current frame to the AI.', 'system');
+        addMessage('Choose a screen or window. Slickly AI will send one current frame to the AI.', 'system');
         const result = await captureAndAskAI('Analyze this current screen and answer any visible question. Explain the relevant content clearly.');
         if (result && result.response) renderAssistantResponse(result.response);
         else throw new Error('The AI returned no screen analysis.');
@@ -1592,7 +1592,7 @@
           screenRecordBtn.innerHTML = '<i class="fas fa-stop"></i>';
           screenRecordBtn.classList.add('recording');
         }
-        addMessage('Live screen AI is on. Cleverly is sending fresh screen frames for analysis; no video file is being saved. Click Stop to end.', 'system');
+        addMessage('Live screen AI is on. Slickly AI is sending fresh screen frames for analysis; no video file is being saved. Click Stop to end.', 'system');
         // Keep live vision below the hosted service's per-minute budget and never overlap requests.
         // Each request contains a fresh frame from the active display stream;
         // the AI is therefore observing ongoing work, not a saved video file.

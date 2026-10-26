@@ -258,6 +258,58 @@ jobs:
           Write-Host "PASS: packaged app stayed running and exposed a visible window: $($proc.MainWindowTitle)"
           Stop-Process -Id $proc.Id -Force
 
+      - name: Launch packaged macOS release artifact smoke test
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP_FILE="$(find dist -maxdepth 1 -type f -name '*.zip' -print -quit)"
+          if [ -z "$ZIP_FILE" ]; then
+            echo "FAIL: macOS zip artifact was not produced."
+            find dist -maxdepth 2 -print
+            exit 1
+          fi
+          EXTRACT_DIR="$RUNNER_TEMP/slickly-ai-macos-release-smoke"
+          rm -rf "$EXTRACT_DIR"
+          mkdir -p "$EXTRACT_DIR"
+          ditto -x -k "$ZIP_FILE" "$EXTRACT_DIR"
+          APP_PATH="$(find "$EXTRACT_DIR" -maxdepth 4 -type d -name '*.app' -print -quit)"
+          if [ -z "$APP_PATH" ]; then
+            echo "FAIL: macOS zip did not contain an .app bundle."
+            find "$EXTRACT_DIR" -maxdepth 4 -print
+            exit 1
+          fi
+          EXECUTABLE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP_PATH/Contents/Info.plist")"
+          APP_BIN="$APP_PATH/Contents/MacOS/$EXECUTABLE"
+          if [ ! -x "$APP_BIN" ]; then
+            echo "FAIL: macOS release executable missing: $APP_BIN"
+            exit 1
+          fi
+          export APP_BIN
+          export APP_USER_DATA="$RUNNER_TEMP/slickly-ai-macos-release-userdata"
+          node <<'NODE'
+          const { spawn } = require('node:child_process');
+          const child = spawn(process.env.APP_BIN, ['--disable-gpu', '--user-data-dir=' + process.env.APP_USER_DATA], { stdio: 'inherit' });
+          let survived = false;
+          const hardKill = setTimeout(() => { if (child.exitCode === null) child.kill('SIGKILL'); }, 25000);
+          child.once('error', error => { console.error('FAIL: could not launch extracted macOS release app:', error.message); process.exitCode = 1; });
+          child.once('exit', (code, signal) => {
+            clearTimeout(hardKill);
+            if (survived) {
+              console.log('PASS: extracted macOS release app stayed running for the 20-second smoke test.');
+              return;
+            }
+            console.error('FAIL: extracted macOS release app exited early:', { code, signal });
+            process.exitCode = 1;
+          });
+          setTimeout(() => {
+            if (child.exitCode !== null) return;
+            survived = true;
+            child.kill('SIGTERM');
+            console.log('20-second launch window completed; waiting for graceful shutdown.');
+          }, 20000);
+          NODE
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:

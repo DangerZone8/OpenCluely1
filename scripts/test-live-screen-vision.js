@@ -3,18 +3,26 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 
-const endpoints = [...new Set([
+const forcedEndpoint = process.env.VERIFY_ONLY_ENDPOINT;
+const endpoints = [...new Set((forcedEndpoint ? [forcedEndpoint] : [
   process.env.OPENCLUELY_AI_ENDPOINT,
-  'https://opencluely-iota.vercel.app/api/gemini',
+  'https://slicklyai.vercel.app/api/gemini',
   process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT,
-  'https://opencluelys.vercel.app/api/gemini'
-].filter(value => typeof value === 'string' && value.trim()))];
+  'https://cleverly-lime.vercel.app/api/gemini',
+  'https://opencluelys.vercel.app/api/gemini',
+  'https://opencluely-iota.vercel.app/api/gemini'
+]).filter(value => typeof value === 'string' && value.trim()))];
 const installId = crypto.randomUUID();
 // Tiny valid 1x1 PNG: exercises the same hosted vision payload shape as Capture Screen and Ask AI.
 const image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lS8AAAAASUVORK5CYII=';
 
 async function main() {
-  const expectedRevisions = new Set(['v175-fast-chat-2026-10-25-d', 'v175-fast-chat-2026-10-25-e']);
+  const expectedRevisions = new Set(['v175-fast-chat-2026-10-26-h']);
+  if (process.env.ALLOW_OLD_API_REVISION === 'true') {
+    // PR checks run before Vercel deploys the branch; accept the current production revision too.
+    expectedRevisions.add('v175-fast-chat-2026-10-25-e');
+    expectedRevisions.add('v175-fast-chat-2026-10-25-d');
+  }
   const expectedRevisionLabel = [...expectedRevisions].join(' or ');
   const failures = [];
 
@@ -24,10 +32,20 @@ async function main() {
     let revision = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        const probe = await fetch(candidate, { method: 'GET', signal: AbortSignal.timeout(8000) });
+        const probe = await fetch(candidate, {
+          method: 'GET',
+          headers: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+            ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+            : {},
+          signal: AbortSignal.timeout(8000)
+        });
         revision = probe.headers.get('x-opencluely-api-revision');
         if (expectedRevisions.has(revision)) break;
-        console.log('Hosted API ' + candidate + ' has revision ' + String(revision) + ' (attempt ' + attempt + '/3).');
+        const probeBody = (await probe.text().catch(() => '')).replace(/\\s+/g, ' ').slice(0, 180);
+        console.log('Hosted API ' + candidate + ' probe HTTP=' + probe.status +
+          ', content-type=' + String(probe.headers.get('content-type')) +
+          ', revision=' + String(revision) + ', body=' + probeBody +
+          ' (attempt ' + attempt + '/3).');
       } catch (error) {
         console.log('Hosted API probe failed for ' + candidate + ' (' + error.message + '), attempt ' + attempt + '/3.');
       }
@@ -45,10 +63,13 @@ async function main() {
       headers: {
         'content-type': 'application/json',
         'x-opencluely-install-id': installId,
-        'x-opencluely-feature': 'screen-vision'
+        'x-opencluely-feature': 'screen-vision',
+        ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+          ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+          : {})
       },
       body: JSON.stringify({
-        model: 'gemini-3.5-flash-lite',
+        model: 'gemini-3-flash-preview',
         request: {
           contents: [{
             role: 'user',
@@ -60,7 +81,7 @@ async function main() {
           generationConfig: { temperature: 0, maxOutputTokens: 96 }
         }
       }),
-      signal: AbortSignal.timeout(20000)
+      signal: AbortSignal.timeout(30000)
     });
     const raw = await response.text();
     let result = {};

@@ -89,7 +89,7 @@ async function waitForResult(previousCount, timeoutMs, label) {
     if (last.assistant.length > previousCount) {
       const latest = last.assistant[last.assistant.length - 1];
       assert.ok(latest.length > 0, label + ' produced an empty assistant response');
-      assert.doesNotMatch(latest, /Could not connect to any hosted Cleverly AI endpoint|fetch failed|API key.*missing/i,
+      assert.doesNotMatch(latest, /Could not connect to any hosted Slickly AI endpoint|fetch failed|API key.*missing/i,
         label + ' returned an infrastructure error instead of an AI answer: ' + latest);
       return { response: latest, state: last };
     }
@@ -119,8 +119,9 @@ async function main() {
     // runner's direct Google API fetch can fail independently of the app, and
     // a locally configured endpoint must never send this test to localhost.
     GEMINI_API_KEY: '',
-    OPENCLUELY_AI_ENDPOINT: 'https://opencluelys.vercel.app/api/gemini',
-    OPENCLUELY_AI_FALLBACK_ENDPOINT: 'https://opencluely-iota.vercel.app/api/gemini'
+    SLICKLY_E2E_AI_ENDPOINT: process.env.SLICKLY_E2E_AI_ENDPOINT || '',
+    OPENCLUELY_AI_ENDPOINT: process.env.SLICKLY_E2E_AI_ENDPOINT || 'https://slicklyai.vercel.app/api/gemini',
+    OPENCLUELY_AI_FALLBACK_ENDPOINT: process.env.SLICKLY_E2E_AI_ENDPOINT || process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT || 'https://cleverly-lime.vercel.app/api/gemini'
   };
   delete env.ELECTRON_RUN_AS_NODE;
   child = spawn(electronPath, [
@@ -157,7 +158,7 @@ async function main() {
           context.fillRect(0, 0, canvas.width, canvas.height);
           context.fillStyle = '#111111';
           context.font = 'bold 42px sans-serif';
-          context.fillText('Cleverly Desktop Screen AI E2E', 60, 110);
+          context.fillText('Slickly AI Desktop Screen AI E2E', 60, 110);
           context.font = '30px sans-serif';
           context.fillText('Analyze this screen and reply with a short summary.', 60, 180);
           context.fillText('Fresh test frame: ' + (++frame), 60, 240);
@@ -187,14 +188,17 @@ async function main() {
       'Live Screen AI button did not enter active state: ' + JSON.stringify(liveStarted));
     const live = await waitForResult(before, 100000, 'Live Screen AI');
     console.log('PASS Live Screen AI initial frame:', live.response.slice(0, 240).replace(/\s+/g, ' '));
-    // Reproduce the reported ~30-second regression: keep live mode running long
-    // enough to exercise multiple real provider-backed frames, not just frame 1.
-    await sleep(32000);
-    const sustained = await evaluate("(() => ({ active: document.querySelector('#screenRecordBtn')?.classList.contains('recording'), errors: Array.from(document.querySelectorAll('#chatMessages .message.error')).map(e => e.innerText), system: Array.from(document.querySelectorAll('#chatMessages .message.system')).map(e => e.innerText) }))()");
-    assert.equal(sustained.active, true, 'Live Screen AI must remain active after 32 seconds');
-    assert.doesNotMatch(sustained.errors.join('\n'), /Live screen AI stopped after three consecutive failed requests|request limit reached|Could not connect to any hosted Cleverly AI endpoint/i,
-      'Live Screen AI must not regress into the previous endpoint/rate-limit error during sustained use: ' + JSON.stringify(sustained));
-    console.log('PASS Live Screen AI sustained 32-second run: still active, no fatal endpoint/rate-limit error.');
+    // Reproduce the reported ~2-minute regression. Keep live mode active across
+    // multiple provider-backed frame intervals; a single successful frame is not
+    // sufficient evidence that quota handling and endpoint recovery remain stable.
+    const liveResponseCountBeforeSustain = await evaluate("document.querySelectorAll('#chatMessages .message.assistant').length");
+    await sleep(125000);
+    const sustained = await evaluate("(() => ({ active: document.querySelector('#screenRecordBtn')?.classList.contains('recording'), assistantCount: document.querySelectorAll('#chatMessages .message.assistant').length, errors: Array.from(document.querySelectorAll('#chatMessages .message.error')).map(e => e.innerText), system: Array.from(document.querySelectorAll('#chatMessages .message.system')).map(e => e.innerText) }))()");
+    assert.equal(sustained.active, true, 'Live Screen AI must remain active after 125 seconds');
+    assert.ok(sustained.assistantCount > liveResponseCountBeforeSustain, 'Live Screen AI must continue producing responses during the sustained run');
+    assert.doesNotMatch(sustained.errors.join('\n') + '\n' + sustained.system.join('\n'), /Live screen AI stopped after three consecutive failed requests|request limit reached|Could not connect to any hosted Slickly AI endpoint|fetch failed|usage limit reached/i,
+      'Live Screen AI must not regress into endpoint/quota errors during sustained use: ' + JSON.stringify(sustained));
+    console.log('PASS Live Screen AI sustained 125-second run: still active, continued responses, no endpoint/quota error.');
     await evaluate("document.querySelector('#screenRecordBtn')?.click()");
     console.log(JSON.stringify({ status: 'PASS', tests: ['Capture Screen and Ask AI real UI click + live response', 'Live Screen AI real UI click + fresh-frame response'], provider: 'real Gemini/hosted vision request', userData }, null, 2));
   } finally {

@@ -1,6 +1,6 @@
 <div align="center">
 
-# Cleverly
+# Slickly AI
 
 **The invisible AI interview copilot.**
 
@@ -13,7 +13,7 @@ Real-time AI help on a stealth overlay that screen sharing cannot see. Ask by vo
   <img src="https://img.shields.io/badge/Platforms-Windows%20%7C%20macOS%20%7C%20Linux-111111?style=for-the-badge&labelColor=000000" alt="Platforms" />
 </p>
 
-<a href="https://opencluely.techycsr.dev"><b>Website</b></a> &nbsp;|&nbsp;
+<a href="https://cleverly-lime.vercel.app"><b>Website</b></a> &nbsp;|&nbsp;
 <a href="#download">Download</a> &nbsp;|&nbsp;
 <a href="#quick-start">Quick start</a> &nbsp;|&nbsp;
 <a href="#how-it-works">How it works</a>
@@ -26,7 +26,7 @@ https://github.com/user-attachments/assets/896a7140-1e85-405d-bfbe-e05c9f3a816b
 
 ## What it is
 
-Cleverly is a desktop app for technical interviews and practice. It places a small overlay on your screen that recording and conferencing tools do not capture. You can speak a question or take a screenshot, and the AI answers in real time. The answer streams into a floating window and an optional chat panel, with clean code blocks and syntax highlighting.
+Slickly AI is a desktop app for technical interviews and practice. It places a small overlay on your screen that recording and conferencing tools do not capture. You can speak a question or take a screenshot, and the AI answers in real time. The answer streams into a floating window and an optional chat panel, with clean code blocks and syntax highlighting.
 
 It is free and open source. Processing stays on your machine, and the only thing that leaves your device is the request you send to the AI provider.
 
@@ -53,11 +53,11 @@ Pre-built installers are published with every release. These links always point 
 | Linux (Debian or Ubuntu) | [.deb](https://github.com/DangerZone8/OpenCluely1/releases/latest) | Pulls system deps automatically (Python, ffmpeg, GTK). |
 | Linux (universal) | [.AppImage](https://github.com/DangerZone8/OpenCluely1/releases/latest) | No install. Run `chmod +x` then launch. |
 
-> **macOS:** there is no pre-built download. The app is unsigned and un-notarized, so macOS Gatekeeper blocks it as "damaged and can't be opened." Run Cleverly from source instead — see [Quick start](#quick-start). It is a one-line `./setup.sh` once Node.js is installed.
+> **macOS:** there is no pre-built download. The app is unsigned and un-notarized, so macOS Gatekeeper blocks it as "damaged and can't be opened." Run Slickly AI from source instead — see [Quick start](#quick-start). It is a one-line `./setup.sh` once Node.js is installed.
 
 Every build is produced automatically on GitHub Actions and ships with SHA-256 checksums. Each release also lists the full set of commits it includes.
 
-The website at [opencluely.techycsr.dev](https://opencluely.techycsr.dev) detects your operating system and offers the right installer directly.
+The website at [opencluely.techycsr.dev](https://cleverly-lime.vercel.app) detects your operating system and offers the right installer directly.
 
 ## Quick start
 
@@ -156,7 +156,7 @@ For Azure Speech, create a Speech resource in the [Azure Portal](https://portal.
 
 ## Project status
 
-Cleverly is under active development. The core is stable and improvements ship regularly.
+Slickly AI is under active development. The core is stable and improvements ship regularly.
 
 ### Done
 
@@ -208,7 +208,7 @@ Cleverly is under active development. The core is stable and improvements ship r
 
 <summary> Limitations </summary>
 
-- **Screen-capture invisibility does not work on Linux.** The overlay stays hidden from screen shares and recordings only on **macOS** and **Windows**. This relies on Electron's `setContentProtection`, which maps to `NSWindowSharingNone` on macOS and `WDA_EXCLUDEFROMCAPTURE` on Windows. Electron provides **no equivalent on Linux** (neither X11 nor Wayland), so on Linux the call is a silent no-op and the overlay **will be visible** to anyone you screen-share with. This is a platform limitation, not a bug — there is no window flag on Linux that excludes a window from framebuffer capture. If you need capture-invisibility, run Cleverly on macOS or Windows. As a partial workaround on Linux, share a single application window instead of your entire screen, or place the overlay on a monitor you are not sharing.
+- **Screen-capture invisibility does not work on Linux.** The overlay stays hidden from screen shares and recordings only on **macOS** and **Windows**. This relies on Electron's `setContentProtection`, which maps to `NSWindowSharingNone` on macOS and `WDA_EXCLUDEFROMCAPTURE` on Windows. Electron provides **no equivalent on Linux** (neither X11 nor Wayland), so on Linux the call is a silent no-op and the overlay **will be visible** to anyone you screen-share with. This is a platform limitation, not a bug — there is no window flag on Linux that excludes a window from framebuffer capture. If you need capture-invisibility, run Slickly AI on macOS or Windows. As a partial workaround on Linux, share a single application window instead of your entire screen, or place the overlay on a monitor you are not sharing.
 
 </details>
 
@@ -216,11 +216,11 @@ Cleverly is under active development. The core is stable and improvements ship r
 
 ## Hosted AI without a local API key
 
-The desktop app can use Cleverly's hosted Gemini proxy without asking users to paste their own API key. The proxy keeps the shared provider key server-side. Deployment and environment-variable requirements are documented in [docs/hosted-ai.md](docs/hosted-ai.md). Hosted service availability and usage limits apply.
+The desktop app can use Slickly AI's hosted Gemini proxy without asking users to paste their own API key. The proxy keeps the shared provider key server-side. Deployment and environment-variable requirements are documented in [docs/hosted-ai.md](docs/hosted-ai.md). Hosted service availability and usage limits apply.
 
 ## Privacy and ethics
 
-Cleverly does not add analytics telemetry. If you use the hosted AI mode, the text, screen frames, or audio clips you explicitly submit are sent over HTTPS to the Cleverly-hosted AI proxy and then to Google Gemini for processing. A random installation identifier is used for basic request limiting. Do not submit passwords, private credentials, or other sensitive information. If you configure your own Gemini API key, requests go directly from the app to Google Gemini instead.
+Slickly AI does not add analytics telemetry. If you use the hosted AI mode, the text, screen frames, or audio clips you explicitly submit are sent over HTTPS to the Slickly AI-hosted AI proxy and then to Google Gemini for processing. A random installation identifier is used for basic request limiting. Do not submit passwords, private credentials, or other sensitive information. If you configure your own Gemini API key, requests go directly from the app to Google Gemini instead.
 
 The app is built for learning and practice. You are responsible for following the rules of any interview you take and the policies of the companies involved.
 
@@ -237,7 +237,7 @@ Released under the Apache License 2.0. See [LICENSE](LICENSE) for details.
 
 <div align="center">
 
-Built by [TechyCSR](https://techycsr.dev). If Cleverly helped you, consider giving it a star ⭐
+Built by [TechyCSR](https://techycsr.dev). If Slickly AI helped you, consider giving it a star ⭐
 
 </div>
 

@@ -54,40 +54,51 @@ jobs:
       - name: Verify Vercel static-site build
         run: node scripts/build-vercel.js
 
-      - name: Build unpacked desktop application
+      - name: Build desktop installer packages and unpacked application
         shell: bash
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npm run build:${{ matrix.script }} -- --dir --publish never
+        run: npm run build:${{ matrix.script }} -- --publish never
+
+      - name: Verify Windows installer packages were built
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SETUP_FILE="$(find dist -maxdepth 1 -type f -name 'Slickly-AI-Setup-*.exe' -print -quit)"
+          OTHER_EXE="$(find dist -maxdepth 1 -type f -name '*.exe' ! -name 'Slickly-AI-Setup-*.exe' -print -quit)"
+          test -n "$SETUP_FILE" || { echo 'FAIL: Windows setup installer was not built.'; find dist -maxdepth 2 -print; exit 1; }
+          test -n "$OTHER_EXE" || { echo 'FAIL: Windows portable package was not built.'; find dist -maxdepth 2 -print; exit 1; }
+          echo "PASS: Windows setup and secondary (portable) package exist."
 
       - name: Launch packaged Windows app smoke test
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $app = Join-Path $PWD 'dist/win-unpacked/Cleverly.exe'
+          $app = Join-Path $PWD 'dist/win-unpacked/Slickly AI.exe'
           if (-not (Test-Path $app)) {
             throw "Packaged executable not found: $app"
           }
-          $userData = Join-Path $env:TEMP 'cleverly-windows-smoke'
+          $userData = Join-Path $env:TEMP 'slickly-ai-windows-smoke'
           if (Test-Path $userData) { Remove-Item $userData -Recurse -Force }
           $proc = Start-Process -FilePath $app -ArgumentList @('--disable-gpu', "--user-data-dir=$userData", '--remote-debugging-port=9222') -PassThru
           Start-Sleep -Seconds 15
           $proc.Refresh()
           if ($proc.HasExited) {
-            throw "Cleverly exited during the 15-second Windows launch smoke test (exit code $($proc.ExitCode))."
+            throw "Slickly AI exited during the 15-second Windows launch smoke test (exit code $($proc.ExitCode))."
           }
           # electron-builder can launch a bootstrap process that has no native
           # window handle; inspect all app processes instead of only that parent.
           $visibleApp = $null
           for ($attempt = 0; $attempt -lt 10 -and -not $visibleApp; $attempt++) {
-            $visibleApp = Get-Process -Name 'Cleverly' -ErrorAction SilentlyContinue |
+            $visibleApp = Get-Process -Name 'Slickly AI' -ErrorAction SilentlyContinue |
               Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero -and -not [string]::IsNullOrWhiteSpace($_.MainWindowTitle) } |
               Select-Object -First 1
             if (-not $visibleApp) { Start-Sleep -Seconds 1 }
           }
           if (-not $visibleApp) {
-            throw "OpenCluely stayed running but no Cleverly process exposed a visible main window after 25 seconds."
+            throw "OpenCluely stayed running but no Slickly AI process exposed a visible main window after 25 seconds."
           }
           Write-Host "PASS: packaged app exposed a visible window: $($visibleApp.MainWindowTitle)"
           node scripts/test-chat-ui-live.js
@@ -97,27 +108,115 @@ jobs:
           }
           Stop-Process -Id $proc.Id -Force
 
-      - name: Build Linux installer for runtime smoke test
+      - name: Verify macOS installer packages were built
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG_FILE="$(find dist -maxdepth 1 -type f -name '*.dmg' -print -quit)"
+          ZIP_FILE="$(find dist -maxdepth 1 -type f -name '*.zip' -print -quit)"
+          test -n "$DMG_FILE" || { echo 'FAIL: macOS DMG installer was not built.'; find dist -maxdepth 2 -print; exit 1; }
+          test -n "$ZIP_FILE" || { echo 'FAIL: macOS ZIP package was not built.'; find dist -maxdepth 2 -print; exit 1; }
+          echo "PASS: macOS DMG and ZIP packages exist."
+
+      - name: Launch packaged macOS app smoke test
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_PATH="$(find dist -maxdepth 4 -type d -name '*.app' -print -quit)"
+          if [ -z "$APP_PATH" ]; then
+            echo "FAIL: no packaged macOS .app bundle was produced."
+            find dist -maxdepth 3 -print
+            exit 1
+          fi
+          APP_BIN="$APP_PATH/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP_PATH/Contents/Info.plist")"
+          if [ ! -x "$APP_BIN" ]; then
+            echo "FAIL: packaged macOS executable missing: $APP_BIN"
+            exit 1
+          fi
+          export APP_BIN
+          export APP_USER_DATA="$TMPDIR/slickly-ai-macos-smoke"
+          node <<'NODE'
+          const { spawn } = require('node:child_process');
+          const child = spawn(process.env.APP_BIN, ['--disable-gpu', '--user-data-dir=' + process.env.APP_USER_DATA], { stdio: 'inherit' });
+          let survived = false;
+          const hardKill = setTimeout(() => { if (child.exitCode === null) child.kill('SIGKILL'); }, 25000);
+          child.once('error', error => { console.error('FAIL: could not launch packaged macOS app:', error.message); process.exitCode = 1; });
+          child.once('exit', (code, signal) => {
+            clearTimeout(hardKill);
+            if (survived) {
+              console.log('PASS: packaged macOS app stayed running for the 20-second smoke test.');
+              return;
+            }
+            console.error('FAIL: packaged macOS app exited early:', { code, signal });
+            process.exitCode = 1;
+          });
+          setTimeout(() => {
+            if (child.exitCode !== null) return;
+            survived = true;
+            child.kill('SIGTERM');
+            console.log('20-second launch window completed; waiting for graceful shutdown.');
+          }, 20000);
+          NODE
+
+      - name: Verify Linux installer packages were built
         if: matrix.os == 'ubuntu-latest'
         shell: bash
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npx electron-builder --linux deb --publish never
+        run: |
+          set -euo pipefail
+          DEB_FILE="$(find dist -maxdepth 1 -type f -name 'slickly-ai_*_amd64.deb' -print -quit)"
+          APPIMAGE_FILE="$(find dist -maxdepth 1 -type f -name '*.AppImage' -print -quit)"
+          test -n "$DEB_FILE" || { echo 'FAIL: Linux .deb installer was not built.'; find dist -maxdepth 2 -print; exit 1; }
+          test -n "$APPIMAGE_FILE" || { echo 'FAIL: Linux AppImage was not built.'; find dist -maxdepth 2 -print; exit 1; }
+          echo "PASS: Linux installer packages exist: $DEB_FILE and $APPIMAGE_FILE"
+
+      - name: Upload Windows installer artifacts
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: slickly-ai-windows-installers
+          path: |
+            dist/*.exe
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload macOS installer artifacts
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: slickly-ai-macos-installers
+          path: |
+            dist/*.dmg
+            dist/*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload Linux installer artifacts
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: slickly-ai-linux-installers
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Install and launch the packaged app in a virtual desktop
         if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           set -euo pipefail
-          DEB_FILE="$(find dist -maxdepth 1 -type f -name 'cleverly_*_amd64.deb' -print -quit)"
+          DEB_FILE="$(find dist -maxdepth 1 -type f -name 'slickly-ai_*_amd64.deb' -print -quit)"
           test -n "$DEB_FILE"
           sudo apt-get install -y "./$DEB_FILE"
           PACKAGE_NAME="$(dpkg-deb -f "$DEB_FILE" Package)"
-          APP_BIN="$(find /opt -type f -name cleverly -perm -111 -print -quit)"
+          APP_BIN="$(find /opt -type f -name slickly-ai -perm -111 -print -quit)"
           test -n "$APP_BIN"
           test -x "$APP_BIN"
           set +e
-          xvfb-run -a timeout --signal=TERM --kill-after=5s 20s "$APP_BIN" --no-sandbox --disable-gpu --user-data-dir=/tmp/cleverly-installed-smoke
+          xvfb-run -a timeout --signal=TERM --kill-after=5s 20s "$APP_BIN" --no-sandbox --disable-gpu --user-data-dir=/tmp/slickly-ai-installed-smoke
           APP_EXIT=$?
           set -e
           if [ "$APP_EXIT" -eq 124 ] || [ "$APP_EXIT" -eq 137 ] || [ "$APP_EXIT" -eq 143 ]; then

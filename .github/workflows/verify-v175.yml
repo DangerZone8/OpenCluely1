@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  issues: read
 
 concurrency:
   group: verify-v175-${{ github.ref }}
@@ -16,8 +17,10 @@ concurrency:
 jobs:
   verify:
     name: Source checks and live AI verification
+    outputs:
+      preview_url: ${{ steps.preview.outputs.url }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,27 +37,99 @@ jobs:
       - name: Run local regression checks
         run: npm run check
 
+      # Always verify the actual Slickly AI production alias supplied by the user.
+      # Do not scrape preview URLs from the legacy Vercel account's PR comments.
+      - name: Set live Slickly AI endpoint
+        id: preview
+        run: |
+          echo "url=https://slicklyai.vercel.app" >> "$GITHUB_OUTPUT"
+          echo "Using user-confirmed Slickly AI endpoint: https://slicklyai.vercel.app"
+
       - name: Install virtual-desktop runtime
+        if: always() && github.ref == 'refs/heads/main'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb xauth libgtk-3-0 libnss3 libxss1 libasound2t64 libgbm1
 
+      # Probe the user's current production alias directly; protected preview HTML must not masquerade as an AI API result.
       - name: Run real desktop UI screen-AI E2E
+        if: always() && github.ref == 'refs/heads/main'
         env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CLEVERLY_HOSTED_AI_TEST_OK: ${{ github.event_name == 'pull_request' && '1' || '' }}
+          SLICKLY_E2E_AI_ENDPOINT: https://slicklyai.vercel.app/api/gemini
         run: xvfb-run -a npm run test:screen-ai-desktop-e2e
 
-      - name: Verify live hosted screen vision
+      - name: Verify deployed screen-vision API revision and response
+        if: always() && github.ref == 'refs/heads/main'
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          VERIFY_ONLY_ENDPOINT: https://slicklyai.vercel.app/api/gemini
+          ALLOW_OLD_API_REVISION: 'false'
         run: npm run test:screen-vision-live
 
-      # The production proxy is updated only after merge/deploy. On PRs,
-      # test the handler fallback with unit tests; run this real production
-      # endpoint check on main after Vercel can deploy the changed API route.
+      # Separate recovery check: if the production key is quota-exhausted, try each
+      # existing hosted alias to see whether an independent deployment can answer.
+      # The strict production check above remains required and is not masked by this.
+      - name: Verify hosted backup screen-vision recovery
+        if: always() && github.ref == 'refs/heads/main'
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          ALLOW_OLD_API_REVISION: 'true'
+        run: npm run test:screen-vision-live
+
       - name: Verify live Gemini fast-chat behavior
-        if: github.event_name != 'pull_request'
+        if: always() && github.ref == 'refs/heads/main'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          OPENCLUELY_AI_ENDPOINT: https://slicklyai.vercel.app/api/gemini
         run: |
           if [ -z "$GEMINI_API_KEY" ]; then
             echo "::error::GEMINI_API_KEY Actions secret is missing; live fast-chat verification cannot be claimed."
             exit 1
           fi
           npm run test:gemini-live
+
+
+  production-stability-diagnostic:
+    needs: verify
+    if: always() && github.ref == 'refs/heads/main'
+    name: Diagnose chat and screen AI stability over 2.5 minutes
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Probe production chat and screen vision for 150 seconds
+        env:
+          SLICKLY_DIAGNOSTIC_ENDPOINT: https://slicklyai.vercel.app/api/gemini
+          SLICKLY_EXPECTED_API_REVISION: v175-fast-chat-2026-10-26-h
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          SLICKLY_DIAGNOSTIC_DURATION_MS: '150000'
+          SLICKLY_DIAGNOSTIC_INTERVAL_MS: '8000'
+        run: node scripts/test-production-ai-stability.js
+
+  direct-gemini-diagnostic:
+    if: always() && github.ref == 'refs/heads/main'
+    name: Test Gemini directly from GitHub Actions
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Probe Google Gemini directly (no Vercel proxy)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: node scripts/test-direct-gemini-connectivity.js

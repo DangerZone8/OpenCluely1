@@ -21,7 +21,7 @@ function respond(res, status, body) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   // Fingerprint the deployed handler so production-alias drift is observable in E2E logs.
-  res.setHeader('X-OpenCluely-API-Revision', 'v175-fast-chat-2026-10-25-e');
+  res.setHeader('X-OpenCluely-API-Revision', 'v175-fast-chat-2026-10-26-h');
   res.end(JSON.stringify(body));
 }
 
@@ -52,16 +52,27 @@ module.exports = async function handler(req, res) {
 
   // Accept the common Google/Gemini environment-variable names. Trim whitespace
   // so a copied value with a trailing newline is not treated as a usable key.
-  const key = [
+  // Support an ordered key pool so a deployment can fail over when one
+  // Google AI project reaches its quota. Keys must belong to independently
+  // quota-managed projects; multiple keys from the same project share quota.
+  // Configure GEMINI_API_KEYS as a comma/newline-separated list, or use
+  // GEMINI_API_KEY plus GEMINI_API_KEY_2 / GEMINI_API_KEY_3.
+  const keys = [
+    process.env.GEMINI_API_KEYS,
     process.env.GEMINI_API_KEY,
+    process.env.GEMINI_API_KEY_2,
+    process.env.GEMINI_API_KEY_3,
     process.env.GOOGLE_API_KEY,
     process.env.GOOGLE_GENAI_API_KEY,
     process.env.GOOGLE_GENERATIVE_AI_API_KEY
-  ].map(value => typeof value === 'string' ? value.trim() : '').find(Boolean);
-  if (!key) {
+  ].flatMap(value => typeof value === 'string' ? value.split(/[\n,]+/) : [])
+    .map(value => value.trim())
+    .filter(Boolean)
+    .filter((value, index, all) => all.indexOf(value) === index);
+  if (!keys.length) {
     // Safe diagnostics: report only whether supported names exist, never values.
     return respond(res, 503, {
-      error: 'The Cleverly AI service is not configured in this deployment. Verify the Production environment variables and redeploy.',
+      error: 'The Slickly AI service is not configured in this deployment. Verify the Production environment variables and redeploy.',
       configuredNames: {
         GEMINI_API_KEY: Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()),
         GOOGLE_API_KEY: Boolean(process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY.trim()),
@@ -103,18 +114,12 @@ module.exports = async function handler(req, res) {
     !rateLimit('install:' + installId + ':' + feature, now, feature === 'screen-vision' ? MAX_SCREEN_PER_WINDOW : MAX_PER_WINDOW, dailyLimit)
   ) {
     res.setHeader('Retry-After', '60');
-    return respond(res, 429, { error: 'Cleverly AI ' + feature + ' request limit reached. Wait a minute and try again.' });
+    return respond(res, 429, { error: 'Slickly AI ' + feature + ' request limit reached. Wait a minute and try again.' });
   }
 
   const request = body.request;
-  const allowedModels = new Set([
-    'gemini-3.1-flash-lite',
-    'gemini-3.5-flash-lite',
-    'gemini-3.5-flash',
-    'gemini-3.6-flash',
-    'gemini-3.8-flash'
-  ]);
-  const model = allowedModels.has(body.model) ? body.model : 'gemini-3.5-flash-lite';
+  // Strict single-model policy: every request uses Gemini 3 Flash Preview only.
+  const model = 'gemini-3-flash-preview';
   if (!request || typeof request !== 'object' || !Array.isArray(request.contents) || request.contents.length === 0) {
     return respond(res, 400, { error: 'AI request is missing content.' });
   }
@@ -122,44 +127,31 @@ module.exports = async function handler(req, res) {
   const isVisionRequest = request.contents.some(item =>
     Array.isArray(item?.parts) && item.parts.some(part => part && (part.inlineData || part.fileData))
   );
-  // Keep the configured fast model first for every request. Permit one alternate
-  // only after an explicit provider response (e.g. model unavailable); transport
-  // failures/timeouts break immediately below instead of serially delaying chat.
-  // Preserve the fast path: successful chat requests make one provider call.
-  // If Gemini explicitly reports a transient/model-specific failure, allow one
-  // distinct alternate model for both chat and vision. Transport failures and
-  // quota exhaustion still stop immediately to avoid wasting time/quota.
-  const fallbackCandidates = feature === 'screen-vision'
-    ? ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.8-flash']
-    : ['gemini-3.1-flash-lite', 'gemini-3.5-flash'];
-  const fallbackModels = [
-    model,
-    ...fallbackCandidates.filter(candidate => candidate !== model)
-  ].slice(0, 2);
+  // Strict single-model policy: only Gemini 3 Flash Preview is allowed.
+  // Retry the same model with the next independently quota-managed key when
+  // Google explicitly reports RESOURCE_EXHAUSTED. This must be a key loop,
+  // not a model-loop continue: there is deliberately no alternate model.
   let lastFailure = null;
-  const attemptedModels = [];
-  // Bound the whole request while allowing a fast alternate when the provider
-  // promptly rejects a model. The first attempt remains the normal fast path.
-  const requestDeadline = Date.now() + 9000;
-
-  for (const candidate of fallbackModels) {
+  const requestDeadline = Date.now() + 8200;
+  for (let keyIndex = 0; keyIndex < keys.length; keyIndex += 1) {
     const remainingMs = requestDeadline - Date.now();
-    if (remainingMs <= 0) break;
-    let tryAnotherModel = false;
-    attemptedModels.push(candidate);
+    if (remainingMs <= 0) {
+      lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
+      break;
+    }
     try {
-      const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(candidate) + ':generateContent', {
+      const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-goog-api-key': key
+          'x-goog-api-key': keys[keyIndex]
         },
         body: JSON.stringify({
           contents: request.contents,
           generationConfig: request.generationConfig || {},
           ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
         }),
-        signal: AbortSignal.timeout(Math.min(8000, remainingMs))
+        signal: AbortSignal.timeout(Math.min(4000, remainingMs))
       });
       const result = await upstream.json().catch(() => ({}));
       if (upstream.ok) {
@@ -167,62 +159,53 @@ module.exports = async function handler(req, res) {
           .flatMap(item => item.content && Array.isArray(item.content.parts) ? item.content.parts : [])
           .map(part => typeof part.text === 'string' ? part.text : '')
           .filter(Boolean)
-          .join('\n')
+          .join('\\n')
           .trim();
-        if (text) return respond(res, 200, { text, model: candidate });
+        if (text) return respond(res, 200, { text, model });
         lastFailure = { status: 502, code: 'EMPTY_RESPONSE', message: 'The model returned no text.' };
-        tryAnotherModel = true;
-        continue;
+        break;
       }
 
       const providerCode = typeof result.error?.status === 'string' ? result.error.status : '';
-      const transient = [500, 502, 503, 504].includes(upstream.status) ||
-        ['UNAVAILABLE', 'INTERNAL', 'DEADLINE_EXCEEDED'].includes(providerCode);
       lastFailure = {
         status: upstream.status,
         code: providerCode || undefined,
         message: typeof result.error?.message === 'string' ? result.error.message.slice(0, 180) : undefined
       };
-      // Never fan out to more models after a quota/rate-limit response.
+      if (providerCode === 'RESOURCE_EXHAUSTED' && keyIndex + 1 < keys.length) {
+        // Try the next configured key, always using the exact same model.
+        continue;
+      }
       if (providerCode === 'RESOURCE_EXHAUSTED' || upstream.status === 429) {
         return respond(res, 429, {
-          error: 'Gemini usage limit reached for this API project. Further model retries are disabled to avoid wasting quota. Try again after the provider reset or review the project quota.',
+          error: providerCode === 'RESOURCE_EXHAUSTED'
+            ? 'Gemini quota is exhausted for all configured API keys. Configure GEMINI_API_KEYS with keys from independently quota-managed Google AI projects, or wait for quota reset.'
+            : 'Gemini rate limit reached. Please wait before retrying.',
           providerStatus: upstream.status,
           providerCode: providerCode || 'RATE_LIMITED',
           retryAfterSeconds: 3600
         });
       }
-      if (providerCode === 'INVALID_ARGUMENT' || providerCode === 'NOT_FOUND' || providerCode === 'MODEL_NOT_FOUND') {
-        // A retired or unavailable model name is model-specific, not a reason
-        // to fail the entire request when a supported fallback remains.
-        lastFailure = { status: upstream.status, code: providerCode, message: lastFailure.message };
-        tryAnotherModel = true;
-        continue;
-      }
-      if (!transient) {
-        return respond(res, upstream.status === 429 ? 429 : 502, {
-          error: 'The AI service could not complete this request.',
-          providerStatus: upstream.status,
-          providerCode: lastFailure.code,
-          providerMessage: lastFailure.message
-        });
-      }
-      tryAnotherModel = true;
+      return respond(res, 502, {
+        error: 'The AI service could not complete this request.',
+        providerStatus: upstream.status,
+        providerCode: lastFailure.code,
+        providerMessage: lastFailure.message,
+        attemptedModels: [model]
+      });
     } catch (error) {
       lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
-      // A timeout/network failure is shared by all model IDs. Do not spend the
-      // remaining deadline retrying the same unreachable provider host.
+      // Transport failures are not quota evidence; do not fan out across keys.
       break;
     }
-    if (!tryAnotherModel) break;
   }
 
   const providerStatus = lastFailure?.status || 503;
   return respond(res, providerStatus === 429 ? 429 : 502, {
-    error: 'The AI service is temporarily unavailable across its configured models. Please try again shortly.',
+    error: 'The AI service is temporarily unavailable. Please try again shortly.',
     providerStatus,
     providerCode: lastFailure?.code,
     providerMessage: lastFailure?.message,
-    attemptedModels: [...new Set(attemptedModels)]
+    attemptedModels: [model]
   });
 };
