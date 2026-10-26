@@ -467,10 +467,10 @@ jobs:
             -exec cp -v {} release/ \;
           find artifacts -type f -name '*.zip' \
             -exec cp -v {} release/ \;
-          find artifacts -type f -name 'latest*.yml' \\
-            -exec cp -v {} release/ \\;
-          find artifacts -type f -name '*.blockmap' \\
-            -exec cp -v {} release/ \\;
+          find artifacts -type f -name 'latest*.yml' \
+            -exec cp -v {} release/ \;
+          find artifacts -type f -name '*.blockmap' \
+            -exec cp -v {} release/ \;
           echo "--- Files selected for release ---"
           ls -la release/
 
