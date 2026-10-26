@@ -127,41 +127,25 @@ module.exports = async function handler(req, res) {
   const isVisionRequest = request.contents.some(item =>
     Array.isArray(item?.parts) && item.parts.some(part => part && (part.inlineData || part.fileData))
   );
-  // Keep the configured fast model first for every request. Permit one alternate
-  // only after an explicit provider response (e.g. model unavailable); transport
-  // failures/timeouts break immediately below instead of serially delaying chat.
-  // Preserve the fast path: successful chat requests make one provider call.
-  // If Gemini explicitly reports a transient/model-specific failure, allow one
-  // distinct alternate model for both chat and vision. Transport failures and
-  // quota exhaustion still stop immediately to avoid wasting time/quota.
-  // Direct GitHub Actions verification confirmed gemini-3.5-flash-lite can
-  // respond while gemini-3.8-flash returns 503 high demand. Prefer that known
-  // working low-latency fallback before the larger flash model. Keep only one
-  // alternate attempt per request so successful fast chat stays one-call.
-  // Do not send requests to any other model. On failure, return the error.
-  const fallbackModels = [model];
+  // Strict single-model policy: only Gemini 3 Flash Preview is allowed.
+  // Retry the same model with the next independently quota-managed key when
+  // Google explicitly reports RESOURCE_EXHAUSTED. This must be a key loop,
+  // not a model-loop continue: there is deliberately no alternate model.
+  const model = 'gemini-3-flash-preview';
   let lastFailure = null;
-  const attemptedModels = [];
-  let keyIndex = 0;
-  let key = keys[keyIndex];
-  // Keep this handler compatible with Vercel deployments whose effective
-  // serverless ceiling is 10 seconds even when a newer config requests more.
-  // A long provider wait otherwise ends in a platform-generated 502 before
-  // the alternate model can run. Use a short primary attempt and reserve the
-  // remaining budget for the lighter fallback plus response serialization.
   const requestDeadline = Date.now() + 8200;
-
-  for (const candidate of fallbackModels) {
+  for (let keyIndex = 0; keyIndex < keys.length; keyIndex += 1) {
     const remainingMs = requestDeadline - Date.now();
-    if (remainingMs <= 0) break;
-    let tryAnotherModel = false;
-    attemptedModels.push(candidate);
+    if (remainingMs <= 0) {
+      lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
+      break;
+    }
     try {
-      const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(candidate) + ':generateContent', {
+      const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-goog-api-key': key
+          'x-goog-api-key': keys[keyIndex]
         },
         body: JSON.stringify({
           contents: request.contents,
@@ -176,32 +160,24 @@ module.exports = async function handler(req, res) {
           .flatMap(item => item.content && Array.isArray(item.content.parts) ? item.content.parts : [])
           .map(part => typeof part.text === 'string' ? part.text : '')
           .filter(Boolean)
-          .join('\n')
+          .join('\\n')
           .trim();
-        if (text) return respond(res, 200, { text, model: candidate });
+        if (text) return respond(res, 200, { text, model });
         lastFailure = { status: 502, code: 'EMPTY_RESPONSE', message: 'The model returned no text.' };
-        tryAnotherModel = true;
-        continue;
+        break;
       }
 
       const providerCode = typeof result.error?.status === 'string' ? result.error.status : '';
-      const transient = [500, 502, 503, 504].includes(upstream.status) ||
-        ['UNAVAILABLE', 'INTERNAL', 'DEADLINE_EXCEEDED'].includes(providerCode);
       lastFailure = {
         status: upstream.status,
         code: providerCode || undefined,
         message: typeof result.error?.message === 'string' ? result.error.message.slice(0, 180) : undefined
       };
-      // Never fan out to more models after a quota/rate-limit response.
+      if (providerCode === 'RESOURCE_EXHAUSTED' && keyIndex + 1 < keys.length) {
+        // Try the next configured key, always using the exact same model.
+        continue;
+      }
       if (providerCode === 'RESOURCE_EXHAUSTED' || upstream.status === 429) {
-        // Only provider-quota errors trigger key failover. App/IP rate limits
-        // are enforced before this loop and must not consume another key.
-        if (providerCode === 'RESOURCE_EXHAUSTED' && keyIndex + 1 < keys.length) {
-          keyIndex += 1;
-          key = keys[keyIndex];
-          tryAnotherModel = true;
-          continue;
-        }
         return respond(res, 429, {
           error: providerCode === 'RESOURCE_EXHAUSTED'
             ? 'Gemini quota is exhausted for all configured API keys. Configure GEMINI_API_KEYS with keys from independently quota-managed Google AI projects, or wait for quota reset.'
@@ -211,39 +187,25 @@ module.exports = async function handler(req, res) {
           retryAfterSeconds: 3600
         });
       }
-      if (providerCode === 'INVALID_ARGUMENT' || providerCode === 'NOT_FOUND' || providerCode === 'MODEL_NOT_FOUND') {
-        // A retired or unavailable model name is model-specific, not a reason
-        // to fail the entire request when a supported fallback remains.
-        lastFailure = { status: upstream.status, code: providerCode, message: lastFailure.message };
-        tryAnotherModel = true;
-        continue;
-      }
-      if (!transient) {
-        return respond(res, upstream.status === 429 ? 429 : 502, {
-          error: 'The AI service could not complete this request.',
-          providerStatus: upstream.status,
-          providerCode: lastFailure.code,
-          providerMessage: lastFailure.message
-        });
-      }
-      tryAnotherModel = true;
+      return respond(res, 502, {
+        error: 'The AI service could not complete this request.',
+        providerStatus: upstream.status,
+        providerCode: lastFailure.code,
+        providerMessage: lastFailure.message
+      });
     } catch (error) {
-      // A timed-out model may be overloaded while an alternate model is healthy.
-      // Keep both attempts below the serverless function ceiling and preserve
-      // time to serialize a response before the platform kills the invocation.
       lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
-      tryAnotherModel = true;
-      if (requestDeadline - Date.now() < 3500) break;
+      // Transport failures are not quota evidence; do not fan out across keys.
+      break;
     }
-    if (!tryAnotherModel) break;
   }
 
   const providerStatus = lastFailure?.status || 503;
   return respond(res, providerStatus === 429 ? 429 : 502, {
-    error: 'The AI service is temporarily unavailable across its configured models. Please try again shortly.',
+    error: 'The AI service is temporarily unavailable. Please try again shortly.',
     providerStatus,
     providerCode: lastFailure?.code,
     providerMessage: lastFailure?.message,
-    attemptedModels: [...new Set(attemptedModels)]
+    attemptedModels: [model]
   });
 };
