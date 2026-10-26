@@ -10,7 +10,7 @@ class LLMService {
     this.model = null;
     this.isInitialized = false;
     this.remoteOnly = false;
-    this.remoteEndpoint = process.env.OPENCLUELY_AI_ENDPOINT || 'https://opencluelys.vercel.app/api/gemini';
+    this.remoteEndpoint = process.env.OPENCLUELY_AI_ENDPOINT || 'https://cleverly-lime.vercel.app/api/gemini';
     this.installationId = null;
     this.requestCount = 0;
     this.errorCount = 0;
@@ -109,12 +109,12 @@ class LLMService {
         return false;
       }
     };
-    const primaryHostedEndpoint = 'https://opencluelys.vercel.app/api/gemini';
-    const backupHostedEndpoint = 'https://opencluely-iota.vercel.app/api/gemini';
+    const primaryHostedEndpoint = 'https://cleverly-lime.vercel.app/api/gemini';
+    const backupHostedEndpoint = 'https://opencluelys.vercel.app/api/gemini';
     // Keep the backup reachable within the global deadline. Retry the primary
     // once only after an explicit HTTP 5xx response; network timeouts move to
     // the backup instead of consuming the entire deadline on the same host.
-    const hostedEndpoints = [primaryHostedEndpoint, backupHostedEndpoint];
+    const hostedEndpoints = [primaryHostedEndpoint, backupHostedEndpoint, 'https://opencluely-iota.vercel.app/api/gemini'];
     const configuredFallback = process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT;
     const endpoints = [
       ...hostedEndpoints,
