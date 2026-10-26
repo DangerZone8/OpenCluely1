@@ -1,6 +1,6 @@
 'use strict';
 
-const models = ['gemini-3-flash-preview', 'gemini-3.5-flash-lite'];
+const models = ['gemini-3-flash-preview'];
 const key = String(process.env.GEMINI_API_KEY || '').trim();
 const timeoutMs = 20000;
 const maxAttemptsPerModel = 2;
