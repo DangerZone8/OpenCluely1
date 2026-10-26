@@ -20,101 +20,117 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
+      - run: npm ci
       - name: Run local regression checks
         run: npm run check
 
-  production-live-verification:
-    name: Production AI verification (live Gemini quota required)
+  production-screen-vision:
+    name: Production AI verification — screen vision
     needs: source-checks
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 8
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Verify deployed screen-vision API revision and live response
+      - run: npm ci
+      - name: Verify deployed API revision and real screen-vision response
         id: livevision
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           VERIFY_ONLY_ENDPOINT: https://slicklyai.vercel.app/api/gemini
           ALLOW_OLD_API_REVISION: 'false'
         run: npm run test:screen-vision-live
-
-      # Run the quota-expensive 2-minute real desktop test only on manual dispatch.
-      # Routine pushes do one vision request and one chat request, rather than
-      # repeatedly burning the production provider quota in the desktop loop.
-      - name: Install virtual-desktop runtime
-        if: success() && github.event_name == 'workflow_dispatch'
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb xauth libgtk-3-0 libnss3 libxss1 libasound2t64 libgbm1
-
-      - name: Run real desktop UI screen-AI E2E
-        if: success() && github.event_name == 'workflow_dispatch'
-        env:
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          CLEVERLY_HOSTED_AI_TEST_OK: ''
-          SLICKLY_E2E_AI_ENDPOINT: https://slicklyai.vercel.app/api/gemini
-        run: xvfb-run -a npm run test:screen-ai-desktop-e2e
-
-      # Only probe a backup if the primary production endpoint failed. Do not
-      # hide the primary failure: the production verification job remains failed.
-      - name: Diagnose hosted backup screen-vision recovery
+      - name: Diagnose backup endpoints if production screen vision fails
         if: always() && steps.livevision.outcome == 'failure'
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           ALLOW_OLD_API_REVISION: 'true'
         run: npm run test:screen-vision-live
 
-      - name: Verify live Gemini fast-chat behavior
-        if: success()
+  production-fast-chat:
+    name: Production AI verification — fast chat
+    needs: source-checks
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Verify live Gemini fast-chat behavior independently of screen vision
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           OPENCLUELY_AI_ENDPOINT: https://slicklyai.vercel.app/api/gemini
         run: |
           if [ -z "$GEMINI_API_KEY" ]; then
-            echo "::error::GEMINI_API_KEY Actions secret is missing; live fast-chat verification cannot be claimed."
+            echo "::error::GEMINI_API_KEY Actions secret is missing; direct Gemini and live-chat verification cannot be claimed."
             exit 1
           fi
           npm run test:gemini-live
 
+  direct-gemini-diagnostic:
+    name: Test Gemini directly from GitHub Actions
+    needs: source-checks
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Probe Google Gemini directly (no Vercel proxy)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: node scripts/test-direct-gemini-connectivity.js
+
+  desktop-screen-ai-e2e:
+    name: Real desktop UI E2E — Capture Screen and Live Screen AI
+    needs: source-checks
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Install virtual-desktop runtime
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb xauth libgtk-3-0 libnss3 libxss1 libasound2t64 libgbm1
+      - name: Exercise both actual desktop screen-AI buttons against production
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SLICKLY_E2E_AI_ENDPOINT: https://slicklyai.vercel.app/api/gemini
+          SLICKLY_E2E_SUSTAINED: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
+        run: xvfb-run -a npm run test:screen-ai-desktop-e2e
+
   production-stability-diagnostic:
-    needs: production-live-verification
-    if: needs.production-live-verification.result == 'success' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
     name: Diagnose chat and screen AI stability over 2.5 minutes
+    needs: source-checks
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '24'
-
       - name: Probe production chat and screen vision for 150 seconds
         env:
           SLICKLY_DIAGNOSTIC_ENDPOINT: https://slicklyai.vercel.app/api/gemini
@@ -123,20 +139,3 @@ jobs:
           SLICKLY_DIAGNOSTIC_DURATION_MS: '150000'
           SLICKLY_DIAGNOSTIC_INTERVAL_MS: '8000'
         run: node scripts/test-production-ai-stability.js
-
-  direct-gemini-diagnostic:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
-    name: Test Gemini directly from GitHub Actions
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-
-      - name: Probe Google Gemini directly (no Vercel proxy)
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: node scripts/test-direct-gemini-connectivity.js
