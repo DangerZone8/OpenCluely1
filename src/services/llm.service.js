@@ -91,13 +91,17 @@ class LLMService {
     // preventing multiple dead aliases from multiplying the wait indefinitely.
     // The hosted API now permits a bounded alternate-model attempt; give it
     // enough time to finish without allowing dead aliases to multiply latency.
-    const configuredTimeout = Math.max(config.get('llm.gemini.timeout') || 15000, 22000);
-    const totalTimeout = Math.max(20000, Math.min(configuredTimeout + 8000, 30000));
-    const deadline = Date.now() + totalTimeout;
-    const payload = JSON.stringify({ model: modelName, request: geminiRequest });
     const containsImage = (geminiRequest.contents || []).some(message =>
       Array.isArray(message?.parts) && message.parts.some(part => part && (part.inlineData || part.inline_data || part.fileData))
     );
+    // The Vercel vision handler can spend up to 26s on a provider call. The
+    // desktop client's old 22s endpoint budget aborted valid screen requests
+    // before the server's own deadline; keep enough headroom for the handler
+    // while retaining one global cap across endpoint failover.
+    const configuredTimeout = Math.max(config.get('llm.gemini.timeout') || 15000, containsImage ? 28000 : 22000);
+    const totalTimeout = Math.max(20000, Math.min(configuredTimeout + 2000, 30000));
+    const deadline = Date.now() + totalTimeout;
+    const payload = JSON.stringify({ model: modelName, request: geminiRequest });
     const headers = {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(payload),
