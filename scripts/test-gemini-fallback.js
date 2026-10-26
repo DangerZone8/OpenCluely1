@@ -4,6 +4,12 @@ const crypto = require('node:crypto');
 const handler = require('../api/gemini.js');
 const originalFetch = global.fetch;
 const originalKey = process.env.GEMINI_API_KEY;
+const originalKeys = process.env.GEMINI_API_KEYS;
+const originalKey2 = process.env.GEMINI_API_KEY_2;
+const originalKey3 = process.env.GEMINI_API_KEY_3;
+const originalGoogleKey = process.env.GOOGLE_API_KEY;
+const originalGoogleGenaiKey = process.env.GOOGLE_GENAI_API_KEY;
+const originalGoogleGenerativeAiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 function response() {
   return { statusCode: 200, headers: {}, setHeader(k,v) { this.headers[k.toLowerCase()] = v; }, end(body) { this.body = body; } };
 }
@@ -99,6 +105,14 @@ async function main() {
   console.log('PASS: ordinary chat keeps one-call fast path and retries once on an explicit transient model failure.');
 
 
+  // Isolate this assertion to a single configured key; CI may provide
+  // additional key-pool secrets, which are tested explicitly in test-keyless-ai.
+  delete process.env.GEMINI_API_KEYS;
+  delete process.env.GEMINI_API_KEY_2;
+  delete process.env.GEMINI_API_KEY_3;
+  delete process.env.GOOGLE_API_KEY;
+  delete process.env.GOOGLE_GENAI_API_KEY;
+  delete process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   const quotaCalls = [];
   const quotaExhausted = await invoke(async url => {
     quotaCalls.push(decodeURIComponent(url.match(/models\/([^:]+)/)[1]));
@@ -107,8 +121,8 @@ async function main() {
   assert.equal(quotaExhausted.status, 429);
   assert.equal(quotaCalls.length, 1, 'quota exhaustion must stop immediately instead of consuming quota on fallback models');
   assert.equal(quotaExhausted.body.providerCode, 'RESOURCE_EXHAUSTED');
-  assert.match(quotaExhausted.body.error, /retries are disabled/i);
-  console.log('PASS: quota exhaustion stops after one provider request without trying fallback models.');
+  assert.match(quotaExhausted.body.error, /quota is exhausted/i);
+  console.log('PASS: with one configured key, quota exhaustion stops without retrying another model.');
   const sharedInstall = crypto.randomUUID();
   const screenBudget = await invoke(async () => ({
     ok: true, status: 200,
@@ -131,4 +145,10 @@ async function main() {
 main().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => {
   global.fetch = originalFetch;
   if (originalKey === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = originalKey;
+  if (originalKeys === undefined) delete process.env.GEMINI_API_KEYS; else process.env.GEMINI_API_KEYS = originalKeys;
+  if (originalKey2 === undefined) delete process.env.GEMINI_API_KEY_2; else process.env.GEMINI_API_KEY_2 = originalKey2;
+  if (originalKey3 === undefined) delete process.env.GEMINI_API_KEY_3; else process.env.GEMINI_API_KEY_3 = originalKey3;
+  if (originalGoogleKey === undefined) delete process.env.GOOGLE_API_KEY; else process.env.GOOGLE_API_KEY = originalGoogleKey;
+  if (originalGoogleGenaiKey === undefined) delete process.env.GOOGLE_GENAI_API_KEY; else process.env.GOOGLE_GENAI_API_KEY = originalGoogleGenaiKey;
+  if (originalGoogleGenerativeAiKey === undefined) delete process.env.GOOGLE_GENERATIVE_AI_API_KEY; else process.env.GOOGLE_GENERATIVE_AI_API_KEY = originalGoogleGenerativeAiKey;
 });
