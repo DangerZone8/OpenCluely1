@@ -92,17 +92,20 @@ jobs:
       - name: Verify PR preview screen-vision API
         if: github.event_name == 'pull_request'
         env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           VERIFY_ONLY_ENDPOINT: ${{ steps.preview.outputs.url }}/api/gemini
           ALLOW_OLD_API_REVISION: 'false'
         run: npm run test:screen-vision-live
 
       - name: Install virtual-desktop runtime
+        if: always() && (github.event_name == 'pull_request' || (github.event_name != 'pull_request' && github.ref == 'refs/heads/main'))
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb xauth libgtk-3-0 libnss3 libxss1 libasound2t64 libgbm1
 
       # On PRs use the preview URL discovered above; on main use the deployed production aliases.
       - name: Run real desktop UI screen-AI E2E
-        if: github.event_name == 'pull_request' || (github.event_name != 'pull_request' && github.ref == 'refs/heads/main')
+        if: always() && (github.event_name == 'pull_request' || (github.event_name != 'pull_request' && github.ref == 'refs/heads/main'))
         env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           CLEVERLY_HOSTED_AI_TEST_OK: ${{ github.event_name == 'pull_request' && '1' || '' }}
           SLICKLY_E2E_AI_ENDPOINT: ${{ github.event_name == 'pull_request' && format('{0}/api/gemini', steps.preview.outputs.url) || '' }}
