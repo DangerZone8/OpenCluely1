@@ -39,7 +39,7 @@ async function request(feature, index) {
           ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
           : {})
       },
-      body: JSON.stringify({ model: 'gemini-3-flash-preview', request }),
+      body: JSON.stringify({ model: 'gemini-3.5-flash-lite', request }),
       signal: AbortSignal.timeout(30000)
     });
     const raw = await response.text();
