@@ -43,7 +43,7 @@ jobs:
       - name: Verify production revision without calling Gemini
         env:
           VERIFY_ONLY_ENDPOINT: https://slicklyai.vercel.app/api/gemini
-          SLICKLY_EXPECTED_API_REVISION: v175-fast-chat-2026-10-27-k
+          SLICKLY_EXPECTED_API_REVISION: v175-fast-chat-2026-10-27-l
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: node scripts/test-production-api-revision.js
 
@@ -152,7 +152,7 @@ jobs:
       - name: Probe production chat and screen vision for 150 seconds
         env:
           SLICKLY_DIAGNOSTIC_ENDPOINT: https://slicklyai.vercel.app/api/gemini
-          SLICKLY_EXPECTED_API_REVISION: v175-fast-chat-2026-10-27-k
+          SLICKLY_EXPECTED_API_REVISION: v175-fast-chat-2026-10-27-l
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           SLICKLY_DIAGNOSTIC_DURATION_MS: '150000'
           SLICKLY_DIAGNOSTIC_INTERVAL_MS: '8000'
