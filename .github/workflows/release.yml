@@ -285,16 +285,30 @@ jobs:
             echo "FAIL: macOS release executable missing: $APP_BIN"
             exit 1
           fi
-          set +e
-          timeout --signal=TERM --kill-after=5s 20s "$APP_BIN" --disable-gpu --user-data-dir="$RUNNER_TEMP/slickly-ai-macos-release-userdata"
-          APP_EXIT=$?
-          set -e
-          if [ "$APP_EXIT" -eq 124 ] || [ "$APP_EXIT" -eq 137 ] || [ "$APP_EXIT" -eq 143 ]; then
-            echo "PASS: extracted macOS release app stayed running for the 20-second smoke test."
-          else
-            echo "FAIL: extracted macOS release app exited before timeout (exit $APP_EXIT)."
-            exit 1
-          fi
+          export APP_BIN
+          export APP_USER_DATA="$RUNNER_TEMP/slickly-ai-macos-release-userdata"
+          node <<'NODE'
+          const { spawn } = require('node:child_process');
+          const child = spawn(process.env.APP_BIN, ['--disable-gpu', '--user-data-dir=' + process.env.APP_USER_DATA], { stdio: 'inherit' });
+          let survived = false;
+          const hardKill = setTimeout(() => { if (child.exitCode === null) child.kill('SIGKILL'); }, 25000);
+          child.once('error', error => { console.error('FAIL: could not launch extracted macOS release app:', error.message); process.exitCode = 1; });
+          child.once('exit', (code, signal) => {
+            clearTimeout(hardKill);
+            if (survived) {
+              console.log('PASS: extracted macOS release app stayed running for the 20-second smoke test.');
+              return;
+            }
+            console.error('FAIL: extracted macOS release app exited early:', { code, signal });
+            process.exitCode = 1;
+          });
+          setTimeout(() => {
+            if (child.exitCode !== null) return;
+            survived = true;
+            child.kill('SIGTERM');
+            console.log('20-second launch window completed; waiting for graceful shutdown.');
+          }, 20000);
+          NODE
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
