@@ -3,6 +3,12 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const handler = require('../api/gemini.js');
 const originalFetch = global.fetch;
+const originalTimeout = AbortSignal.timeout;
+const timeoutCalls = [];
+AbortSignal.timeout = function (ms) {
+  timeoutCalls.push(ms);
+  return originalTimeout.call(this, ms);
+};
 const originalEnv = Object.fromEntries([
   'GEMINI_API_KEY','GEMINI_API_KEYS','GEMINI_API_KEY_2','GEMINI_API_KEY_3',
   'GOOGLE_API_KEY','GOOGLE_GENAI_API_KEY','GOOGLE_GENERATIVE_AI_API_KEY'
@@ -22,7 +28,9 @@ async function invoke(fetchImpl, feature = 'chat', installId = crypto.randomUUID
       'x-opencluely-feature': feature
     },
     body: { model: 'some-other-model-must-be-ignored', request: {
-      contents: [{ role: 'user', parts: [{ text: 'Reply briefly to this test.' }] }]
+      contents: [{ role: 'user', parts: feature === 'screen-vision'
+        ? [{ text: 'Describe this image.' }, { inlineData: { mimeType: 'image/png', data: 'aGVsbG8=' } }]
+        : [{ text: 'Reply briefly to this test.' }] }]
     } }
   }, res);
   return { status: res.statusCode, body: JSON.parse(res.body) };
@@ -47,7 +55,8 @@ async function main() {
   assert.equal(success.body.text, 'GEMINI_3_ONLY_OK');
   assert.equal(success.body.model, 'gemini-3-flash-preview');
   assert.deepEqual(successCalls, ['gemini-3-flash-preview']);
-  console.log('PASS: screen vision uses Gemini 3 Flash Preview only, ignoring a caller-supplied model.');
+  assert.equal(timeoutCalls[0], 12000, 'screen vision must get the longer 12-second upstream attempt window');
+  console.log('PASS: screen vision uses Gemini 3 Flash Preview only and gets a 12-second provider attempt window.');
 
   const unavailableCalls = [];
   const unavailable = await invoke(async url => {
@@ -59,6 +68,7 @@ async function main() {
   assert.equal(unavailable.status, 502);
   assert.deepEqual(unavailableCalls, ['gemini-3-flash-preview', 'gemini-3-flash-preview'],
     'may retry Gemini 3 once for a transient failure, but must never call a different model');
+  assert.equal(timeoutCalls[1], 3200, 'normal chat must retain its short fast-response attempt window');
   assert.deepEqual(unavailable.body.attemptedModels, ['gemini-3-flash-preview']);
   console.log('PASS: transient Gemini 3 failures get one bounded same-model retry, without model fallback.');
 
@@ -90,6 +100,7 @@ async function main() {
 }
 main().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => {
   global.fetch = originalFetch;
+  AbortSignal.timeout = originalTimeout;
   for (const [key, value] of Object.entries(originalEnv)) {
     if (value === undefined) delete process.env[key]; else process.env[key] = value;
   }
