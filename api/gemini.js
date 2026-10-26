@@ -57,18 +57,26 @@ module.exports = async function handler(req, res) {
   // quota-managed projects; multiple keys from the same project share quota.
   // Configure GEMINI_API_KEYS as a comma/newline-separated list, or use
   // GEMINI_API_KEY plus GEMINI_API_KEY_2 / GEMINI_API_KEY_3.
-  const keys = [
-    process.env.GEMINI_API_KEYS,
-    process.env.GEMINI_API_KEY,
-    process.env.GEMINI_API_KEY_2,
-    process.env.GEMINI_API_KEY_3,
-    process.env.GOOGLE_API_KEY,
-    process.env.GOOGLE_GENAI_API_KEY,
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY
-  ].flatMap(value => typeof value === 'string' ? value.split(/[\n,]+/) : [])
-    .map(value => value.trim())
-    .filter(Boolean)
-    .filter((value, index, all) => all.indexOf(value) === index);
+  // Prefer the explicitly configured primary key first so a rotated
+  // GEMINI_API_KEY is not queued behind a stale GEMINI_API_KEYS pool.
+  // Source labels are safe diagnostics; never log or return key values.
+  const keyEntries = [
+    { name: 'GEMINI_API_KEY', value: process.env.GEMINI_API_KEY },
+    { name: 'GEMINI_API_KEYS', value: process.env.GEMINI_API_KEYS },
+    { name: 'GEMINI_API_KEY_2', value: process.env.GEMINI_API_KEY_2 },
+    { name: 'GEMINI_API_KEY_3', value: process.env.GEMINI_API_KEY_3 },
+    { name: 'GOOGLE_API_KEY', value: process.env.GOOGLE_API_KEY },
+    { name: 'GOOGLE_GENAI_API_KEY', value: process.env.GOOGLE_GENAI_API_KEY },
+    { name: 'GOOGLE_GENERATIVE_AI_API_KEY', value: process.env.GOOGLE_GENERATIVE_AI_API_KEY }
+  ].flatMap(entry => typeof entry.value === 'string'
+    ? entry.value.split(/[\\n,]+/).map((value, index) => ({
+        source: entry.name === 'GEMINI_API_KEYS' ? entry.name + '[' + (index + 1) + ']' : entry.name,
+        value: value.trim()
+      }))
+    : [])
+    .filter(entry => entry.value)
+    .filter((entry, index, all) => all.findIndex(candidate => candidate.value === entry.value) === index);
+  const keys = keyEntries.map(entry => entry.value);
   if (!keys.length) {
     // Safe diagnostics: report only whether supported names exist, never values.
     return respond(res, 503, {
@@ -132,6 +140,7 @@ module.exports = async function handler(req, res) {
   // Google explicitly reports RESOURCE_EXHAUSTED. This must be a key loop,
   // not a model-loop continue: there is deliberately no alternate model.
   let lastFailure = null;
+  const attemptedKeySources = [];
   const requestDeadline = Date.now() + 8200;
   for (let keyIndex = 0; keyIndex < keys.length; keyIndex += 1) {
     const remainingMs = requestDeadline - Date.now();
@@ -139,6 +148,9 @@ module.exports = async function handler(req, res) {
       lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
       break;
     }
+    const keySource = keyEntries[keyIndex].source;
+    attemptedKeySources.push(keySource);
+    console.info('[Slickly Gemini provider attempt]', JSON.stringify({ model, keySource, keyIndex: keyIndex + 1, configuredKeyCount: keys.length }));
     try {
       const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
         method: 'POST',
@@ -167,6 +179,7 @@ module.exports = async function handler(req, res) {
       }
 
       const providerCode = typeof result.error?.status === 'string' ? result.error.status : '';
+      console.warn('[Slickly Gemini provider response]', JSON.stringify({ model, keySource, status: upstream.status, providerCode: providerCode || null }));
       lastFailure = {
         status: upstream.status,
         code: providerCode || undefined,
@@ -183,6 +196,8 @@ module.exports = async function handler(req, res) {
             : 'Gemini rate limit reached. Please wait before retrying.',
           providerStatus: upstream.status,
           providerCode: providerCode || 'RATE_LIMITED',
+          attemptedKeySources,
+          configuredKeyCount: keys.length,
           retryAfterSeconds: 3600
         });
       }
@@ -206,6 +221,8 @@ module.exports = async function handler(req, res) {
     providerStatus,
     providerCode: lastFailure?.code,
     providerMessage: lastFailure?.message,
+    attemptedKeySources,
+    configuredKeyCount: keys.length,
     attemptedModels: [model]
   });
 };
