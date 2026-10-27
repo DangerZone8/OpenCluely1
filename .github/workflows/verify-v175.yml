@@ -32,7 +32,7 @@ jobs:
   production-api-revision:
     name: Production API revision (quota-free)
     needs: source-checks
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch'))
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -151,7 +151,7 @@ jobs:
           node-version: '24'
       - name: Probe production chat and screen vision for 150 seconds
         env:
-          SLICKLY_DIAGNOSTIC_ENDPOINT: https://slicklyai.vercel.app/api/gemini
+          SLICKLY_DIAGNOSTIC_ENDPOINT: ${{ github.event_name == 'pull_request' && 'https://slicklyai-git-fix-production-gem-4a02c5-vlordvoldemort1234-5397.vercel.app/api/gemini' || 'https://slicklyai.vercel.app/api/gemini' }}
           SLICKLY_EXPECTED_API_REVISION: v175-fast-chat-2026-10-27-m
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           SLICKLY_DIAGNOSTIC_DURATION_MS: '150000'
