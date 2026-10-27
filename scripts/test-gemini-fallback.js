@@ -66,11 +66,11 @@ async function main() {
     }) };
   });
   assert.equal(unavailable.status, 502);
-  assert.deepEqual(unavailableCalls, ['gemini-3.1-flash-lite', 'gemini-3.1-flash-lite'],
-    'may retry Gemini 3 once for a transient failure, but must never call a different model');
+  assert.deepEqual(unavailableCalls, ['gemini-3.1-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.1-flash-lite'],
+    'may retry Gemini 3 up to twice for transient chat failures, but must never call a different model');
   assert.equal(timeoutCalls[1], 3200, 'normal chat must retain its short fast-response attempt window');
   assert.deepEqual(unavailable.body.attemptedModels, ['gemini-3.1-flash-lite']);
-  console.log('PASS: transient Gemini 3 failures get one bounded same-model retry, without model fallback.');
+  console.log('PASS: transient Gemini 3 chat failures get up to two bounded same-model retries, without model fallback.');
 
   const quotaCalls = [];
   const quota = await invoke(async url => {
