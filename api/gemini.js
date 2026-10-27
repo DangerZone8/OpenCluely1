@@ -21,7 +21,7 @@ function respond(res, status, body) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   // Fingerprint the deployed handler so production-alias drift is observable in E2E logs.
-  res.setHeader('X-OpenCluely-API-Revision', 'v175-fast-chat-2026-10-27-l');
+  res.setHeader('X-OpenCluely-API-Revision', 'v175-fast-chat-2026-10-27-m');
   res.end(JSON.stringify(body));
 }
 
@@ -144,12 +144,13 @@ module.exports = async function handler(req, res) {
   // Vercel allows this function 30 seconds. Give image analysis a larger
   // per-attempt window because Gemini vision often needs longer than chat,
   // while preserving the short v175 chat deadline and its fast response path.
-  const requestDeadline = Date.now() + (isVisionRequest ? 26000 : 8200);
+  const requestDeadline = Date.now() + (isVisionRequest ? 26000 : 14500);
   for (let keyIndex = 0; keyIndex < keys.length; keyIndex += 1) {
     const keySource = keyEntries[keyIndex].source;
-    // Retry brief upstream overloads once on the same key/model. This is a
-    // bounded transient retry, not a model fallback or quota-bypass mechanism.
-    for (let providerAttempt = 1; providerAttempt <= 2; providerAttempt += 1) {
+    // Retry transient overloads on the same key/model with bounded backoff.
+    // Chat gets a third attempt; vision keeps two long attempts under Vercel's limit.
+    const maxProviderAttempts = isVisionRequest ? 2 : 3;
+    for (let providerAttempt = 1; providerAttempt <= maxProviderAttempts; providerAttempt += 1) {
       const remainingMs = requestDeadline - Date.now();
       if (remainingMs <= 0) {
         lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
@@ -166,7 +167,7 @@ module.exports = async function handler(req, res) {
             generationConfig: request.generationConfig || {},
             ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
           }),
-          signal: AbortSignal.timeout(Math.min(isVisionRequest ? 12000 : 3200, remainingMs))
+          signal: AbortSignal.timeout(Math.min(isVisionRequest ? 12000 : 3800, remainingMs))
         });
         const result = await upstream.json().catch(() => ({}));
         if (upstream.ok) {
@@ -190,10 +191,16 @@ module.exports = async function handler(req, res) {
         if (providerCode === 'RESOURCE_EXHAUSTED' && keyIndex + 1 < keys.length) break;
         const transient = [500, 502, 503, 504].includes(upstream.status) ||
           ['UNAVAILABLE', 'INTERNAL', 'DEADLINE_EXCEEDED'].includes(providerCode);
-        if (transient && providerAttempt < 2 && Date.now() + 250 < requestDeadline) {
-          await new Promise(resolve => setTimeout(resolve, 250));
-          continue;
+        if (transient && providerAttempt < maxProviderAttempts && Date.now() + 200 < requestDeadline) {
+          // Back off instead of immediately repeating requests to an overloaded provider.
+          const backoffMs = Math.min(1500, 500 * (2 ** (providerAttempt - 1))) + Math.floor(Math.random() * 150);
+          if (Date.now() + backoffMs < requestDeadline) {
+            await new Promise(resolve => setTimeout(resolve, backoffMs));
+            continue;
+          }
         }
+        // After this key's transient retries, try another configured key if available.
+        if (transient && keyIndex + 1 < keys.length) break;
         if (providerCode === 'RESOURCE_EXHAUSTED' || upstream.status === 429) {
           return respond(res, 429, {
             error: providerCode === 'RESOURCE_EXHAUSTED'
@@ -215,15 +222,18 @@ module.exports = async function handler(req, res) {
         });
       } catch (error) {
         lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
-        if (providerAttempt < 2 && Date.now() + 250 < requestDeadline) {
-          await new Promise(resolve => setTimeout(resolve, 250));
-          continue;
+        if (providerAttempt < maxProviderAttempts && Date.now() + 200 < requestDeadline) {
+          const backoffMs = Math.min(1500, 500 * (2 ** (providerAttempt - 1))) + Math.floor(Math.random() * 150);
+          if (Date.now() + backoffMs < requestDeadline) {
+            await new Promise(resolve => setTimeout(resolve, backoffMs));
+            continue;
+          }
         }
         break;
       }
     }
     if (lastFailure?.code === 'RESOURCE_EXHAUSTED' && keyIndex + 1 < keys.length) continue;
-    if (lastFailure?.code === 'NETWORK_OR_TIMEOUT' || lastFailure?.status === 0) break;
+    if ((lastFailure?.code === 'NETWORK_OR_TIMEOUT' || lastFailure?.status === 0) && keyIndex + 1 >= keys.length) break;
   }
 
   const providerStatus = lastFailure?.status || 503;
