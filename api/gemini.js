@@ -150,7 +150,8 @@ module.exports = async function handler(req, res) {
     const keySource = keyEntries[keyIndex].source;
     // Retry brief upstream overloads once on the same key/model. This is a
     // bounded transient retry, not a model fallback or quota-bypass mechanism.
-    for (let providerAttempt = 1; providerAttempt <= 2; providerAttempt += 1) {
+    const maxProviderAttempts = isVisionRequest ? 2 : 3;
+    for (let providerAttempt = 1; providerAttempt <= maxProviderAttempts; providerAttempt += 1) {
       const remainingMs = requestDeadline - Date.now();
       if (remainingMs <= 0) {
         lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
@@ -167,7 +168,7 @@ module.exports = async function handler(req, res) {
             generationConfig: request.generationConfig || {},
             ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
           }),
-          signal: AbortSignal.timeout(Math.min(isVisionRequest ? 21000 : 3200, remainingMs))
+          signal: AbortSignal.timeout(Math.min(isVisionRequest ? 21000 : 2200, remainingMs))
         });
         const result = await upstream.json().catch(() => ({}));
         if (upstream.ok) {
@@ -191,8 +192,8 @@ module.exports = async function handler(req, res) {
         if (providerCode === 'RESOURCE_EXHAUSTED' && keyIndex + 1 < keys.length) break;
         const transient = [500, 502, 503, 504].includes(upstream.status) ||
           ['UNAVAILABLE', 'INTERNAL', 'DEADLINE_EXCEEDED'].includes(providerCode);
-        if (transient && providerAttempt < 2 && Date.now() + 250 < requestDeadline) {
-          await new Promise(resolve => setTimeout(resolve, 250));
+        if (transient && providerAttempt < maxProviderAttempts && Date.now() + 200 < requestDeadline) {
+          await new Promise(resolve => setTimeout(resolve, 200));
           continue;
         }
         if (providerCode === 'RESOURCE_EXHAUSTED' || upstream.status === 429) {
@@ -216,8 +217,8 @@ module.exports = async function handler(req, res) {
         });
       } catch (error) {
         lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
-        if (providerAttempt < 2 && Date.now() + 250 < requestDeadline) {
-          await new Promise(resolve => setTimeout(resolve, 250));
+        if (providerAttempt < maxProviderAttempts && Date.now() + 200 < requestDeadline) {
+          await new Promise(resolve => setTimeout(resolve, 200));
           continue;
         }
         break;
