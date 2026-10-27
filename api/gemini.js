@@ -193,8 +193,14 @@ module.exports = async function handler(req, res) {
         const transient = [500, 502, 503, 504].includes(upstream.status) ||
           ['UNAVAILABLE', 'INTERNAL', 'DEADLINE_EXCEEDED'].includes(providerCode);
         if (transient && providerAttempt < maxProviderAttempts && Date.now() + 200 < requestDeadline) {
-          await new Promise(resolve => setTimeout(resolve, 200));
-          continue;
+          // Avoid hammering an overloaded Gemini endpoint with near-immediate retries.
+          // Exponential backoff plus jitter gives transient 503s time to recover while
+          // keeping normal chat inside the existing bounded request deadline.
+          const backoffMs = Math.min(900, 300 * (2 ** (providerAttempt - 1))) + Math.floor(Math.random() * 100);
+          if (Date.now() + backoffMs < requestDeadline) {
+            await new Promise(resolve => setTimeout(resolve, backoffMs));
+            continue;
+          }
         }
         if (providerCode === 'RESOURCE_EXHAUSTED' || upstream.status === 429) {
           return respond(res, 429, {
@@ -218,8 +224,12 @@ module.exports = async function handler(req, res) {
       } catch (error) {
         lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
         if (providerAttempt < maxProviderAttempts && Date.now() + 200 < requestDeadline) {
-          await new Promise(resolve => setTimeout(resolve, 200));
-          continue;
+          // Network timeouts use the same bounded exponential backoff as upstream 5xxs.
+          const backoffMs = Math.min(900, 300 * (2 ** (providerAttempt - 1))) + Math.floor(Math.random() * 100);
+          if (Date.now() + backoffMs < requestDeadline) {
+            await new Promise(resolve => setTimeout(resolve, backoffMs));
+            continue;
+          }
         }
         break;
       }
