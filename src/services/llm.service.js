@@ -282,8 +282,10 @@ class LLMService {
               }
               if (fallbackError.statusCode >= 500 && fallbackError.statusCode !== 429) {
                 networkFailures.push(new NodeURL(endpoint).host + ': HTTP ' + fallbackError.statusCode);
-                if (endpoint === primaryHostedEndpoint && !primaryRetryUsed) {
+                if (endpoint === primaryHostedEndpoint && !primaryRetryUsed && deadline - Date.now() > 1500) {
                   primaryRetryUsed = true;
+                  // A short backoff avoids an immediate repeat during transient edge/provider overload.
+                  await new Promise(resolve => setTimeout(resolve, 350 + Math.floor(Math.random() * 150)));
                   endpointIndex -= 1;
                 }
                 continue;
@@ -291,6 +293,12 @@ class LLMService {
               throw fallbackError;
             }
             networkFailures.push(new NodeURL(endpoint).host + ': ' + fallbackError.message);
+            if (endpoint === primaryHostedEndpoint && !primaryRetryUsed && deadline - Date.now() > 1500) {
+              primaryRetryUsed = true;
+              // Retry one transient network failure on the primary before abandoning it for aliases.
+              await new Promise(resolve => setTimeout(resolve, 350 + Math.floor(Math.random() * 150)));
+              endpointIndex -= 1;
+            }
             continue;
           }
         }
@@ -307,8 +315,9 @@ class LLMService {
           }
           if (response.status >= 500 && response.status !== 429) {
             networkFailures.push(new NodeURL(endpoint).host + ': HTTP ' + response.status);
-            if (endpoint === primaryHostedEndpoint && !primaryRetryUsed) {
+            if (endpoint === primaryHostedEndpoint && !primaryRetryUsed && deadline - Date.now() > 1500) {
               primaryRetryUsed = true;
+              await new Promise(resolve => setTimeout(resolve, 350 + Math.floor(Math.random() * 150)));
               endpointIndex -= 1;
             }
             continue;
