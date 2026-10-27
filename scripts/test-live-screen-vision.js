@@ -17,9 +17,10 @@ const installId = crypto.randomUUID();
 const image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lS8AAAAASUVORK5CYII=';
 
 async function main() {
-  const expectedRevisions = new Set(['v175-fast-chat-2026-10-27-m']);
+  const expectedRevisions = new Set(['v175-fast-chat-2026-10-27-n']);
   if (process.env.ALLOW_OLD_API_REVISION === 'true') {
     // PR checks run before Vercel deploys the branch; accept the current production revision too.
+    expectedRevisions.add('v175-fast-chat-2026-10-27-m');
     expectedRevisions.add('v175-fast-chat-2026-10-27-l');
     expectedRevisions.add('v175-fast-chat-2026-10-25-e');
     expectedRevisions.add('v175-fast-chat-2026-10-25-d');
