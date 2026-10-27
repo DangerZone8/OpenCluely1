@@ -21,7 +21,7 @@ function respond(res, status, body) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   // Fingerprint the deployed handler so production-alias drift is observable in E2E logs.
-  res.setHeader('X-OpenCluely-API-Revision', 'v175-fast-chat-2026-10-27-m');
+  res.setHeader('X-OpenCluely-API-Revision', 'v175-fast-chat-2026-10-27-n');
   res.end(JSON.stringify(body));
 }
 
@@ -144,12 +144,13 @@ module.exports = async function handler(req, res) {
   // Vercel allows this function 30 seconds. Give image analysis a larger
   // per-attempt window because Gemini vision often needs longer than chat,
   // while preserving the short v175 chat deadline and its fast response path.
-  const requestDeadline = Date.now() + (isVisionRequest ? 26000 : 14500);
+  const requestDeadline = Date.now() + (isVisionRequest ? 28000 : 14500);
   for (let keyIndex = 0; keyIndex < keys.length; keyIndex += 1) {
     const keySource = keyEntries[keyIndex].source;
     // Retry transient overloads on the same key/model with bounded backoff.
-    // Chat gets a third attempt; vision keeps two long attempts under Vercel's limit.
-    const maxProviderAttempts = isVisionRequest ? 2 : 3;
+    // Both chat and vision get up to three attempts; the shared deadline caps
+    // vision below Vercel's 30-second function limit even when attempts time out.
+    const maxProviderAttempts = 3;
     for (let providerAttempt = 1; providerAttempt <= maxProviderAttempts; providerAttempt += 1) {
       const remainingMs = requestDeadline - Date.now();
       if (remainingMs <= 0) {

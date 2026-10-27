@@ -70,7 +70,21 @@ async function main() {
     'may retry Gemini 3 up to twice for transient chat failures, but must never call a different model');
   assert.equal(timeoutCalls[1], 3800, 'normal chat must use the bounded 3.8-second provider attempt window within the 14.5-second overall deadline');
   assert.deepEqual(unavailable.body.attemptedModels, ['gemini-3.1-flash-lite']);
-  console.log('PASS: transient Gemini 3 failures get up to two bounded same-model retries, without model fallback.');
+  console.log('PASS: transient Gemini 3 chat failures get up to two bounded same-model retries, without model fallback.');
+
+  const visionRetryStatuses = [];
+  const visionRetry = await invoke(async () => {
+    const status = visionRetryStatuses.length < 2 ? 503 : 200;
+    visionRetryStatuses.push(status);
+    return status === 200
+      ? { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'VISION_RETRY_OK' }] } }] }) }
+      : { ok: false, status: 503, json: async () => ({ error: { status: 'UNAVAILABLE', message: 'temporary vision overload' } }) };
+  }, 'screen-vision');
+  assert.equal(visionRetry.status, 200);
+  assert.equal(visionRetry.body.text, 'VISION_RETRY_OK');
+  assert.deepEqual(visionRetryStatuses, [503, 503, 200],
+    'screen vision must retry transient Gemini 503s up to three attempts on the same Gemini 3 model');
+  console.log('PASS: screen vision recovers after two transient Gemini 503 responses without model fallback.');
 
   const quotaCalls = [];
   const quota = await invoke(async url => {
