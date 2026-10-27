@@ -77,7 +77,7 @@ jobs:
   production-fast-chat:
     name: Production AI verification — fast chat
     needs: [source-checks, production-api-revision]
-    if: always() && needs.source-checks.result == 'success' && needs.production-api-revision.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: always() && needs.source-checks.result == 'success' && needs.production-api-revision.result == 'success' && (github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')))
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
@@ -118,7 +118,7 @@ jobs:
   desktop-screen-ai-e2e:
     name: Real desktop UI E2E — Capture Screen and Live Screen AI
     needs: [source-checks, production-api-revision, production-screen-vision]
-    if: always() && needs.source-checks.result == 'success' && needs.production-api-revision.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: always() && needs.source-checks.result == 'success' && needs.production-api-revision.result == 'success' && (github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')))
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
