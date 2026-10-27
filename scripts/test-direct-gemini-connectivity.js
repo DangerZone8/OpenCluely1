@@ -8,7 +8,7 @@ dns.setDefaultResultOrder('ipv4first');
 const model = 'gemini-3.1-flash-lite';
 const key = String(process.env.GEMINI_API_KEY || '').trim();
 const timeoutMs = 35000;
-const maxAttempts = 3;
+const maxAttempts = 5;
 const marker = 'SLICKLY_DIRECT_GEMINI_OK';
 
 if (!key) {
@@ -22,6 +22,7 @@ async function main() {
   const started = Date.now();
   let last = null;
 
+  let retryAfterMs = 0;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const attemptStarted = Date.now();
     try {
@@ -43,10 +44,13 @@ async function main() {
         .map(part => typeof part.text === 'string' ? part.text : '')
         .filter(Boolean).join('\\n').trim();
       const providerCode = typeof body.error?.status === 'string' ? body.error.status : null;
+      const retryAfterHeader = response.headers.get('retry-after');
+      retryAfterMs = retryAfterHeader && Number.isFinite(Number(retryAfterHeader))
+        ? Math.max(0, Math.min(60000, Number(retryAfterHeader) * 1000)) : 0;
 
       console.log(JSON.stringify({
         model, attempt, status: response.status, ok: response.ok,
-        durationMs: Date.now() - attemptStarted, providerCode,
+        durationMs: Date.now() - attemptStarted, providerCode, retryAfterMs,
         responseReceived: Boolean(responseText),
         responseMatches: responseText.includes(marker),
         message: typeof body.error?.message === 'string' ? body.error.message.slice(0, 180) : undefined
@@ -82,7 +86,9 @@ async function main() {
     }
 
     if (attempt < maxAttempts) {
-      const delayMs = attempt * 1500;
+      // Back off enough to let transient model-capacity (503 UNAVAILABLE) spikes clear.
+      // Respect a numeric Retry-After header when Google supplies one.
+      const delayMs = Math.max(retryAfterMs, [3000, 8000, 15000, 25000][attempt - 1] || 25000);
       console.log(JSON.stringify({ model, action: 'retry-transient-failure', delayMs }));
       await sleep(delayMs);
     }
