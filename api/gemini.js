@@ -145,7 +145,7 @@ module.exports = async function handler(req, res) {
   // provider window (up to 21s) so real screen frames can finish on a busy
   // Gemini endpoint. Keep the total deadline below the platform limit and
   // preserve the short v175 chat deadline and its fast response path.
-  const requestDeadline = Date.now() + (isVisionRequest ? 27500 : 8200);
+  const requestDeadline = Date.now() + (isVisionRequest ? 27500 : 14500);
   for (let keyIndex = 0; keyIndex < keys.length; keyIndex += 1) {
     const keySource = keyEntries[keyIndex].source;
     // Retry brief upstream overloads once on the same key/model. This is a
@@ -168,7 +168,7 @@ module.exports = async function handler(req, res) {
             generationConfig: request.generationConfig || {},
             ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
           }),
-          signal: AbortSignal.timeout(Math.min(isVisionRequest ? 21000 : 2200, remainingMs))
+          signal: AbortSignal.timeout(Math.min(isVisionRequest ? 21000 : 3800, remainingMs))
         });
         const result = await upstream.json().catch(() => ({}));
         if (upstream.ok) {
@@ -196,12 +196,15 @@ module.exports = async function handler(req, res) {
           // Avoid hammering an overloaded Gemini endpoint with near-immediate retries.
           // Exponential backoff plus jitter gives transient 503s time to recover while
           // keeping normal chat inside the existing bounded request deadline.
-          const backoffMs = Math.min(900, 300 * (2 ** (providerAttempt - 1))) + Math.floor(Math.random() * 100);
+          const backoffMs = Math.min(1500, 500 * (2 ** (providerAttempt - 1))) + Math.floor(Math.random() * 150);
           if (Date.now() + backoffMs < requestDeadline) {
             await new Promise(resolve => setTimeout(resolve, backoffMs));
             continue;
           }
         }
+        // If this key's bounded retries all failed transiently, allow the next
+        // independently quota-managed key to recover the request before returning 502.
+        if (transient && keyIndex + 1 < keys.length) break;
         if (providerCode === 'RESOURCE_EXHAUSTED' || upstream.status === 429) {
           return respond(res, 429, {
             error: providerCode === 'RESOURCE_EXHAUSTED'
@@ -225,7 +228,7 @@ module.exports = async function handler(req, res) {
         lastFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: 'Provider request timed out or could not be reached.' };
         if (providerAttempt < maxProviderAttempts && Date.now() + 200 < requestDeadline) {
           // Network timeouts use the same bounded exponential backoff as upstream 5xxs.
-          const backoffMs = Math.min(900, 300 * (2 ** (providerAttempt - 1))) + Math.floor(Math.random() * 100);
+          const backoffMs = Math.min(1500, 500 * (2 ** (providerAttempt - 1))) + Math.floor(Math.random() * 150);
           if (Date.now() + backoffMs < requestDeadline) {
             await new Promise(resolve => setTimeout(resolve, backoffMs));
             continue;
@@ -235,7 +238,7 @@ module.exports = async function handler(req, res) {
       }
     }
     if (lastFailure?.code === 'RESOURCE_EXHAUSTED' && keyIndex + 1 < keys.length) continue;
-    if (lastFailure?.code === 'NETWORK_OR_TIMEOUT' || lastFailure?.status === 0) break;
+    if ((lastFailure?.code === 'NETWORK_OR_TIMEOUT' || lastFailure?.status === 0) && keyIndex + 1 >= keys.length) break;
   }
 
   const providerStatus = lastFailure?.status || 503;
