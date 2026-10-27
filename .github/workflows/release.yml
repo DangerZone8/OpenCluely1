@@ -339,7 +339,7 @@ jobs:
   release:
     name: Create GitHub Release
     needs: [test, preflight, build]
-    if: ${{ !cancelled() && needs.test.result == 'success' && needs.preflight.result == 'success' && needs.build.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.dry_run == false)) }}
+    if: ${{ !cancelled() && needs.test.result == 'success' && needs.preflight.result == 'success' && needs.build.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (full history for changelog)
@@ -495,7 +495,13 @@ jobs:
           sha256sum * > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
+      - name: Dry-run report (do not publish)
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run == true
+        run: |
+          echo "DRY RUN PASSED: version v${{ inputs.version }} was validated, artifacts were built and assembled, and all required gates passed. No GitHub Release or tag will be created."
+
       - name: Create GitHub Release
+        if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || (github.event_name == 'workflow_dispatch' && inputs.version != '' && format('v{0}', inputs.version) || format('v1.0.{0}', github.run_number)) }}
