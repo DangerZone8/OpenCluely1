@@ -104,7 +104,7 @@ jobs:
     needs: [source-checks, desktop-screen-ai-e2e]
     if: always() && needs.source-checks.result == 'success' && (github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')))
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
