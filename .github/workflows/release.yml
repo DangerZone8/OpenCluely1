@@ -1,6 +1,7 @@
 name: Build & Release
 
 on:
+  pull_request:
   push:
     tags:
       - 'v*'
@@ -14,7 +15,7 @@ on:
         description: 'Build only (skip release creation)'
         type: boolean
         required: false
-        default: false
+        default: true
 
 permissions:
   contents: write
@@ -34,9 +35,10 @@ jobs:
           cache: 'npm'
 
       - name: Validate manual release request
-        if: github.event_name == 'workflow_dispatch' && inputs.dry_run != true
+        if: github.event_name == 'workflow_dispatch'
         env:
           REQUESTED_VERSION: ${{ inputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
         shell: bash
         run: |
           set -euo pipefail
@@ -44,9 +46,12 @@ jobs:
             echo "Invalid release version: $REQUESTED_VERSION (expected semantic version such as 1.0.86)."
             exit 1
           fi
-          if git ls-remote --exit-code --tags origin "refs/tags/v$REQUESTED_VERSION" >/dev/null 2>&1; then
+          if [[ "$DRY_RUN" != "true" ]] && git ls-remote --exit-code --tags origin "refs/tags/v$REQUESTED_VERSION" >/dev/null 2>&1; then
             echo "Release tag v$REQUESTED_VERSION already exists; refusing to overwrite an existing release."
             exit 1
+          fi
+          if [[ "$DRY_RUN" == "true" ]]; then
+            echo "DRY RUN: validated version $REQUESTED_VERSION; existing tags will not be overwritten or published."
           fi
 
       - name: Install dependencies
@@ -77,14 +82,31 @@ jobs:
         if: always()
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: npm run test:gemini-live
+        shell: bash
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            echo "Live Gemini chat regression attempt $attempt/3"
+            if npm run test:gemini-live; then
+              exit 0
+            else
+              status=$?
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Live chat gate failed (exit $status); waiting before bounded retry."
+              sleep "$((attempt * 5))"
+            fi
+          done
+          echo "Live Gemini chat regression failed after three attempts."
+          exit 1
 
       - name: Verify package metadata
+        if: always()
         run: node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if (p.version !== l.version || p.name !== l.name) process.exit(1); console.log('package metadata matches')"
 
   preflight:
     needs: [test]
-    if: needs.test.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+    if: needs.test.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request')
     name: Install and smoke-test packaged app
     runs-on: ubuntu-latest
     steps:
@@ -114,13 +136,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          DEB_FILE="$(find dist -maxdepth 1 -type f -name 'cleverly_*_amd64.deb' -print -quit)"
+          DEB_FILE="$(find dist -maxdepth 1 -type f -name 'slickly-ai_*_amd64.deb' -print -quit)"
           test -n "$DEB_FILE"
           sudo apt-get install -y "./$DEB_FILE"
           PACKAGE_NAME="$(dpkg-deb -f "$DEB_FILE" Package)"
-          APP_BIN="$(find /opt -type f -name cleverly -perm -111 -print -quit)"
+          APP_BIN="$(find /opt -type f -name slickly-ai -perm -111 -print -quit)"
           if [ -z "$APP_BIN" ] || [ ! -x "$APP_BIN" ]; then
-            echo "Could not find installed Cleverly executable under /opt."
+            echo "Could not find installed Slickly AI executable under /opt."
             dpkg -L "$PACKAGE_NAME"
             exit 1
           fi
@@ -136,8 +158,7 @@ jobs:
           fi
 
   build:
-    needs: [test]
-    if: always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+    if: always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request')
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
@@ -235,23 +256,23 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $app = Join-Path $PWD 'dist/win-unpacked/Cleverly.exe'
+          $app = Join-Path $PWD 'dist/win-unpacked/Slickly AI.exe'
           if (-not (Test-Path $app)) {
             throw "Packaged executable not found: $app"
           }
-          $userData = Join-Path $env:TEMP 'cleverly-release-windows-smoke'
+          $userData = Join-Path $env:TEMP 'slickly-ai-release-windows-smoke'
           if (Test-Path $userData) { Remove-Item $userData -Recurse -Force }
           $proc = Start-Process -FilePath $app -ArgumentList @('--disable-gpu', "--user-data-dir=$userData") -PassThru
           Start-Sleep -Seconds 15
           $proc.Refresh()
           if ($proc.HasExited) {
-            throw "Cleverly exited during the 15-second Windows release smoke test (exit code $($proc.ExitCode))."
+            throw "Slickly AI exited during the 15-second Windows release smoke test (exit code $($proc.ExitCode))."
           }
           if ($proc.MainWindowHandle -eq [IntPtr]::Zero) {
-            throw "Cleverly stayed running but exposed no visible main window handle after 15 seconds."
+            throw "Slickly AI stayed running but exposed no visible main window handle after 15 seconds."
           }
           if ([string]::IsNullOrWhiteSpace($proc.MainWindowTitle)) {
-            throw "Cleverly main window has no visible title after 15 seconds."
+            throw "Slickly AI main window has no visible title after 15 seconds."
           }
           Write-Host "PASS: packaged app stayed running and exposed a visible window: $($proc.MainWindowTitle)"
           Stop-Process -Id $proc.Id -Force
@@ -318,7 +339,7 @@ jobs:
   release:
     name: Create GitHub Release
     needs: [test, preflight, build]
-    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.dry_run != true)
+    if: ${{ !cancelled() && needs.test.result == 'success' && needs.preflight.result == 'success' && needs.build.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (full history for changelog)
@@ -388,7 +409,7 @@ jobs:
             if [ -n "$PREV_TAG" ]; then
               echo "This release includes **${COMMIT_COUNT} commits** since ${PREV_TAG}."
             else
-              echo "First release of Cleverly — **${COMMIT_COUNT} commits**."
+              echo "First release of Slickly AI — **${COMMIT_COUNT} commits**."
             fi
             echo ""
             cat CHANGELOG_SECTION.md
@@ -402,7 +423,7 @@ jobs:
 
           | Platform | File | Notes |
           |---|---|---|
-          | **Windows** | `Cleverly-Setup-*.exe` | NSIS installer — installs app + adds to Start Menu |
+          | **Windows** | `Slickly-AI-Setup-*.exe` | NSIS installer — installs app + adds to Start Menu |
           | **Linux** | `*.deb` | Debian/Ubuntu — auto-pulls system deps (Python, ffmpeg, GTK) |
           | **Linux** | `*.AppImage` | Universal — no install, just `chmod +x` and run |
           | **macOS** | `*.dmg` / `*.zip` | Intel and Apple Silicon builds; unsigned, so first launch may require approval in Privacy & Security |
@@ -455,9 +476,9 @@ jobs:
           # macOS DMG and ZIP are included as installable downloads.
           #
           # The order below is the order files appear in the release page.
-          find artifacts -type f -name 'Cleverly-Setup-*.exe' \
+          find artifacts -type f -name 'Slickly-AI-Setup-*.exe' \
             -exec cp -v {} release/ \;
-          find artifacts -type f -name 'cleverly_*_amd64.deb' \
+          find artifacts -type f -name 'slickly-ai_*_amd64.deb' \
             -exec cp -v {} release/ \;
           find artifacts -type f -name '*.AppImage' \
             -exec cp -v {} release/ \;
@@ -474,12 +495,18 @@ jobs:
           sha256sum * > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
+      - name: Dry-run report (do not publish)
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run == true
+        run: |
+          echo "DRY RUN PASSED: version v${{ inputs.version }} was validated, artifacts were built and assembled, and all required gates passed. No GitHub Release or tag will be created."
+
       - name: Create GitHub Release
+        if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || (github.event_name == 'workflow_dispatch' && inputs.version != '' && format('v{0}', inputs.version) || format('v1.0.{0}', github.run_number)) }}
           target_commitish: ${{ github.sha }}
-          name: Cleverly ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || (github.event_name == 'workflow_dispatch' && inputs.version != '' && format('v{0}', inputs.version) || format('v1.0.{0}', github.run_number)) }}
+          name: Slickly AI ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || (github.event_name == 'workflow_dispatch' && inputs.version != '' && format('v{0}', inputs.version) || format('v1.0.{0}', github.run_number)) }}
           draft: false
           prerelease: false
           body_path: RELEASE_BODY.md
