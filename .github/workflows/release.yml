@@ -102,7 +102,7 @@ jobs:
 
   preflight:
     needs: [test]
-    if: needs.test.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+    if: needs.test.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request')
     name: Install and smoke-test packaged app
     runs-on: ubuntu-latest
     steps:
