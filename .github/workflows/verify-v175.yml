@@ -32,7 +32,7 @@ jobs:
   production-api-revision:
     name: Production API revision (quota-free)
     needs: source-checks
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch'))
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -50,7 +50,7 @@ jobs:
   production-screen-vision:
     name: Production AI verification — screen vision
     needs: [source-checks, production-api-revision, production-fast-chat]
-    if: always() && needs.source-checks.result == 'success' && needs.production-api-revision.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: always() && needs.source-checks.result == 'success' && needs.production-api-revision.result == 'success' && needs.production-fast-chat.result == 'success' && (github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')))
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -77,7 +77,7 @@ jobs:
   production-fast-chat:
     name: Production AI verification — fast chat
     needs: [source-checks, production-api-revision]
-    if: always() && needs.source-checks.result == 'success' && needs.production-api-revision.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: always() && needs.source-checks.result == 'success' && needs.production-api-revision.result == 'success' && (github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')))
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
