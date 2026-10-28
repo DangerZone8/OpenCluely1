@@ -142,7 +142,7 @@ jobs:
         run: xvfb-run -a npm run test:screen-ai-desktop-e2e
 
   production-stability-diagnostic:
-    name: Diagnose chat and screen AI stability over 2.5 minutes
+    name: REQUIRED production stability gate (150s; classify failures, never waive)
     needs: source-checks
     if: github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch'))
     runs-on: ubuntu-latest
@@ -152,7 +152,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Probe production chat and screen vision for 150 seconds
+      # The script writes a failure-domain summary (external dependency vs application/deployment review).
+      # Its nonzero exit remains blocking even when the likely cause is Gemini/Vercel/network instability.
+      - name: Probe production chat and screen vision for 150 seconds (strict gate)
         env:
           SLICKLY_DIAGNOSTIC_ENDPOINT: https://slicklyai.vercel.app/api/gemini
           SLICKLY_EXPECTED_API_REVISION: v175-fast-chat-2026-10-27-n
