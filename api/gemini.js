@@ -80,7 +80,7 @@ module.exports = async function handler(req, res) {
   if (!keys.length) {
     // Safe diagnostics: report only whether supported names exist, never values.
     return respond(res, 503, {
-      error: 'The Slickly AI service is not configured in this deployment. Verify the Production environment variables and redeploy.',
+      error: 'The Slickly service is not configured in this deployment. Verify the Production environment variables and redeploy.',
       configuredNames: {
         GEMINI_API_KEY: Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()),
         GOOGLE_API_KEY: Boolean(process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY.trim()),
@@ -122,7 +122,7 @@ module.exports = async function handler(req, res) {
     !rateLimit('install:' + installId + ':' + feature, now, feature === 'screen-vision' ? MAX_SCREEN_PER_WINDOW : MAX_PER_WINDOW, dailyLimit)
   ) {
     res.setHeader('Retry-After', '60');
-    return respond(res, 429, { error: 'Slickly AI ' + feature + ' request limit reached. Wait a minute and try again.' });
+    return respond(res, 429, { error: 'Slickly ' + feature + ' request limit reached. Wait a minute and try again.' });
   }
 
   const request = body.request;
@@ -168,7 +168,7 @@ module.exports = async function handler(req, res) {
             generationConfig: request.generationConfig || {},
             ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
           }),
-          signal: AbortSignal.timeout(Math.min(isVisionRequest ? 12000 : 3800, remainingMs))
+          signal: AbortSignal.timeout(Math.min(isVisionRequest ? 8000 : 3800, remainingMs))
         });
         const result = await upstream.json().catch(() => ({}));
         if (upstream.ok) {
@@ -193,9 +193,19 @@ module.exports = async function handler(req, res) {
         const transient = [500, 502, 503, 504].includes(upstream.status) ||
           ['UNAVAILABLE', 'INTERNAL', 'DEADLINE_EXCEEDED'].includes(providerCode);
         if (transient && providerAttempt < maxProviderAttempts && Date.now() + 200 < requestDeadline) {
-          // Back off instead of immediately repeating requests to an overloaded provider.
-          const backoffMs = Math.min(1500, 500 * (2 ** (providerAttempt - 1))) + Math.floor(Math.random() * 150);
-          if (Date.now() + backoffMs < requestDeadline) {
+          // Use meaningful exponential backoff for model-capacity 503s instead of
+          // hammering the same overloaded model with sub-second retries. Respect
+          // Google's Retry-After when present, but keep the whole request inside
+          // Vercel's 30-second function ceiling.
+          const retryAfterHeader = upstream.headers.get('retry-after');
+          const retryAfterMs = retryAfterHeader && Number.isFinite(Number(retryAfterHeader))
+            ? Math.max(0, Math.min(5000, Number(retryAfterHeader) * 1000))
+            : 0;
+          const backoffMs = Math.max(
+            retryAfterMs,
+            [900, 1800, 3000][providerAttempt - 1] || 3000
+          ) + Math.floor(Math.random() * 350);
+          if (Date.now() + backoffMs + 250 < requestDeadline) {
             await new Promise(resolve => setTimeout(resolve, backoffMs));
             continue;
           }

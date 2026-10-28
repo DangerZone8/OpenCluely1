@@ -72,8 +72,30 @@ jobs:
 
       # These checks are release gates: main pushes also publish releases, so they must run
       # before any main-branch release. Missing credentials or an unreachable hosted endpoint must fail closed.
+      - name: Verify deployed production API revision without consuming Gemini quota
+        if: always()
+        env:
+          VERIFY_ONLY_ENDPOINT: https://slicklyai.vercel.app/api/gemini
+          SLICKLY_EXPECTED_API_REVISION: v175-fast-chat-2026-10-27-n
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: node scripts/test-production-api-revision.js
+
+      # Failure-domain classification is diagnostic only; this nonzero exit remains a hard release blocker.
+      - name: REQUIRED 150-second production stability gate (classify failures, never waive)
+        if: always()
+        env:
+          SLICKLY_DIAGNOSTIC_ENDPOINT: https://slicklyai.vercel.app/api/gemini
+          SLICKLY_EXPECTED_API_REVISION: v175-fast-chat-2026-10-27-n
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          SLICKLY_DIAGNOSTIC_DURATION_MS: '150000'
+          SLICKLY_DIAGNOSTIC_INTERVAL_MS: '8000'
+        run: node scripts/test-production-ai-stability.js
+
       - name: Run live hosted screen-vision test
         if: always()
+        env:
+          VERIFY_ONLY_ENDPOINT: https://slicklyai.vercel.app/api/gemini
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: npm run test:screen-vision-live
 
       # Real Gemini calls are required before a tag/manual release build can proceed.
@@ -136,13 +158,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          DEB_FILE="$(find dist -maxdepth 1 -type f -name 'slickly-ai_*_amd64.deb' -print -quit)"
+          DEB_FILE="$(find dist -maxdepth 1 -type f -name 'slickly_*_amd64.deb' -print -quit)"
           test -n "$DEB_FILE"
           sudo apt-get install -y "./$DEB_FILE"
           PACKAGE_NAME="$(dpkg-deb -f "$DEB_FILE" Package)"
-          APP_BIN="$(find /opt -type f -name slickly-ai -perm -111 -print -quit)"
+          APP_BIN="$(find /opt -type f -name slickly -perm -111 -print -quit)"
           if [ -z "$APP_BIN" ] || [ ! -x "$APP_BIN" ]; then
-            echo "Could not find installed Slickly AI executable under /opt."
+            echo "Could not find installed Slickly executable under /opt."
             dpkg -L "$PACKAGE_NAME"
             exit 1
           fi
@@ -256,7 +278,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $app = Join-Path $PWD 'dist/win-unpacked/Slickly AI.exe'
+          $app = Join-Path $PWD 'dist/win-unpacked/Slickly.exe'
           if (-not (Test-Path $app)) {
             throw "Packaged executable not found: $app"
           }
@@ -478,7 +500,7 @@ jobs:
           # The order below is the order files appear in the release page.
           find artifacts -type f -name 'Slickly-AI-Setup-*.exe' \
             -exec cp -v {} release/ \;
-          find artifacts -type f -name 'slickly-ai_*_amd64.deb' \
+          find artifacts -type f -name 'slickly_*_amd64.deb' \
             -exec cp -v {} release/ \;
           find artifacts -type f -name '*.AppImage' \
             -exec cp -v {} release/ \;

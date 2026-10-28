@@ -32,7 +32,7 @@ jobs:
   production-api-revision:
     name: Production API revision (quota-free)
     needs: source-checks
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch'))
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -50,7 +50,7 @@ jobs:
   production-screen-vision:
     name: Production AI verification — screen vision
     needs: [source-checks, production-api-revision, production-fast-chat]
-    if: always() && needs.source-checks.result == 'success' && needs.production-api-revision.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: always() && needs.source-checks.result == 'success' && needs.production-api-revision.result == 'success' && needs.production-fast-chat.result == 'success' && (github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')))
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -77,7 +77,7 @@ jobs:
   production-fast-chat:
     name: Production AI verification — fast chat
     needs: [source-checks, production-api-revision]
-    if: always() && needs.source-checks.result == 'success' && needs.production-api-revision.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: always() && needs.source-checks.result == 'success' && needs.production-api-revision.result == 'success' && (github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')))
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
@@ -102,19 +102,18 @@ jobs:
   direct-gemini-diagnostic:
     name: Test Gemini directly from GitHub Actions
     needs: [source-checks, desktop-screen-ai-e2e]
-    if: always() && needs.source-checks.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: always() && needs.source-checks.result == 'success' && needs.desktop-screen-ai-e2e.result == 'success' && (github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')))
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      # Diagnostic only: GitHub-hosted runner egress to Google can time out even when
-      # production-proxy and desktop E2E checks pass. Preserve the failure in logs,
-      # but do not fail the entire verification workflow on this independent probe.
+      # This is a strict connectivity gate: the script uses the same model as
+      # production, prefers IPv4 for runner network compatibility, and retries
+      # transient DNS/network/provider errors with a bounded total duration.
       - name: Probe Google Gemini directly (no Vercel proxy)
-        continue-on-error: true
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: node scripts/test-direct-gemini-connectivity.js
@@ -122,7 +121,7 @@ jobs:
   desktop-screen-ai-e2e:
     name: Real desktop UI E2E — Capture Screen and Live Screen AI
     needs: [source-checks, production-api-revision, production-screen-vision]
-    if: always() && needs.source-checks.result == 'success' && needs.production-api-revision.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: always() && needs.source-checks.result == 'success' && needs.production-api-revision.result == 'success' && needs.production-screen-vision.result == 'success' && (github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')))
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -143,9 +142,9 @@ jobs:
         run: xvfb-run -a npm run test:screen-ai-desktop-e2e
 
   production-stability-diagnostic:
-    name: Diagnose chat and screen AI stability over 2.5 minutes
+    name: REQUIRED production stability gate (150s; classify failures, never waive)
     needs: source-checks
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch'))
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
@@ -153,7 +152,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Probe production chat and screen vision for 150 seconds
+      # The script writes a failure-domain summary (external dependency vs application/deployment review).
+      # Its nonzero exit remains blocking even when the likely cause is Gemini/Vercel/network instability.
+      - name: Probe production chat and screen vision for 150 seconds (strict gate)
         env:
           SLICKLY_DIAGNOSTIC_ENDPOINT: https://slicklyai.vercel.app/api/gemini
           SLICKLY_EXPECTED_API_REVISION: v175-fast-chat-2026-10-27-n
