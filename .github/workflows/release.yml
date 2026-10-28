@@ -278,7 +278,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $app = Join-Path $PWD 'dist/win-unpacked/Slickly AI.exe'
+          $app = Join-Path $PWD 'dist/win-unpacked/Slickly.exe'
           if (-not (Test-Path $app)) {
             throw "Packaged executable not found: $app"
           }
