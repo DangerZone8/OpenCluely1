@@ -80,7 +80,8 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: node scripts/test-production-api-revision.js
 
-      - name: Run 150-second production chat and screen-vision stability gate
+      # Failure-domain classification is diagnostic only; this nonzero exit remains a hard release blocker.
+      - name: REQUIRED 150-second production stability gate (classify failures, never waive)
         if: always()
         env:
           SLICKLY_DIAGNOSTIC_ENDPOINT: https://slicklyai.vercel.app/api/gemini
