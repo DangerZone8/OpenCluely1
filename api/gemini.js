@@ -80,7 +80,7 @@ module.exports = async function handler(req, res) {
   if (!keys.length) {
     // Safe diagnostics: report only whether supported names exist, never values.
     return respond(res, 503, {
-      error: 'The Slickly AI service is not configured in this deployment. Verify the Production environment variables and redeploy.',
+      error: 'The Slickly service is not configured in this deployment. Verify the Production environment variables and redeploy.',
       configuredNames: {
         GEMINI_API_KEY: Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()),
         GOOGLE_API_KEY: Boolean(process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY.trim()),
@@ -122,7 +122,7 @@ module.exports = async function handler(req, res) {
     !rateLimit('install:' + installId + ':' + feature, now, feature === 'screen-vision' ? MAX_SCREEN_PER_WINDOW : MAX_PER_WINDOW, dailyLimit)
   ) {
     res.setHeader('Retry-After', '60');
-    return respond(res, 429, { error: 'Slickly AI ' + feature + ' request limit reached. Wait a minute and try again.' });
+    return respond(res, 429, { error: 'Slickly ' + feature + ' request limit reached. Wait a minute and try again.' });
   }
 
   const request = body.request;
