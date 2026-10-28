@@ -65,8 +65,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          SETUP_FILE="$(find dist -maxdepth 1 -type f -name 'Slickly-AI-Setup-*.exe' -print -quit)"
-          OTHER_EXE="$(find dist -maxdepth 1 -type f -name '*.exe' ! -name 'Slickly-AI-Setup-*.exe' -print -quit)"
+          SETUP_FILE="$(find dist -maxdepth 1 -type f -name 'Slickly-Setup-*.exe' -print -quit)"
+          OTHER_EXE="$(find dist -maxdepth 1 -type f -name '*.exe' ! -name 'Slickly-Setup-*.exe' -print -quit)"
           test -n "$SETUP_FILE" || { echo 'FAIL: Windows setup installer was not built.'; find dist -maxdepth 2 -print; exit 1; }
           test -n "$OTHER_EXE" || { echo 'FAIL: Windows portable package was not built.'; find dist -maxdepth 2 -print; exit 1; }
           echo "PASS: Windows setup and secondary (portable) package exist."
@@ -76,7 +76,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $app = Join-Path $PWD 'dist/win-unpacked/Slickly AI.exe'
+          $app = Join-Path $PWD 'dist/win-unpacked/Slickly.exe'
           if (-not (Test-Path $app)) {
             throw "Packaged executable not found: $app"
           }
@@ -98,7 +98,7 @@ jobs:
             if (-not $visibleApp) { Start-Sleep -Seconds 1 }
           }
           if (-not $visibleApp) {
-            throw "OpenCluely stayed running but no Slickly AI process exposed a visible main window after 25 seconds."
+            throw "OpenCluely stayed running but no Slickly process exposed a visible main window after 25 seconds."
           }
           Write-Host "PASS: packaged app exposed a visible window: $($visibleApp.MainWindowTitle)"
           node scripts/test-chat-ui-live.js
@@ -165,7 +165,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          DEB_FILE="$(find dist -maxdepth 1 -type f -name 'slickly-ai_*_amd64.deb' -print -quit)"
+          DEB_FILE="$(find dist -maxdepth 1 -type f -name 'slickly_*_amd64.deb' -print -quit)"
           APPIMAGE_FILE="$(find dist -maxdepth 1 -type f -name '*.AppImage' -print -quit)"
           test -n "$DEB_FILE" || { echo 'FAIL: Linux .deb installer was not built.'; find dist -maxdepth 2 -print; exit 1; }
           test -n "$APPIMAGE_FILE" || { echo 'FAIL: Linux AppImage was not built.'; find dist -maxdepth 2 -print; exit 1; }
@@ -208,11 +208,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          DEB_FILE="$(find dist -maxdepth 1 -type f -name 'slickly-ai_*_amd64.deb' -print -quit)"
+          DEB_FILE="$(find dist -maxdepth 1 -type f -name 'slickly_*_amd64.deb' -print -quit)"
           test -n "$DEB_FILE"
           sudo apt-get install -y "./$DEB_FILE"
           PACKAGE_NAME="$(dpkg-deb -f "$DEB_FILE" Package)"
-          APP_BIN="$(find /opt -type f -name slickly-ai -perm -111 -print -quit)"
+          APP_BIN="$(find /opt -type f -name slickly -perm -111 -print -quit)"
           test -n "$APP_BIN"
           test -x "$APP_BIN"
           set +e
