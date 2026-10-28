@@ -21,7 +21,7 @@ function classify(status, body) {
   if (status === 0) return 'EXTERNAL_RUNNER_NETWORK_FAILURE';
   if ([401, 403, 404].includes(status)) return 'API_CONFIGURATION_OR_ROUTING_FAILURE';
   if (status === 200 && typeof body?.text === 'string' && body.text.trim()) return 'OK';
-  if (status >= 500) return 'EXTERNAL_OR_UNCLASSIFIED_SERVER_FAILURE';
+  if (status >= 500) return 'SERVER_FAILURE_REQUIRES_REVIEW';
   return 'API_CONTRACT_OR_APPLICATION_FAILURE';
 }
 
@@ -123,9 +123,9 @@ async function main() {
   const chat = results.filter(item => item.feature === 'chat');
   const revisionMismatch = results.filter(item => item.revision !== expectedRevision);
   const allOk = results.every(item => item.classification === 'OK') && revisionMismatch.length === 0 && Date.now() - started >= durationMs;
-  const externalClasses = new Set(['EXTERNAL_QUOTA_OR_RATE_LIMIT', 'EXTERNAL_UPSTREAM_OR_HOSTING_FAILURE', 'EXTERNAL_RUNNER_NETWORK_FAILURE', 'EXTERNAL_OR_UNCLASSIFIED_SERVER_FAILURE']);
+  const externalClasses = new Set(['EXTERNAL_QUOTA_OR_RATE_LIMIT', 'EXTERNAL_UPSTREAM_OR_HOSTING_FAILURE', 'EXTERNAL_RUNNER_NETWORK_FAILURE']);
   const hasExternal = results.some(item => externalClasses.has(item.classification));
-  const hasInternalReview = results.some(item => ['API_CONFIGURATION_OR_ROUTING_FAILURE', 'API_CONTRACT_OR_APPLICATION_FAILURE'].includes(item.classification)) || revisionMismatch.length > 0;
+  const hasInternalReview = results.some(item => ['API_CONFIGURATION_OR_ROUTING_FAILURE', 'API_CONTRACT_OR_APPLICATION_FAILURE', 'SERVER_FAILURE_REQUIRES_REVIEW'].includes(item.classification)) || revisionMismatch.length > 0;
   const failureDomain = allOk ? 'NONE' : hasExternal && hasInternalReview ? 'MIXED_OR_UNCLASSIFIED' : hasExternal ? 'EXTERNAL_DEPENDENCY' : 'APPLICATION_OR_DEPLOYMENT_REVIEW';
   const summary = {
     event: 'summary', elapsedMs: Date.now() - started, total: results.length,
