@@ -81,7 +81,9 @@ async function waitForResult(previousCount, timeoutMs, label) {
     last = await evaluate(`(() => {
       const messages = [...document.querySelectorAll('#chatMessages .message')];
       return {
-        assistant: messages.filter(e => e.classList.contains('assistant')).map(e => e.innerText.trim()).filter(Boolean),
+        // The animated thinking placeholder also has the assistant class;
+        // exclude it so the E2E waits for the actual model response.
+        assistant: messages.filter(e => e.classList.contains('assistant') && !e.classList.contains('thinking')).map(e => e.innerText.trim()).filter(Boolean),
         errors: messages.filter(e => e.classList.contains('error')).map(e => e.innerText.trim()).filter(Boolean),
         system: messages.filter(e => e.classList.contains('system')).map(e => e.innerText.trim()).filter(Boolean)
       };
