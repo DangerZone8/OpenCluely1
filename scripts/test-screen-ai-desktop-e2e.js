@@ -81,7 +81,9 @@ async function waitForResult(previousCount, timeoutMs, label) {
     last = await evaluate(`(() => {
       const messages = [...document.querySelectorAll('#chatMessages .message')];
       return {
-        assistant: messages.filter(e => e.classList.contains('assistant')).map(e => e.innerText.trim()).filter(Boolean),
+        // The animated thinking placeholder also has the assistant class;
+        // exclude it so the E2E waits for the actual model response.
+        assistant: messages.filter(e => e.classList.contains('assistant') && !e.classList.contains('thinking')).map(e => e.innerText.trim()).filter(Boolean),
         errors: messages.filter(e => e.classList.contains('error')).map(e => e.innerText.trim()).filter(Boolean),
         system: messages.filter(e => e.classList.contains('system')).map(e => e.innerText.trim()).filter(Boolean)
       };
@@ -160,7 +162,7 @@ async function main() {
           context.font = 'bold 42px sans-serif';
           context.fillText('Slickly AI Desktop Screen AI E2E', 60, 110);
           context.font = '30px sans-serif';
-          context.fillText('Analyze this screen and reply with a short summary.', 60, 180);
+          context.fillText('Question: A number plus 7 equals 19. What is the number?', 60, 180);
           context.fillText('Fresh test frame: ' + (++frame), 60, 240);
         };
         paint();
@@ -178,6 +180,14 @@ async function main() {
     await evaluate("document.querySelector('#screenCaptureBtn')?.click()");
     let capture = await waitForResult(before, 90000, 'Capture Screen and Ask AI');
     console.log('PASS Capture Screen and Ask AI:', capture.response.slice(0, 240).replace(/\s+/g, ' '));
+
+    // Verify that a follow-up uses prior screen analysis as context rather than
+    // starting a context-free chat turn. The synthetic question's answer is 12.
+    before = await evaluate("document.querySelectorAll('#chatMessages .message.assistant').length");
+    await evaluate("(() => { const input = document.querySelector('#messageInput'); input.value = 'Please solve the question shown above. Give only the final number.'; input.dispatchEvent(new Event('input', { bubbles: true })); document.querySelector('#sendButton')?.click(); return true; })()");
+    const followUp = await waitForResult(before, 90000, 'Screen-context follow-up');
+    assert.match(followUp.response, /\b12\b/, 'Follow-up did not solve the screen question using prior screen context: ' + followUp.response);
+    console.log('PASS Screen-context follow-up:', followUp.response.slice(0, 240).replace(/\s+/g, ' '));
 
     // Live Screen AI must acquire a display, submit a fresh frame and render an answer.
     before = await evaluate("document.querySelectorAll('#chatMessages .message.assistant').length");
