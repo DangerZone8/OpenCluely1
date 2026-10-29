@@ -1834,7 +1834,7 @@
             // Send to main process for session memory storage and LLM processing
             try {
               if (whysperAPI && whysperAPI.sendChatMessage) {
-                await whysperAPI.sendChatMessage(text);
+                await whysperAPI.sendChatMessage(buildChatPromptWithScreenContext(text));
               }
             } catch (error) {
               console.error('Failed to send chat message to main process:', error);
@@ -1868,7 +1868,7 @@
               setTimeout(() => { showThinkingIndicator(); }, 300);
               try {
                 if (whysperAPI && whysperAPI.sendChatMessage) {
-                  await whysperAPI.sendChatMessage(text);
+                  await whysperAPI.sendChatMessage(buildChatPromptWithScreenContext(text));
                 }
               } catch (error) {
                 console.error('Failed to send chat message to main process:', error);
