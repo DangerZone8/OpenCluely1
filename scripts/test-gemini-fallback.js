@@ -68,7 +68,7 @@ async function main() {
   assert.equal(unavailable.status, 502);
   assert.deepEqual(unavailableCalls, ['gemini-3.1-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.1-flash-lite'],
     'may retry Gemini 3 up to twice for transient chat failures, but must never call a different model');
-  assert.equal(timeoutCalls[1], 3800, 'normal chat must use the bounded 3.8-second per-attempt window so transient upstream failures can recover within the 14.5-second overall deadline');
+  assert.equal(timeoutCalls[1], 18000, 'normal chat must allow healthy Gemini responses up to 18 seconds while remaining inside the bounded 27-second server deadline');
   assert.deepEqual(unavailable.body.attemptedModels, ['gemini-3.1-flash-lite']);
   console.log('PASS: transient Gemini 3 chat failures get up to two bounded same-model retries, without model fallback.');
 
