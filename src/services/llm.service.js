@@ -98,7 +98,7 @@ class LLMService {
     // desktop client's old 22s endpoint budget aborted valid screen requests
     // before the server's own deadline; keep enough headroom for the handler
     // while retaining one global cap across endpoint failover.
-    const configuredTimeout = Math.max(config.get('llm.gemini.timeout') || 15000, containsImage ? 28000 : 22000);
+    const configuredTimeout = Math.max(config.get('llm.gemini.timeout') || 15000, containsImage ? 28000 : 27000);
     const totalTimeout = Math.max(20000, Math.min(configuredTimeout + 2000, 30000));
     const deadline = Date.now() + totalTimeout;
     const payload = JSON.stringify({ model: modelName, request: geminiRequest });
