@@ -141,16 +141,17 @@ module.exports = async function handler(req, res) {
   // not a model-loop continue: there is deliberately no alternate model.
   let lastFailure = null;
   const attemptedKeySources = [];
-  // Vercel allows this function 30 seconds. Give image analysis one generous
-  // provider window (up to 21s) so real screen frames can finish on a busy
-  // Gemini endpoint. Keep the total deadline below the platform limit and
-  // preserve the short v175 chat deadline and its fast response path.
-  const requestDeadline = Date.now() + (isVisionRequest ? 27500 : 14500);
+  // Vercel allows this function 30 seconds. Gemini 3.1 Flash Lite can take
+  // 10-15 seconds even for a healthy direct request (observed in CI), so the
+  // old 3.8-second chat abort guaranteed false 502s under normal latency.
+  // Give chat and vision a bounded 27-second server budget, with at most two
+  // attempts per key. The desktop client has a matching 29-second cap.
+  const requestDeadline = Date.now() + 27000;
   for (let keyIndex = 0; keyIndex < keys.length; keyIndex += 1) {
     const keySource = keyEntries[keyIndex].source;
     // Retry brief upstream overloads once on the same key/model. This is a
     // bounded transient retry, not a model fallback or quota-bypass mechanism.
-    const maxProviderAttempts = isVisionRequest ? 2 : 3;
+    const maxProviderAttempts = 2;
     for (let providerAttempt = 1; providerAttempt <= maxProviderAttempts; providerAttempt += 1) {
       const remainingMs = requestDeadline - Date.now();
       if (remainingMs <= 0) {
@@ -168,7 +169,7 @@ module.exports = async function handler(req, res) {
             generationConfig: request.generationConfig || {},
             ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
           }),
-          signal: AbortSignal.timeout(Math.min(isVisionRequest ? 21000 : 3800, remainingMs))
+          signal: AbortSignal.timeout(Math.min(isVisionRequest ? 21000 : 18000, remainingMs))
         });
         const result = await upstream.json().catch(() => ({}));
         if (upstream.ok) {
