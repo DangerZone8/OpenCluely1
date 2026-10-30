@@ -151,7 +151,7 @@ module.exports = async function handler(req, res) {
     const keySource = keyEntries[keyIndex].source;
     // Retry brief upstream overloads once on the same key/model. This is a
     // bounded transient retry, not a model fallback or quota-bypass mechanism.
-    const maxProviderAttempts = 2;
+    const maxProviderAttempts = isVisionRequest ? 2 : 3;
     for (let providerAttempt = 1; providerAttempt <= maxProviderAttempts; providerAttempt += 1) {
       const remainingMs = requestDeadline - Date.now();
       if (remainingMs <= 0) {
