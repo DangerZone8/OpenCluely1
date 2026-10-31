@@ -865,7 +865,10 @@ class ApplicationController {
         if (!result || result.success === false) {
           return { success: false, error: result?.error || "Slickly AI could not complete the message." };
         }
-        return { success: true };
+        if (typeof result.response !== "string" || !result.response.trim()) {
+          return { success: false, error: "Slickly AI returned an empty response." };
+        }
+        return { success: true, response: result.response, metadata: result.metadata || {} };
       } catch (error) {
         logger.error("Failed to process chat message with LLM", {
           error: error.message,
