@@ -45,15 +45,20 @@ assert.ok(speechMethod.includes("I couldn't reach the AI service just now"),
 console.log('PASS: typed and spoken chat use the general assistant; failures are transparent.');
 
 
-const chatUi = fs.readFileSync(path.join(__dirname, '..', 'chat.html'), 'utf8').replace(/\\r\\n/g, '\\n');
+const chatUi = fs.readFileSync(path.join(__dirname, '..', 'chat.html'), 'utf8');
 const submitStart = chatUi.indexOf('async function submitChatMessage()');
 assert.notEqual(submitStart, -1, 'chat renderer must have one shared typed-message submission function');
-const submitEnd = chatUi.indexOf('if (sendButton)', submitStart);
+const submitEnd = chatUi.indexOf('
+
+      if (sendButton) {', submitStart);
+assert.notEqual(submitEnd, -1, 'shared typed-message submission function must have a clear boundary');
 const submitMethod = chatUi.slice(submitStart, submitEnd);
-assert.match(submitMethod, /await whysperAPI\\.sendChatMessage\\(/, 'typed chat must await the IPC result');
-assert.match(submitMethod, /result\\.success !== true/, 'typed chat must detect IPC failures');
-assert.match(submitMethod, /renderAssistantResponse\\(result\\.response\\)/, 'typed chat must render the returned answer in the chat window');
-assert.match(submitMethod, /hideThinkingIndicator\\(\\)/, 'typed chat must clear the thinking indicator on success and failure');
-assert.match(submitMethod, /addMessage\\('Could not get an answer:/, 'typed chat must show actionable request errors');
-assert.match(chatUi, /sendButton\\.addEventListener\\('click', submitChatMessage\\)/, 'Send button must use the shared submission function');
-assert.match(chatUi, /submitChatMessage\\(\\);/, 'Enter key must use the shared submission function');
+assert.ok(submitMethod.includes('await whysperAPI.sendChatMessage('), 'typed chat must await the IPC result');
+assert.ok(submitMethod.includes('result.success !== true'), 'typed chat must detect IPC failures');
+assert.ok(submitMethod.includes('renderAssistantResponse(result.response)'), 'typed chat must render the returned answer in the chat window');
+assert.ok(submitMethod.includes('hideThinkingIndicator()'), 'typed chat must clear the thinking indicator on success and failure');
+assert.ok(submitMethod.includes("addMessage('Could not get an answer:"), 'typed chat must show actionable request errors');
+assert.ok(chatUi.includes("sendButton.addEventListener('click', submitChatMessage)"), 'Send button must use the shared submission function');
+assert.ok(chatUi.includes('submitChatMessage();'), 'Enter key must use the shared submission function');
+
+console.log('PASS: typed chat awaits and renders its IPC response for both Send and Enter; failures are visible.');
