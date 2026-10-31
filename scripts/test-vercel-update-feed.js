@@ -1,12 +1,26 @@
 "use strict";
 const assert = require("node:assert/strict");
-const handler = require("../api/updates/[...path].js");\nconst fs = require("node:fs");\nconst path = require("node:path");
+const fs = require("node:fs");
+const path = require("node:path");
+const handler = require("../api/updates/[...path].js");
+
 function response() {
-  return { statusCode: 200, headers: {}, body: undefined,
+  return {
+    statusCode: 200,
+    headers: {},
+    body: undefined,
     setHeader(k, v) { this.headers[k.toLowerCase()] = v; },
-    end(body) { this.body = body; } };
+    end(body) { this.body = body; }
+  };
 }
-async function run() {\n  const downloadPage = fs.readFileSync(path.join(__dirname, "../web/index.html"), "utf8");\n  assert.match(downloadPage, /function downloadUrl\\(asset\\)/);\n  assert.match(downloadPage, /return "\\/api\\/updates\\/" \\+ encodeURIComponent\\(asset\\.name\\)/);\n  assert.match(downloadPage, /recommended\\.href = downloadUrl\\(selected\\)/);\n  assert.doesNotMatch(downloadPage, /href = asset\\.browser_download_url/);
+
+async function run() {
+  const downloadPage = fs.readFileSync(path.join(__dirname, "../web/index.html"), "utf8");
+  assert.match(downloadPage, /function downloadUrl\(asset\)/);
+  assert.ok(downloadPage.includes('return "/api/updates/" + encodeURIComponent(asset.name);'));
+  assert.ok(downloadPage.includes("recommended.href = downloadUrl(selected);"));
+  assert.ok(!downloadPage.includes("href = asset.browser_download_url"));
+
   const originalFetch = global.fetch;
   const assets = [
     { name: "latest.yml", browser_download_url: "https://github.com/DangerZone8/OpenCluely1/releases/download/v9.9.9/latest.yml" },
@@ -46,7 +60,10 @@ async function run() {\n  const downloadPage = fs.readFileSync(path.join(__dirna
     const wrongMethod = response();
     await handler({ method: "POST", query: { path: ["latest.yml"] } }, wrongMethod);
     assert.equal(wrongMethod.statusCode, 405);
-    console.log("Vercel update-feed tests passed: manifest proxy, installer/blockmap redirects, path validation, missing assets, and method guard.");
-  } finally { global.fetch = originalFetch; }
+    console.log("Vercel update-feed tests passed: website links, manifest proxy, installer/blockmap redirects, path validation, missing assets, and method guard.");
+  } finally {
+    global.fetch = originalFetch;
+  }
 }
+
 run().catch(error => { console.error(error); process.exitCode = 1; });
