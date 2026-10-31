@@ -54,6 +54,9 @@ jobs:
       - name: Run repository checks
         run: npm run check
 
+      - name: Verify Vercel update-feed routing
+        run: node scripts/test-vercel-update-feed.js
+
       - name: Install virtual-desktop runtime for actual UI testing
         run: |
           sudo apt-get update
