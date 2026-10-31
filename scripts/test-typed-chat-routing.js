@@ -48,9 +48,7 @@ console.log('PASS: typed and spoken chat use the general assistant; failures are
 const chatUi = fs.readFileSync(path.join(__dirname, '..', 'chat.html'), 'utf8');
 const submitStart = chatUi.indexOf('async function submitChatMessage()');
 assert.notEqual(submitStart, -1, 'chat renderer must have one shared typed-message submission function');
-const submitEnd = chatUi.indexOf('
-
-      if (sendButton) {', submitStart);
+const submitEnd = chatUi.indexOf('\n\n      if (sendButton) {', submitStart);
 assert.notEqual(submitEnd, -1, 'shared typed-message submission function must have a clear boundary');
 const submitMethod = chatUi.slice(submitStart, submitEnd);
 assert.ok(submitMethod.includes('await whysperAPI.sendChatMessage('), 'typed chat must await the IPC result');
