@@ -9,7 +9,6 @@ on:
       version:
         description: 'Release version (without the leading v), e.g. 1.0.1'
         required: true
-        default: '1.0.86'
       dry_run:
         description: 'Build only (skip release creation)'
         type: boolean
@@ -125,7 +124,7 @@ jobs:
             exit 1
           fi
           set +e
-          xvfb-run -a timeout --signal=TERM --kill-after=5s 20s "$APP_BIN" --no-sandbox --disable-gpu --user-data-dir=/tmp/cleverly-release-smoke
+          xvfb-run -a timeout --signal=TERM --kill-after=5s 20s "$APP_BIN" --no-sandbox --disable-gpu --user-data-dir=/tmp/slickly-ai-release-smoke
           APP_EXIT=$?
           set -e
           if [ "$APP_EXIT" -eq 124 ] || [ "$APP_EXIT" -eq 137 ] || [ "$APP_EXIT" -eq 143 ]; then
@@ -180,7 +179,7 @@ jobs:
         run: npm ci
 
       # electron-builder reads `version` from package.json for artifact
-      # naming (e.g. Cleverly-1.0.0-x64.dmg). When we build from a
+      # naming (e.g. Slickly-AI-1.0.0-x64.dmg). When we build from a
       # git tag (v1.0.7) the package.json still says 1.0.0 by default,
       # so artifact names drift from the release tag. Sync them here.
       # `npm pkg set` is cross-platform and doesn't touch git.
@@ -241,20 +240,20 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $app = Join-Path $PWD 'dist/win-unpacked/Cleverly.exe'
+          $app = Join-Path $PWD 'dist/win-unpacked/Slickly AI.exe'
           if (-not (Test-Path $app)) {
             throw "Packaged executable not found: $app"
           }
-          $userData = Join-Path $env:TEMP 'cleverly-release-windows-smoke'
+          $userData = Join-Path $env:TEMP 'slickly-ai-release-windows-smoke'
           if (Test-Path $userData) { Remove-Item $userData -Recurse -Force }
           $proc = Start-Process -FilePath $app -ArgumentList @('--disable-gpu', "--user-data-dir=$userData") -PassThru
           Start-Sleep -Seconds 15
           $proc.Refresh()
           if ($proc.HasExited) {
-            throw "Cleverly exited during the 15-second Windows release smoke test (exit code $($proc.ExitCode))."
+            throw "Slickly AI exited during the 15-second Windows release smoke test (exit code $($proc.ExitCode))."
           }
           if ($proc.MainWindowHandle -eq [IntPtr]::Zero) {
-            throw "Cleverly stayed running but exposed no visible main window handle after 15 seconds."
+            throw "Slickly AI stayed running but exposed no visible main window handle after 15 seconds."
           }
           if ([string]::IsNullOrWhiteSpace($proc.MainWindowTitle)) {
             throw "Cleverly main window has no visible title after 15 seconds."
@@ -317,7 +316,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: cleverly-${{ matrix.os }}
+          name: slickly-ai-${{ matrix.os }}
           path: ${{ matrix.artifact_glob }}
           if-no-files-found: error
 
@@ -394,7 +393,7 @@ jobs:
             if [ -n "$PREV_TAG" ]; then
               echo "This release includes **${COMMIT_COUNT} commits** since ${PREV_TAG}."
             else
-              echo "First release of Cleverly — **${COMMIT_COUNT} commits**."
+              echo "First release of Slickly AI — **${COMMIT_COUNT} commits**."
             fi
             echo ""
             cat CHANGELOG_SECTION.md
@@ -485,7 +484,7 @@ jobs:
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || (github.event_name == 'workflow_dispatch' && inputs.version != '' && format('v{0}', inputs.version) || format('v1.0.{0}', github.run_number)) }}
           target_commitish: ${{ github.sha }}
-          name: Cleverly ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || (github.event_name == 'workflow_dispatch' && inputs.version != '' && format('v{0}', inputs.version) || format('v1.0.{0}', github.run_number)) }}
+          name: Slickly AI ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || (github.event_name == 'workflow_dispatch' && inputs.version != '' && format('v{0}', inputs.version) || format('v1.0.{0}', github.run_number)) }}
           draft: false
           prerelease: false
           body_path: RELEASE_BODY.md
