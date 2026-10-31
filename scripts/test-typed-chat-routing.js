@@ -15,7 +15,7 @@ const handler = main.slice(handlerStart, handlerEnd);
 assert.match(handler, /await this\.processWithLLM\(/, 'IPC must await actual chat processing');
 assert.doesNotMatch(handler, /\(async \(\) =>/, 'IPC must not fire-and-forget and report success early');
 assert.match(handler, /return \{ success: false, error:/, 'IPC must report failures instead of silently swallowing them');
-assert.match(handler, /return \\{ success: true, response: result\\.response/, 'IPC must return the generated answer to the renderer');
+assert.ok(handler.includes('return { success: true, response: result.response'), 'IPC must return the generated answer to the renderer');
 
 const processStart = main.indexOf('async processWithLLM(');
 assert.notEqual(processStart, -1, 'typed-chat processing method must exist');
