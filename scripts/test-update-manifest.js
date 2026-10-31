@@ -20,7 +20,7 @@ try {
     const result = createManifest(item.platform, "1.2.3", dir);
     assert.equal(path.basename(result.output), item.name);
     const yaml = fs.readFileSync(result.output, "utf8");
-    assert.match(yaml, /version: "1\\.2\\.3"/);
+    assert.match(yaml, /version: "1\.2\.3"/);
     for (const artifact of item.artifacts.filter(name => item.platform !== "win" || name.includes("Setup"))) {
       assert.ok(yaml.includes(artifact), "manifest should include " + artifact);
       const bytes = fs.readFileSync(path.join(dir, artifact));
