@@ -67,7 +67,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends xvfb xauth libgtk-3-0 libnss3 libxss1 libasound2t64 libgbm1
 
+      # PRs run the authoritative production desktop E2E in verify-v175.yml.
+      # Avoid duplicate quota-consuming provider calls from parallel workflows.
       - name: Run real desktop UI screen-AI E2E
+        if: github.event_name != 'pull_request'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: xvfb-run -a npm run test:screen-ai-desktop-e2e
@@ -75,13 +78,13 @@ jobs:
       # These checks are release gates: main pushes also publish releases, so they must run
       # before any main-branch release. Missing credentials or an unreachable hosted endpoint must fail closed.
       - name: Run live hosted screen-vision test
-        if: always()
+        if: github.event_name != 'pull_request'
         run: npm run test:screen-vision-live
 
       # Real Gemini calls are required before a tag/manual release build can proceed.
       # Configure GEMINI_API_KEY in repository Actions secrets; never print the key.
       - name: Run live Gemini chat regression tests
-        if: always()
+        if: github.event_name != 'pull_request'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         shell: bash
