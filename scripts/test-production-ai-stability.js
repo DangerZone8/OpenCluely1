@@ -7,7 +7,8 @@ const crypto = require('node:crypto');
 
 const endpoint = process.env.SLICKLY_DIAGNOSTIC_ENDPOINT || 'https://cleverly-lime.vercel.app/api/gemini';
 const durationMs = Number(process.env.SLICKLY_DIAGNOSTIC_DURATION_MS || 150000);
-const intervalMs = Number(process.env.SLICKLY_DIAGNOSTIC_INTERVAL_MS || 8000);
+const intervalMs = Number(process.env.SLICKLY_DIAGNOSTIC_INTERVAL_MS || 25000);
+const initialDelayMs = Number(process.env.SLICKLY_DIAGNOSTIC_INITIAL_DELAY_MS || 0);
 const expectedRevision = process.env.SLICKLY_EXPECTED_API_REVISION || 'v175-fast-chat-2026-10-27-k';
 const image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lS8AAAAASUVORK5CYII=';
 
@@ -65,7 +66,11 @@ async function request(feature, index) {
 }
 
 async function main() {
-  console.log(JSON.stringify({ event: 'start', endpoint, durationMs, intervalMs, expectedRevision }));
+  console.log(JSON.stringify({ event: 'start', endpoint, durationMs, intervalMs, initialDelayMs, expectedRevision }));
+  if (initialDelayMs > 0) {
+    console.log(JSON.stringify({ event: 'cooldown', delayMs: initialDelayMs, reason: 'Allow preceding real desktop E2E requests to leave the provider rate-limit window.' }));
+    await new Promise(resolve => setTimeout(resolve, initialDelayMs));
+  }
   const started = Date.now();
   const results = [];
   let index = 0;
