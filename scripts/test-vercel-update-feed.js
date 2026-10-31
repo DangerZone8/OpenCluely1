@@ -1,12 +1,12 @@
 "use strict";
 const assert = require("node:assert/strict");
-const handler = require("../api/updates/[...path].js");
+const handler = require("../api/updates/[...path].js");\nconst fs = require("node:fs");\nconst path = require("node:path");
 function response() {
   return { statusCode: 200, headers: {}, body: undefined,
     setHeader(k, v) { this.headers[k.toLowerCase()] = v; },
     end(body) { this.body = body; } };
 }
-async function run() {
+async function run() {\n  const downloadPage = fs.readFileSync(path.join(__dirname, "../web/index.html"), "utf8");\n  assert.match(downloadPage, /function downloadUrl\\(asset\\)/);\n  assert.match(downloadPage, /return "\\/api\\/updates\\/" \\+ encodeURIComponent\\(asset\\.name\\)/);\n  assert.match(downloadPage, /recommended\\.href = downloadUrl\\(selected\\)/);\n  assert.doesNotMatch(downloadPage, /href = asset\\.browser_download_url/);
   const originalFetch = global.fetch;
   const assets = [
     { name: "latest.yml", browser_download_url: "https://github.com/DangerZone8/OpenCluely1/releases/download/v9.9.9/latest.yml" },
