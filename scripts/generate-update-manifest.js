@@ -8,8 +8,8 @@ function yamlQuote(value) { return JSON.stringify(value); }
 function createManifest(platform, version, directory) {
   const config = {
     win: { name: "latest.yml", files: file => /^Slickly-AI-Setup-.*\.exe$/i.test(file) },
-    mac: { name: "latest-mac.yml", files: file => /^Slickly[ .]AI-.*(?:-mac)?\\.zip$/i.test(file) }
-    linux: { name: "latest-linux.yml", files: file => /^Slickly[ .]AI-.*\\.AppImage$/i.test(file) }
+    mac: { name: "latest-mac.yml", files: file => /^Slickly[ .]AI-.*(?:-mac)?\.zip$/i.test(file) },
+    linux: { name: "latest-linux.yml", files: file => /^Slickly[ .]AI-.*\.AppImage$/i.test(file) }
   }[platform];
   if (!config) throw new Error("Unsupported platform: " + platform);
   const names = fs.readdirSync(directory).filter(config.files).sort();
