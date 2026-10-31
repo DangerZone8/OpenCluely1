@@ -15,6 +15,7 @@ const handler = main.slice(handlerStart, handlerEnd);
 assert.match(handler, /await this\.processWithLLM\(/, 'IPC must await actual chat processing');
 assert.doesNotMatch(handler, /\(async \(\) =>/, 'IPC must not fire-and-forget and report success early');
 assert.match(handler, /return \{ success: false, error:/, 'IPC must report failures instead of silently swallowing them');
+assert.match(handler, /return \\{ success: true, response: result\\.response/, 'IPC must return the generated answer to the renderer');
 
 const processStart = main.indexOf('async processWithLLM(');
 assert.notEqual(processStart, -1, 'typed-chat processing method must exist');
@@ -48,7 +49,7 @@ console.log('PASS: typed and spoken chat use the general assistant; failures are
 const chatUi = fs.readFileSync(path.join(__dirname, '..', 'chat.html'), 'utf8');
 const submitStart = chatUi.indexOf('async function submitChatMessage()');
 assert.notEqual(submitStart, -1, 'chat renderer must have one shared typed-message submission function');
-const submitEnd = chatUi.indexOf('\n\n      if (sendButton) {', submitStart);
+const submitEnd = chatUi.indexOf("      if (sendButton) {\n        sendButton.addEventListener('click', submitChatMessage);", submitStart);
 assert.notEqual(submitEnd, -1, 'shared typed-message submission function must have a clear boundary');
 const submitMethod = chatUi.slice(submitStart, submitEnd);
 assert.ok(submitMethod.includes('await whysperAPI.sendChatMessage('), 'typed chat must await the IPC result');
