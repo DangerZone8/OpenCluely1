@@ -18,7 +18,7 @@ module.exports = async function updateFeed(req, res) {
   }
   try {
     const releaseResponse = await fetch(RELEASE_API, {
-      headers: { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" }
+      headers: { Accept: "application/vnd.github+json", "User-Agent": "Slickly-AI-Vercel-Update-Feed", "X-GitHub-Api-Version": "2022-11-28" }
     });
     if (!releaseResponse.ok) return reply(res, releaseResponse.status === 404 ? 404 : 502, "Latest release metadata unavailable", { "Cache-Control": "no-store" });
     const release = await releaseResponse.json();
