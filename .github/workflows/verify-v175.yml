@@ -148,7 +148,7 @@ jobs:
     name: Diagnose chat and screen AI stability over 2.5 minutes
     # Run after the desktop E2E to avoid concurrent requests exhausting the shared Gemini quota.
     needs: [source-checks, desktop-screen-ai-e2e]
-    if: always() && needs.source-checks.result == 'success' && (github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch'))
+    if: always() && needs.source-checks.result == 'success' && (github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')))
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
