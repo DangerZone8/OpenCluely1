@@ -572,6 +572,9 @@ jobs:
           echo "--- Files selected for release ---"
           ls -la release/
 
+      - name: Verify complete cross-platform release payload and updater manifests
+        run: node scripts/verify-release-payload.js release
+
       - name: Generate SHA256 checksums
         working-directory: release
         run: |
