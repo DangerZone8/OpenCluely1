@@ -7,7 +7,7 @@
     "start": "node scripts/launch-electron.js",
     "dev": "node scripts/launch-electron.js --no-sandbox --disable-gpu",
     "test-speech": "node scripts/test-speech.js",
-    "check": "node scripts/test-screen-ai-ui-route.js && node scripts/check-syntax.js && node scripts/test-typed-chat-routing.js && node scripts/test-image-network-fallback.js && node scripts/test-gemini-fallback.js && node scripts/test-keyless-ai.js && node scripts/test-built-in-audio.js && node scripts/check-ipc-contract.js && node scripts/check-crash-handling.js && node scripts/test-update-env.js && node scripts/check-overlay-visibility.js && node scripts/test-capture-service.js && node scripts/test-chat-window-movable.js && node scripts/test-general-assistant-chat.js && node scripts/test-chat-overlay-route.js",
+    "check": "node scripts/test-provider-adapter.js && node scripts/test-screen-ai-ui-route.js && node scripts/check-syntax.js && node scripts/test-typed-chat-routing.js && node scripts/test-image-network-fallback.js && node scripts/test-gemini-fallback.js && node scripts/test-keyless-ai.js && node scripts/test-built-in-audio.js && node scripts/check-ipc-contract.js && node scripts/check-crash-handling.js && node scripts/test-update-env.js && node scripts/check-overlay-visibility.js && node scripts/test-capture-service.js && node scripts/test-chat-window-movable.js && node scripts/test-general-assistant-chat.js && node scripts/test-chat-overlay-route.js && node scripts/test-vercel-update-feed.js && node scripts/test-update-manifest.js",
     "test:gemini-live": "node scripts/test-gemini-live-chat.js",
     "build": "electron-builder",
     "build:mac": "electron-builder --mac",
@@ -42,7 +42,8 @@
     "node-record-lpcm16": "^1.0.1",
     "prismjs": "^1.30.0",
     "winston": "^3.17.0",
-    "winston-daily-rotate-file": "^4.7.1"
+    "winston-daily-rotate-file": "^4.7.1",
+    "electron-updater": "^6.6.2"
   },
   "devDependencies": {
     "electron": "^44.7.2",
@@ -172,6 +173,12 @@
         "width": 600,
         "height": 400
       }
-    }
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://slicklyai.vercel.app/api/updates/"
+      }
+    ]
   }
 }

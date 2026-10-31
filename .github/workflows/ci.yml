@@ -60,6 +60,12 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npm run build:${{ matrix.script }} -- --publish never
 
+      - name: Generate and verify platform update manifest
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          node scripts/generate-update-manifest.js --platform "${{ matrix.script }}" --version "$VERSION" --dir dist
+
       - name: Verify Windows installer packages were built
         if: matrix.os == 'windows-latest'
         shell: bash

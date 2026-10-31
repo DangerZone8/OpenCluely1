@@ -963,7 +963,7 @@
             audioSegmentRotation = false;
             addMessage('Could not rotate the live audio segment: ' + error.message, 'error');
           }
-        }, 6000);
+        }, 60000);
       }
 
       async function startBuiltInAudioCapture(stream, sourceLabel, cleanupStream = stream) {
@@ -1036,7 +1036,7 @@
           systemAudioListenBtn.classList.add('recording');
         }
         showListeningAnimation();
-        addMessage('Live listening to ' + sourceLabel + '. Slickly AI sends recent audio to Gemini about every 6 seconds while listening; click again to stop.', 'system');
+        addMessage('Live listening to ' + sourceLabel + '. Slickly AI captures up to 60 seconds per audio segment, then transcribes and answers it while listening; click again to stop.', 'system');
         scheduleAudioSegmentRotation(stream, sourceLabel);
       }
 
