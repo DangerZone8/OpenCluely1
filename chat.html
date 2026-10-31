@@ -1838,28 +1838,47 @@
         });
       }
 
-      if (sendButton) {
-        sendButton.addEventListener('click', async () => {
-          const text = messageInput.value.trim();
-          if (text) {
-            addMessage(text, 'user');
-            messageInput.value = '';
-            
-            // Show thinking indicator after user message
-            setTimeout(() => {
-              showThinkingIndicator();
-            }, 300);
-            
-            // Send to main process for session memory storage and LLM processing
-            try {
-              if (whysperAPI && whysperAPI.sendChatMessage) {
-                await whysperAPI.sendChatMessage(buildChatPromptWithScreenContext(text));
-              }
-            } catch (error) {
-              console.error('Failed to send chat message to main process:', error);
-            }
+      // Use the IPC result as the authoritative typed-chat response. The main
+      // process streams on transcription-llm-response-* channels, which are
+      // intentionally separate from the legacy llm-response event used by
+      // screenshot flows. Rendering the returned result here keeps typed
+      // answers in this chat window and makes IPC failures visible.
+      let chatSubmissionInFlight = false;
+      async function submitChatMessage() {
+        if (!messageInput || chatSubmissionInFlight) return;
+        const text = messageInput.value.trim();
+        if (!text) return;
+
+        chatSubmissionInFlight = true;
+        if (sendButton) sendButton.disabled = true;
+        addMessage(text, 'user');
+        messageInput.value = '';
+        autoGrow(messageInput);
+        showThinkingIndicator();
+
+        try {
+          if (!whysperAPI || typeof whysperAPI.sendChatMessage !== 'function') {
+            throw new Error('Chat service is unavailable in this window. Restart Slickly AI and try again.');
           }
-        });
+          const result = await whysperAPI.sendChatMessage(buildChatPromptWithScreenContext(text));
+          hideThinkingIndicator();
+          if (!result || result.success !== true || typeof result.response !== 'string' || !result.response.trim()) {
+            throw new Error(result?.error || 'Slickly AI did not return an answer. Please try again.');
+          }
+          renderAssistantResponse(result.response);
+        } catch (error) {
+          hideThinkingIndicator();
+          console.error('Failed to send chat message to main process:', error);
+          addMessage('Could not get an answer: ' + (error.message || String(error)), 'error');
+        } finally {
+          chatSubmissionInFlight = false;
+          if (sendButton) sendButton.disabled = false;
+          messageInput && messageInput.focus();
+        }
+      }
+
+      if (sendButton) {
+        sendButton.addEventListener('click', submitChatMessage);
       }
 
       // Auto-resize for multiline textarea
@@ -1874,27 +1893,14 @@
         messageInput.addEventListener('input', () => autoGrow(messageInput));
       }
 
-      // Replace keypress with keydown to support Shift+Enter for newline and Enter to send
+      // Enter and the Send button share one guarded submission path.
       if (messageInput) {
-        messageInput.addEventListener('keydown', async (e) => {
+        messageInput.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            const text = messageInput.value.trim();
-            if (text) {
-              addMessage(text, 'user');
-              messageInput.value = '';
-              autoGrow(messageInput);
-              setTimeout(() => { showThinkingIndicator(); }, 300);
-              try {
-                if (whysperAPI && whysperAPI.sendChatMessage) {
-                  await whysperAPI.sendChatMessage(buildChatPromptWithScreenContext(text));
-                }
-              } catch (error) {
-                console.error('Failed to send chat message to main process:', error);
-              }
-            }
+            submitChatMessage();
           }
-          // If Shift+Enter, allow default to insert newline
+          // Shift+Enter keeps its normal newline behavior.
         });
       }
 
