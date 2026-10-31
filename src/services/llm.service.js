@@ -1682,7 +1682,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
       contents: [{
         role: 'user',
         parts: [
-          { text: 'Listen to the complete audio clip. First provide a faithful transcript of all audible speech, preserving the speaker's wording and marking genuinely unclear words rather than guessing. Then identify any question or request in the transcript and answer it directly. Include a concise explanation or rationale where useful, but do not provide hidden internal chain-of-thought. Keep the transcript, answer, and brief explanation clearly separated. If the clip contains multiple questions or requests, address each one in order. If there is no speech, briefly describe the audible sound.' },
+          { text: "Listen to the complete audio clip. First provide a faithful transcript of all audible speech, preserving the speaker's wording and marking genuinely unclear words rather than guessing. Then identify any question or request in the transcript and answer it directly. Include a concise explanation or rationale where useful, but do not provide hidden internal chain-of-thought. Keep the transcript, answer, and brief explanation clearly separated. If the clip contains multiple questions or requests, address each one in order. If there is no speech, briefly describe the audible sound." },
           { inlineData: { mimeType, data: audioBuffer.toString('base64') } }
         ]
       }]
