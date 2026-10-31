@@ -27,11 +27,12 @@ try {
 
   const windowsManifest = path.join(root, 'latest.yml');
   const original = fs.readFileSync(windowsManifest, 'utf8');
-  fs.unlinkSync(path.join(root, 'Slickly-AI-Setup-1.2.3.exe'));
+  fs.writeFileSync(windowsManifest, original
+    .replaceAll('Slickly-AI-Setup-1.2.3.exe', 'Slickly-AI-Setup-missing.exe'));
   assert.throws(() => verifyReleasePayload(root), /references missing artifact/);
+  fs.writeFileSync(windowsManifest, original);
   fs.writeFileSync(path.join(root, 'Slickly-AI-Setup-1.2.3.exe'), Buffer.from('different content'));
   assert.throws(() => verifyReleasePayload(root), /size mismatch|SHA-512 mismatch/);
-  fs.writeFileSync(windowsManifest, original);
   console.log('PASS: release payload gate detects missing platform artifacts, missing manifest targets, and size/hash mismatches.');
 } finally {
   fs.rmSync(root, { recursive: true, force: true });
