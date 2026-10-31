@@ -2,6 +2,7 @@ const path = require("path");
 const fs = require("fs");
 const { fileURLToPath } = require("url");
 const { app, BrowserWindow, globalShortcut, session, ipcMain, dialog, desktopCapturer } = require("electron");
+const { autoUpdater } = require("electron-updater");
 
 // ── Resolve a stable .env location ──
 // In packaged builds process.cwd() is unstable and frequently read-only
@@ -212,6 +213,7 @@ class ApplicationController {
         }, { useSystemPicker: false });
       }
       await this.onAppReady();
+      this.startAutoUpdates();
       if (process.env.CLEVERLY_E2E_SCREEN_CAPTURE === "1") {
         // Expose the real chat renderer only in the desktop E2E run.
         windowManager.showChatWindow();
@@ -369,6 +371,39 @@ class ApplicationController {
         logger.error("No usable main window exists; exiting after startup failure");
         app.quit();
       }
+    }
+  }
+
+  startAutoUpdates() {
+    // Auto-update only in installed builds. Development runs and CI's unpacked
+    // Electron UI tests must never contact the release feed or install updates.
+    if (!app.isPackaged || process.env.CI === "true" || process.env.SLICKLY_DISABLE_AUTO_UPDATE === "1") return;
+    try {
+      autoUpdater.autoDownload = true;
+      autoUpdater.autoInstallOnAppQuit = true;
+      autoUpdater.allowPrerelease = false;
+      autoUpdater.logger = logger;
+      autoUpdater.on("checking-for-update", () => logger.info("Checking for Slickly AI updates"));
+      autoUpdater.on("update-available", info => logger.info("Slickly AI update available", { version: info.version }));
+      autoUpdater.on("update-not-available", info => logger.info("Slickly AI is up to date", { version: info.version }));
+      autoUpdater.on("download-progress", progress => logger.info("Slickly AI update download progress", {
+        percent: Math.round(progress.percent || 0),
+        transferred: progress.transferred,
+        total: progress.total
+      }));
+      autoUpdater.on("update-downloaded", info => logger.info("Slickly AI update downloaded; it will install on quit", { version: info.version }));
+      autoUpdater.on("error", error => logger.warn("Slickly AI auto-update check/download failed", { error: error.message }));
+      autoUpdater.checkForUpdatesAndNotify().catch(error => {
+        logger.warn("Initial Slickly AI auto-update check failed", { error: error.message });
+      });
+      const timer = setInterval(() => {
+        autoUpdater.checkForUpdates().catch(error => {
+          logger.warn("Scheduled Slickly AI auto-update check failed", { error: error.message });
+        });
+      }, 6 * 60 * 60 * 1000);
+      timer.unref?.();
+    } catch (error) {
+      logger.warn("Could not initialize Slickly AI auto-updates", { error: error.message });
     }
   }
 
@@ -830,7 +865,10 @@ class ApplicationController {
         if (!result || result.success === false) {
           return { success: false, error: result?.error || "Slickly AI could not complete the message." };
         }
-        return { success: true };
+        if (typeof result.response !== "string" || !result.response.trim()) {
+          return { success: false, error: "Slickly AI returned an empty response." };
+        }
+        return { success: true, response: result.response, metadata: result.metadata || {} };
       } catch (error) {
         logger.error("Failed to process chat message with LLM", {
           error: error.message,
@@ -1821,7 +1859,12 @@ class ApplicationController {
         (process.env.WHISPER_MANUAL_CAPTURE === "true" ? "manual" : "vad"),
       whisperResponseTarget: process.env.WHISPER_RESPONSE_TARGET || "both",
       whisperSegmentMs: process.env.WHISPER_SEGMENT_MS || "4000",
+      aiProvider: process.env.AI_PROVIDER || "gemini",
+      aiModel: process.env[({ gemini: "GEMINI_MODEL", openai: "OPENAI_MODEL", xai: "XAI_MODEL", anthropic: "ANTHROPIC_MODEL" }[process.env.AI_PROVIDER || "gemini"])] || "",
       geminiKey: process.env.GEMINI_API_KEY || "",
+      openaiKey: process.env.OPENAI_API_KEY || "",
+      xaiKey: process.env.XAI_API_KEY || "",
+      anthropicKey: process.env.ANTHROPIC_API_KEY || "",
 
       azureConfigured: !!process.env.AZURE_SPEECH_KEY && !!process.env.AZURE_SPEECH_REGION,
       speechAvailable: this.speechAvailable
@@ -1890,9 +1933,19 @@ class ApplicationController {
       if (settings.whisperSegmentMs !== undefined) {
         envUpdates.WHISPER_SEGMENT_MS = String(settings.whisperSegmentMs);
       }
-      if (settings.geminiKey !== undefined) {
-        envUpdates.GEMINI_API_KEY = settings.geminiKey;
+      if (settings.geminiKey !== undefined) envUpdates.GEMINI_API_KEY = settings.geminiKey;
+      if (["gemini", "openai", "xai", "anthropic"].includes(settings.aiProvider)) {
+        envUpdates.AI_PROVIDER = settings.aiProvider;
       }
+      if (settings.aiModel !== undefined) {
+        const selectedProvider = ["gemini", "openai", "xai", "anthropic"].includes(settings.aiProvider)
+          ? settings.aiProvider : (process.env.AI_PROVIDER || "gemini");
+        const modelEnv = { gemini: "GEMINI_MODEL", openai: "OPENAI_MODEL", xai: "XAI_MODEL", anthropic: "ANTHROPIC_MODEL" }[selectedProvider];
+        if (modelEnv) envUpdates[modelEnv] = String(settings.aiModel || "").trim();
+      }
+      if (settings.openaiKey !== undefined) envUpdates.OPENAI_API_KEY = settings.openaiKey;
+      if (settings.xaiKey !== undefined) envUpdates.XAI_API_KEY = settings.xaiKey;
+      if (settings.anthropicKey !== undefined) envUpdates.ANTHROPIC_API_KEY = settings.anthropicKey;
 
       // Capture the previous whisper command BEFORE persisting — persistEnvUpdates
       // mutates process.env in place, so comparing afterwards would always read
@@ -1907,14 +1960,16 @@ class ApplicationController {
       // connection button in the onboarding wizard fails with
       // "Service not initialized" because the client was first created
       // at app startup, before any key was set.
-      if (settings.geminiKey !== undefined && envUpdates.GEMINI_API_KEY !== undefined) {
+      const aiSettingsChanged = ["geminiKey", "openaiKey", "xaiKey", "anthropicKey", "aiProvider", "aiModel"]
+        .some(key => settings[key] !== undefined);
+      if (aiSettingsChanged) {
         try {
           llmService.initializeClient();
-          logger.info("LLM service reinitialized after Gemini key update");
-        } catch (e) {
-          logger.warn("Failed to reinitialize LLM service after Gemini key update", {
-            error: e.message
+          logger.info("LLM service reinitialized after AI provider settings update", {
+            provider: process.env.AI_PROVIDER || "gemini"
           });
+        } catch (e) {
+          logger.warn("Failed to reinitialize LLM service after AI settings update", { error: e.message });
         }
       }
 
