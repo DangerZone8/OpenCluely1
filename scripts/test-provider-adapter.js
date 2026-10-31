@@ -61,10 +61,12 @@ function jsonResponse(body, status = 200) {
       const payload = JSON.parse(options.body);
       assert.equal(payload.model, 'test-model');
       assert.ok(payload.messages.length > 0);
+      const userMessage = payload.messages.find(message => message.role === 'user');
+      assert.ok(userMessage, provider + ' user message should be present');
       if (provider === 'anthropic') {
-        assert.ok(payload.messages[0].content.some(part => part.type === 'image'));
+        assert.ok(userMessage.content.some(part => part.type === 'image'));
       } else {
-        assert.ok(payload.messages[0].content.some(part => part.type === 'image_url'));
+        assert.ok(userMessage.content.some(part => part.type === 'image_url'));
       }
       return jsonResponse(body);
     });
