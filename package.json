@@ -176,9 +176,8 @@
     },
     "publish": [
       {
-        "provider": "github",
-        "owner": "DangerZone8",
-        "repo": "OpenCluely1"
+        "provider": "generic",
+        "url": "https://slicklyai.vercel.app/api/updates/"
       }
     ]
   }
