@@ -15,6 +15,8 @@ class LLMService {
     this.installationId = null;
     this.requestCount = 0;
     this.errorCount = 0;
+    // Most recently observed screen summary, kept in memory for follow-up questions.
+    this.lastScreenContext = null;
     
     this.initializeClient();
   }
@@ -709,7 +711,7 @@ class LLMService {
       contents.push({ role: 'user', parts: [{ text: String(text) }] });
     }
     const request = {
-      systemInstruction: { parts: [{ text: "You are Slickly AI, the AI assistant. If asked your name directly or indirectly, identify yourself as Slickly AI and never as OpenCluely. Respond naturally to everyday conversation, writing, explanations, brainstorming, technology, and programming questions. Do not assume every message is a data-structures-and-algorithms problem. Only provide code when relevant. Respond conversationally to greetings and informal phrases. Use the conversation history to understand follow-up questions, avoid repeating questions already answered, and maintain context." }] },
+      systemInstruction: { parts: [{ text: "You are Slickly AI, the AI assistant. If asked your name directly or indirectly, identify yourself as Slickly AI and never as OpenCluely. Respond naturally to everyday conversation, writing, explanations, brainstorming, technology, and programming questions. Do not assume every message is a data-structures-and-algorithms problem. Only provide code when relevant. Respond conversationally to greetings and informal phrases. Use the conversation history to understand follow-up questions, avoid repeating questions already answered, and maintain context." + (this.lastScreenContext && Date.now() - this.lastScreenContext.timestamp < 30 * 60 * 1000 ? "\n\nRECENT SCREEN CONTEXT (observed by the user-authorized screen capture):\n" + this.lastScreenContext.summary + "\nUse this visual context to resolve follow-up references such as 'that question', 'the code', 'the error', or 'what I was looking at'. Answer the user's actual question using the observed details. Do not claim the screen is still live; this is the most recently captured snapshot." : '') }] },
       contents
     };
     this.applyGenerationDefaults(request);
@@ -1641,18 +1643,20 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
       throw new Error('Unsupported screen image format: ' + mimeType);
     }
     const request = {
-      systemInstruction: { parts: [{ text: 'You are Slickly AI, a real-time visual assistant. Carefully inspect the supplied current screen frame. Describe only relevant visible content, answer visible questions when possible, and do not claim to see anything outside the image. In live mode, mention meaningful changes and avoid repeating the same generic description.' }] },
+      systemInstruction: { parts: [{ text: 'You are Slickly AI, a screen-aware assistant. Inspect the supplied frame carefully and ground every statement in visible evidence. Identify the important content and preserve details needed for follow-up questions: exact problem statements, code, error messages, UI labels, numbers, constraints, and surrounding context. If the screen contains a question or task, do not merely read or summarize it: solve it or answer it when possible, explain the reasoning, and state assumptions. If the user has not asked a specific question, give a concise but information-rich description that can support a later question. Never invent unreadable text or claim to see content outside the supplied frame.' }] },
       contents: [{
         role: 'user',
         parts: [
-          { text: instruction || 'Look at the current screen and explain what is happening or answer the question visible on screen. If the user has not asked a specific question, briefly summarize the important visible content.' },
+          { text: instruction || 'Inspect this screen. Describe the important visible content and answer any question or task shown. Preserve enough specific detail to answer follow-up questions about this exact screen.' },
           { inlineData: { mimeType, data: imageBuffer.toString('base64') } }
         ]
       }]
     };
-    this.applyGenerationDefaults(request, { maxOutputTokens: 1200 });
+    this.applyGenerationDefaults(request, { maxOutputTokens: 2400 });
     const response = await this.executeRequest(request);
     if (!response || !response.trim()) throw new Error('Gemini returned no screen analysis.');
+    // Keep a bounded, text-only summary in process memory for follow-up questions.
+    this.lastScreenContext = { summary: response.trim().slice(0, 16000), timestamp: Date.now() };
     return { response: response.trim(), mimeType, bytes: imageBuffer.length };
   }
 
