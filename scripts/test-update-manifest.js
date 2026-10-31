@@ -10,8 +10,8 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), "slickly-update-manifest-"));
 try {
   const cases = [
     { platform: "win", name: "latest.yml", artifacts: ["Slickly-AI-Setup-1.2.3.exe", "Slickly-AI-1.2.3.exe"] },
-    { platform: "mac", name: "latest-mac.yml", artifacts: ["Slickly.AI-1.2.3-mac.zip", "Slickly.AI-1.2.3-arm64-mac.zip"] },
-    { platform: "linux", name: "latest-linux.yml", artifacts: ["Slickly.AI-1.2.3.AppImage"] }
+    { platform: "mac", name: "latest-mac.yml", artifacts: ["Slickly AI-1.2.3-mac.zip", "Slickly.AI-1.2.3-arm64-mac.zip"] },
+    { platform: "linux", name: "latest-linux.yml", artifacts: ["Slickly AI-1.2.3.AppImage"] }
   ];
   for (const item of cases) {
     const dir = path.join(root, item.platform);
