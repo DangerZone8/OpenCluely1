@@ -17,12 +17,12 @@ async function run() {
     global.fetch = async url => {
       if (String(url).includes("/releases/latest")) return { ok: true, status: 200, json: async () => ({ assets }) };
       assert.equal(String(url), assets[0].browser_download_url);
-      return { ok: true, text: async () => "version: 9.9.9\\npath: Slickly-AI-Setup-9.9.9.exe\\n" };
+      return { ok: true, text: async () => "version: 9.9.9\npath: Slickly-AI-Setup-9.9.9.exe\n" };
     };
     const manifest = response();
     await handler({ method: "GET", query: { path: ["latest.yml"] } }, manifest);
     assert.equal(manifest.statusCode, 200);
-    assert.match(manifest.body, /version: 9\\.9\\.9/);
+    assert.match(manifest.body, /version: 9\.9\.9/);
     assert.match(manifest.headers["content-type"], /yaml/);
 
     const installer = response();
