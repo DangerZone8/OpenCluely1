@@ -238,6 +238,20 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npm run build:${{ matrix.script }} -- --publish never
 
+      - name: Generate platform auto-update manifest
+        shell: bash
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            VERSION="$REQUESTED_VERSION"
+          else
+            VERSION="1.0.${GITHUB_RUN_NUMBER}"
+          fi
+          node scripts/generate-update-manifest.js --platform "${{ matrix.script }}" --version "$VERSION" --dir dist
+
       - name: Launch packaged Windows app smoke test
         if: matrix.os == 'windows-latest'
         shell: pwsh
