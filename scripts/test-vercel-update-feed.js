@@ -2,6 +2,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 const handler = require("../api/updates/[...path].js");
 
 function response() {
@@ -16,6 +17,9 @@ function response() {
 
 async function run() {
   const downloadPage = fs.readFileSync(path.join(__dirname, "../web/index.html"), "utf8");
+  const inlineScripts = [...downloadPage.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/gi)];
+  assert.ok(inlineScripts.length > 0, "download page must contain its release-loader script");
+  assert.doesNotThrow(() => new vm.Script(inlineScripts[inlineScripts.length - 1][1]), "download-page JavaScript must parse before browser execution");
   assert.match(downloadPage, /function downloadUrl\(asset\)/);
   assert.ok(downloadPage.includes('return "/api/updates/" + encodeURIComponent(asset.name);'));
   assert.ok(downloadPage.includes("recommended.href = downloadUrl(selected);"));
