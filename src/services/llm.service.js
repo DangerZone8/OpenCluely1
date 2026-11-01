@@ -1481,6 +1481,27 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
           const errorInfo = this.analyzeError(error);
           lastError = error;
 
+          // A stale or invalid local BYOK key must not permanently disable
+          // the hosted Slickly service. Authentication failures are not fixed
+          // by retrying or changing models, so stop direct attempts and retry
+          // the same request through the server-side managed key.
+          if (errorInfo.type === 'AUTH_ERROR') {
+            logger.warn('Local Gemini authentication failed; falling back to hosted Slickly AI', {
+              model: modelName,
+              errorType: errorInfo.type
+            });
+            try {
+              const text = await this.executeRemoteRequest(geminiRequest, modelName);
+              if (typeof onDelta === 'function' && text) onDelta(text);
+              return text;
+            } catch (proxyError) {
+              logger.warn('Hosted AI fallback also failed after local Gemini authentication error', {
+                error: proxyError.message
+              });
+              throw new Error('The configured local Gemini API key was rejected, and hosted Slickly AI fallback failed: ' + proxyError.message);
+            }
+          }
+
           logger.warn(`Gemini streaming attempt ${attempt} failed for model ${modelName}`, {
             error: error.message,
             errorType: errorInfo.type,
@@ -1743,8 +1764,11 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
     }
     
     // API key errors
-    if (errorMessage.includes('unauthorized') || 
+    if (errorMessage.includes('unauthorized') ||
         errorMessage.includes('invalid api key') ||
+        errorMessage.includes('api key not valid') ||
+        errorMessage.includes('api_key_invalid') ||
+        errorMessage.includes('invalid_argument') ||
         errorMessage.includes('forbidden')) {
       return {
         type: 'AUTH_ERROR',
