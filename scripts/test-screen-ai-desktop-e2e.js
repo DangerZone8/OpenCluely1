@@ -150,7 +150,9 @@ async function main() {
     // Only the OS-native display picker is replaced because CI has no interactive user.
     const displayStub = await evaluate(`(() => {
       if (!navigator.mediaDevices?.getDisplayMedia) throw new Error('getDisplayMedia is unavailable');
+      let displaySession = 0;
       navigator.mediaDevices.getDisplayMedia = async () => {
+        const session = ++displaySession;
         const canvas = document.createElement('canvas');
         canvas.width = 1280; canvas.height = 720;
         const context = canvas.getContext('2d');
@@ -162,7 +164,10 @@ async function main() {
           context.font = 'bold 42px sans-serif';
           context.fillText('Slickly AI Desktop Screen AI E2E', 60, 110);
           context.font = '30px sans-serif';
-          context.fillText('Question: A number plus 7 equals 19. What is the number?', 60, 180);
+          context.fillText(session === 1
+            ? 'Question: A number plus 7 equals 19. What is the number?'
+            : 'LIVE MONITOR CHECK: What is 18 plus 24? Answer the live task.',
+            60, 180);
           context.fillText('Fresh test frame: ' + (++frame), 60, 240);
         };
         paint();
@@ -197,6 +202,7 @@ async function main() {
     assert.ok(liveStarted.recording || /stop live screen ai/i.test(liveStarted.title || ''),
       'Live Screen AI button did not enter active state: ' + JSON.stringify(liveStarted));
     const live = await waitForResult(before, 100000, 'Live Screen AI');
+    assert.match(live.response, /\b42\b/, 'Live Screen AI did not answer the fresh live-frame task: ' + live.response);
     console.log('PASS Live Screen AI initial frame:', live.response.slice(0, 240).replace(/\s+/g, ' '));
     // Run the quota-expensive 125-second soak only for a manually requested
     // verification. Every main push still clicks both real UI controls and checks

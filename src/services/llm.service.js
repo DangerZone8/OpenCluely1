@@ -3,6 +3,7 @@ const { GoogleGenAI } = require('@google/genai');
 const logger = require('../core/logger').createServiceLogger('LLM');
 const config = require('../core/config');
 const { promptLoader } = require('../../prompt-loader');
+const { getProvider, executeProviderRequest } = require('./provider-adapter');
 
 class LLMService {
   constructor() {
@@ -14,6 +15,8 @@ class LLMService {
     this.installationId = null;
     this.requestCount = 0;
     this.errorCount = 0;
+    // Most recently observed screen summary, kept in memory for follow-up questions.
+    this.lastScreenContext = null;
     
     this.initializeClient();
   }
@@ -22,10 +25,18 @@ class LLMService {
     this.client = null;
     this.isInitialized = false;
     this.remoteOnly = false;
+    const provider = getProvider();
+    if (provider.id !== 'gemini') {
+      this.model = provider.model;
+      this.remoteOnly = false;
+      this.isInitialized = true;
+      logger.info('Configured local AI provider', { provider: provider.id, model: provider.model, hasApiKey: Boolean(provider.apiKey) });
+      return;
+    }
     const apiKey = config.getApiKey('GEMINI');
     
     if (!apiKey || apiKey === 'your-api-key-here') {
-      this.model = config.get('llm.gemini.model');
+      this.model = provider.model || config.get('llm.gemini.model');
       this.remoteOnly = true;
       this.isInitialized = true;
       logger.info('No local Gemini key found; using the hosted Slickly AI AI service.');
@@ -82,13 +93,17 @@ class LLMService {
     // preventing multiple dead aliases from multiplying the wait indefinitely.
     // The hosted API now permits a bounded alternate-model attempt; give it
     // enough time to finish without allowing dead aliases to multiply latency.
-    const configuredTimeout = Math.max(config.get('llm.gemini.timeout') || 15000, 22000);
-    const totalTimeout = Math.max(20000, Math.min(configuredTimeout + 8000, 30000));
-    const deadline = Date.now() + totalTimeout;
-    const payload = JSON.stringify({ model: modelName, request: geminiRequest });
     const containsImage = (geminiRequest.contents || []).some(message =>
       Array.isArray(message?.parts) && message.parts.some(part => part && (part.inlineData || part.inline_data || part.fileData))
     );
+    // The Vercel vision handler can spend up to 26s on a provider call. The
+    // desktop client's old 22s endpoint budget aborted valid screen requests
+    // before the server's own deadline; keep enough headroom for the handler
+    // while retaining one global cap across endpoint failover.
+    const configuredTimeout = Math.max(config.get('llm.gemini.timeout') || 15000, containsImage ? 28000 : 27000);
+    const totalTimeout = Math.max(20000, Math.min(configuredTimeout + 2000, 30000));
+    const deadline = Date.now() + totalTimeout;
+    const payload = JSON.stringify({ model: modelName, request: geminiRequest });
     const headers = {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(payload),
@@ -269,8 +284,10 @@ class LLMService {
               }
               if (fallbackError.statusCode >= 500 && fallbackError.statusCode !== 429) {
                 networkFailures.push(new NodeURL(endpoint).host + ': HTTP ' + fallbackError.statusCode);
-                if (endpoint === primaryHostedEndpoint && !primaryRetryUsed) {
+                if (endpoint === primaryHostedEndpoint && !primaryRetryUsed && deadline - Date.now() > 1500) {
                   primaryRetryUsed = true;
+                  // A short backoff avoids an immediate repeat during transient edge/provider overload.
+                  await new Promise(resolve => setTimeout(resolve, 350 + Math.floor(Math.random() * 150)));
                   endpointIndex -= 1;
                 }
                 continue;
@@ -278,6 +295,12 @@ class LLMService {
               throw fallbackError;
             }
             networkFailures.push(new NodeURL(endpoint).host + ': ' + fallbackError.message);
+            if (endpoint === primaryHostedEndpoint && !primaryRetryUsed && deadline - Date.now() > 1500) {
+              primaryRetryUsed = true;
+              // Retry one transient network failure on the primary before abandoning it for aliases.
+              await new Promise(resolve => setTimeout(resolve, 350 + Math.floor(Math.random() * 150)));
+              endpointIndex -= 1;
+            }
             continue;
           }
         }
@@ -294,8 +317,9 @@ class LLMService {
           }
           if (response.status >= 500 && response.status !== 429) {
             networkFailures.push(new NodeURL(endpoint).host + ': HTTP ' + response.status);
-            if (endpoint === primaryHostedEndpoint && !primaryRetryUsed) {
+            if (endpoint === primaryHostedEndpoint && !primaryRetryUsed && deadline - Date.now() > 1500) {
               primaryRetryUsed = true;
+              await new Promise(resolve => setTimeout(resolve, 350 + Math.floor(Math.random() * 150)));
               endpointIndex -= 1;
             }
             continue;
@@ -687,7 +711,7 @@ class LLMService {
       contents.push({ role: 'user', parts: [{ text: String(text) }] });
     }
     const request = {
-      systemInstruction: { parts: [{ text: "You are Slickly AI, the AI assistant. If asked your name directly or indirectly, identify yourself as Slickly AI and never as OpenCluely. Respond naturally to everyday conversation, writing, explanations, brainstorming, technology, and programming questions. Do not assume every message is a data-structures-and-algorithms problem. Only provide code when relevant. Respond conversationally to greetings and informal phrases. Use the conversation history to understand follow-up questions, avoid repeating questions already answered, and maintain context." }] },
+      systemInstruction: { parts: [{ text: "You are Slickly AI, the AI assistant. If asked your name directly or indirectly, identify yourself as Slickly AI and never as OpenCluely. Respond naturally to everyday conversation, writing, explanations, brainstorming, technology, and programming questions. Do not assume every message is a data-structures-and-algorithms problem. Only provide code when relevant. Respond conversationally to greetings and informal phrases. Use the conversation history to understand follow-up questions, avoid repeating questions already answered, and maintain context." + (this.lastScreenContext && Date.now() - this.lastScreenContext.timestamp < 30 * 60 * 1000 ? "\n\nRECENT SCREEN CONTEXT (observed by the user-authorized screen capture):\n" + this.lastScreenContext.summary + "\nUse this visual context to resolve follow-up references such as 'that question', 'the code', 'the error', or 'what I was looking at'. Answer the user's actual question using the observed details. Do not claim the screen is still live; this is the most recently captured snapshot." : '') }] },
       contents
     };
     this.applyGenerationDefaults(request);
@@ -1152,6 +1176,12 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
   }
 
   async executeRequest(geminiRequest) {
+    const provider = getProvider();
+    if (provider.id !== 'gemini') {
+      const text = await executeProviderRequest(geminiRequest);
+      if (typeof text === 'string' && text.trim()) return text.trim();
+      throw new Error('Selected AI provider did not return a response.');
+    }
     if (this.remoteOnly) {
       return this.executeRemoteRequest(geminiRequest);
     }
@@ -1408,6 +1438,12 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
    * for each chunk.
    */
   async executeStreamingRequest(geminiRequest, onDelta) {
+    const provider = getProvider();
+    if (provider.id !== 'gemini') {
+      const fullText = await this.executeRequest(geminiRequest);
+      if (typeof onDelta === 'function') onDelta(fullText);
+      return fullText;
+    }
     if (this.remoteOnly) {
       const fullText = await this.executeRemoteRequest(geminiRequest);
       if (typeof onDelta === 'function') onDelta(fullText);
@@ -1607,18 +1643,20 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
       throw new Error('Unsupported screen image format: ' + mimeType);
     }
     const request = {
-      systemInstruction: { parts: [{ text: 'You are Slickly AI, a real-time visual assistant. Carefully inspect the supplied current screen frame. Describe only relevant visible content, answer visible questions when possible, and do not claim to see anything outside the image. In live mode, mention meaningful changes and avoid repeating the same generic description.' }] },
+      systemInstruction: { parts: [{ text: 'You are Slickly AI, a screen-aware assistant. Inspect the supplied frame carefully and ground every statement in visible evidence. Identify the important content and preserve details needed for follow-up questions: exact problem statements, code, error messages, UI labels, numbers, constraints, and surrounding context. If the screen contains a question or task, do not merely read or summarize it: solve it or answer it when possible, explain the reasoning, and state assumptions. If the user has not asked a specific question, give a concise but information-rich description that can support a later question. Never invent unreadable text or claim to see content outside the supplied frame.' }] },
       contents: [{
         role: 'user',
         parts: [
-          { text: instruction || 'Look at the current screen and explain what is happening or answer the question visible on screen. If the user has not asked a specific question, briefly summarize the important visible content.' },
+          { text: instruction || 'Inspect this screen. Describe the important visible content and answer any question or task shown. Preserve enough specific detail to answer follow-up questions about this exact screen.' },
           { inlineData: { mimeType, data: imageBuffer.toString('base64') } }
         ]
       }]
     };
-    this.applyGenerationDefaults(request, { maxOutputTokens: 1200 });
+    this.applyGenerationDefaults(request, { maxOutputTokens: 2400 });
     const response = await this.executeRequest(request);
     if (!response || !response.trim()) throw new Error('Gemini returned no screen analysis.');
+    // Keep a bounded, text-only summary in process memory for follow-up questions.
+    this.lastScreenContext = { summary: response.trim().slice(0, 16000), timestamp: Date.now() };
     return { response: response.trim(), mimeType, bytes: imageBuffer.length };
   }
 
@@ -1644,7 +1682,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
       contents: [{
         role: 'user',
         parts: [
-          { text: 'Listen to this audio. First provide a faithful transcript of the audible speech, marking unclear words rather than inventing them. Then, if the speaker asks a question or gives a request, answer it helpfully. Keep the transcript and answer clearly separated. If there is no speech, briefly describe the audible sound.' },
+          { text: "Listen to the complete audio clip. First provide a faithful transcript of all audible speech, preserving the speaker's wording and marking genuinely unclear words rather than guessing. Then identify any question or request in the transcript and answer it directly. Include a concise explanation or rationale where useful, but do not provide hidden internal chain-of-thought. Keep the transcript, answer, and brief explanation clearly separated. If the clip contains multiple questions or requests, address each one in order. If there is no speech, briefly describe the audible sound." },
           { inlineData: { mimeType, data: audioBuffer.toString('base64') } }
         ]
       }]

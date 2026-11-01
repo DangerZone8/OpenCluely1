@@ -46,4 +46,13 @@ has(main, /ipcMain\.handle\("analyze-live-screen-frame"[\s\S]{0,1800}llmService\
 has(llm, /async analyzeScreenFrame\([\s\S]{0,2200}inlineData:\s*\{\s*mimeType,\s*data:\s*imageBuffer\.toString\('base64'\)\s*\}[\s\S]{0,700}executeRequest\(request\)/,
   'LLM vision service does not send the captured image to Gemini.');
 
+assert.match(llm, /this\.lastScreenContext\s*=\s*\{/,
+  'Screen analysis must retain observed content for follow-up questions.');
+assert.match(llm, /RECENT SCREEN CONTEXT/,
+  'General chat must receive the latest screen context for follow-up questions.');
+assert.match(llm, /Use this visual context to resolve follow-up references/,
+  'Follow-up chat must resolve references to the captured screen.');
+assert.match(llm, /exact problem statements, code, error messages/,
+  'Screen analysis must preserve actionable visible details.');
+
 console.log('Screen AI UI route checks passed: buttons -> screen capture -> image frame -> preload IPC -> main IPC -> Gemini vision -> renderer response.');

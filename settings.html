@@ -459,16 +459,57 @@
             <div class="settings-section">
                 <div class="settings-section-title">
                     <i class="fas fa-robot"></i>
-                    Gemini Settings
+                    AI Provider & API Keys
                 </div>
                 <div class="settings-section-content">
                     <div class="settings-item">
                         <div>
-                            <div class="settings-item-label">Google API Key</div>
-                            <div class="settings-item-description">Your Google API key for Gemini models</div>
+                            <div class="settings-item-label">Active AI Provider</div>
+                            <div class="settings-item-description">Choose which provider powers chat and screen vision</div>
                         </div>
-                        <input type="password" class="input-field" id="geminiKey" placeholder="Enter your Google API key">
+                        <select class="input-field" id="aiProvider">
+                            <option value="gemini">Google Gemini</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="xai">xAI (Grok)</option>
+                            <option value="anthropic">Anthropic (Claude)</option>
+                        </select>
                     </div>
+                    <div class="settings-item">
+                        <div>
+                            <div class="settings-item-label">Model override (optional)</div>
+                            <div class="settings-item-description">Leave blank to use the provider default</div>
+                        </div>
+                        <input type="text" class="input-field" id="aiModel" placeholder="Provider default">
+                    </div>
+                    <div class="settings-item ai-key-field" data-provider="gemini">
+                        <div>
+                            <div class="settings-item-label">Google Gemini API Key</div>
+                            <div class="settings-item-description">Stored locally on this device; never sent to Slickly's hosted proxy</div>
+                        </div>
+                        <input type="password" class="input-field" id="geminiKey" placeholder="Enter Gemini API key" autocomplete="off">
+                    </div>
+                    <div class="settings-item ai-key-field" data-provider="openai">
+                        <div>
+                            <div class="settings-item-label">OpenAI API Key</div>
+                            <div class="settings-item-description">Enables OpenAI chat and image-based screen analysis</div>
+                        </div>
+                        <input type="password" class="input-field" id="openaiKey" placeholder="Enter OpenAI API key" autocomplete="off">
+                    </div>
+                    <div class="settings-item ai-key-field" data-provider="xai">
+                        <div>
+                            <div class="settings-item-label">xAI API Key</div>
+                            <div class="settings-item-description">Enables Grok chat and image-based screen analysis</div>
+                        </div>
+                        <input type="password" class="input-field" id="xaiKey" placeholder="Enter xAI API key" autocomplete="off">
+                    </div>
+                    <div class="settings-item ai-key-field" data-provider="anthropic">
+                        <div>
+                            <div class="settings-item-label">Anthropic API Key</div>
+                            <div class="settings-item-description">Enables Claude chat and image-based screen analysis</div>
+                        </div>
+                        <input type="password" class="input-field" id="anthropicKey" placeholder="Enter Anthropic API key" autocomplete="off">
+                    </div>
+                    <div class="settings-note">Provider keys are used locally by the desktop app. Use a model supported by your provider account. Raw audio analysis may require Gemini or the configured Speech Recognition provider; provider capabilities are not interchangeable.</div>
                 </div>
             </div>
             

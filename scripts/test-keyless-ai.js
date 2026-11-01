@@ -48,7 +48,7 @@ async function testHostedClient() {
 
     const audio = await llm.processAudioWithGemini(Buffer.from('fake webm bytes'), 'audio/webm');
     assert.equal(audio.response, 'Hosted AI response works.');
-    assert.match(seen.body.request.contents[0].parts[0].text, /Listen to this audio/);
+    assert.match(seen.body.request.contents[0].parts[0].text, /Listen to (?:this audio|the complete audio clip)/);
 
     // A provider quota exhaustion on the production alias should not prevent
     // trying an independent backup deployment. App-level 429s remain terminal.

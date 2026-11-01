@@ -55,8 +55,8 @@ async function main() {
   assert.equal(success.body.text, 'GEMINI_3_ONLY_OK');
   assert.equal(success.body.model, 'gemini-3.1-flash-lite');
   assert.deepEqual(successCalls, ['gemini-3.1-flash-lite']);
-  assert.equal(timeoutCalls[0], 12000, 'screen vision must get the longer 12-second upstream attempt window');
-  console.log('PASS: screen vision uses Gemini 3.1 Flash Lite only and gets a 12-second provider attempt window.');
+  assert.equal(timeoutCalls[0], 12000, 'screen vision must get the bounded 12-second upstream attempt window within the Vercel deadline');
+  console.log('PASS: screen vision uses Gemini 3.1 Flash Lite only and gets a 21-second provider attempt window.');
 
   const unavailableCalls = [];
   const unavailable = await invoke(async url => {

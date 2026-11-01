@@ -36,7 +36,7 @@ assert.match(chat, /function applyMicVisibility\(\)[\s\S]*?micButton\.style\.dis
 assert.match(chat, /function startBuiltInAudioCapture/);
 assert.match(chat, /Live listening to /);
 assert.match(chat, /scheduleAudioSegmentRotation\(stream, sourceLabel\)/);
-assert.match(chat, /}, 6000\)/);
+assert.match(chat, /}, 60000\)/, 'Audio capture must retain at least 60 seconds before segment rotation.');
 assert.match(chat, /queueAudioAnalysis\(blob, sourceLabel\)/);
 
 let inlineScripts = 0;
