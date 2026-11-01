@@ -24,7 +24,7 @@ jobs:
           cat latest.yml
           ASSET="$(sed -n 's/^path:[[:space:]]*//p' latest.yml | head -n 1 | tr -d '\r\"')"
           SHA512="$(sed -n 's/^sha512:[[:space:]]*//p' latest.yml | head -n 1 | tr -d '\r\"')"
-          EXPECTED_SIZE="$(sed -n 's/^size:[[:space:]]*//p' latest.yml | head -n 1 | tr -d '\r\"')"
+          EXPECTED_SIZE="$(sed -n 's/^[[:space:]]*size:[[:space:]]*//p' latest.yml | head -n 1 | tr -d '\r\"')"
           [[ "$ASSET" =~ ^Slickly-AI-Setup-[0-9.]+\.exe$ ]] || { echo "::error::Invalid Windows installer asset path: $ASSET"; exit 1; }
           [[ "$SHA512" =~ ^[A-Za-z0-9+/]+=*$ ]] || { echo "::error::Manifest SHA-512 is missing or invalid."; exit 1; }
           [[ "$EXPECTED_SIZE" =~ ^[0-9]+$ ]] || { echo "::error::Manifest file size is missing or invalid."; exit 1; }
