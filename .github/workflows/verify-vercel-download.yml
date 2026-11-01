@@ -12,7 +12,7 @@ jobs:
   live-download:
     name: Verify live Windows installer download
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 7
     steps:
       - name: Fetch the live Windows update manifest
         id: manifest
@@ -23,14 +23,19 @@ jobs:
           curl --fail --silent --show-error --retry 3 --retry-delay 5 "$BASE/api/updates/latest.yml" -o latest.yml
           cat latest.yml
           ASSET="$(sed -n 's/^path:[[:space:]]*//p' latest.yml | head -n 1 | tr -d '\r\"')"
-          if [[ ! "$ASSET" =~ ^Slickly-AI-Setup-[0-9.]+\.exe$ ]]; then
-            echo "::error::Manifest did not provide a valid Windows setup asset path: $ASSET"
-            exit 1
-          fi
+          SHA512="$(sed -n 's/^sha512:[[:space:]]*//p' latest.yml | head -n 1 | tr -d '\r\"')"
+          EXPECTED_SIZE="$(sed -n 's/^size:[[:space:]]*//p' latest.yml | head -n 1 | tr -d '\r\"')"
+          [[ "$ASSET" =~ ^Slickly-AI-Setup-[0-9.]+\.exe$ ]] || { echo "::error::Invalid Windows installer asset path: $ASSET"; exit 1; }
+          [[ "$SHA512" =~ ^[A-Za-z0-9+/]+=*$ ]] || { echo "::error::Manifest SHA-512 is missing or invalid."; exit 1; }
+          [[ "$EXPECTED_SIZE" =~ ^[0-9]+$ ]] || { echo "::error::Manifest file size is missing or invalid."; exit 1; }
           echo "asset=$ASSET" >> "$GITHUB_OUTPUT"
-      - name: Verify installer redirect and download bytes
+          echo "sha512=$SHA512" >> "$GITHUB_OUTPUT"
+          echo "size=$EXPECTED_SIZE" >> "$GITHUB_OUTPUT"
+      - name: Verify redirect and download the complete installer
         env:
           ASSET: ${{ steps.manifest.outputs.asset }}
+          EXPECTED_SHA512: ${{ steps.manifest.outputs.sha512 }}
+          EXPECTED_SIZE: ${{ steps.manifest.outputs.size }}
         shell: bash
         run: |
           set -euo pipefail
@@ -42,9 +47,11 @@ jobs:
           echo "Redirect target: $LOCATION"
           test "$STATUS" = "302" || { echo "::error::Expected Vercel to return HTTP 302 for the installer."; exit 1; }
           [[ "$LOCATION" == https://github.com/DangerZone8/OpenCluely1/releases/download/* ]] || { echo "::error::Installer did not redirect to the expected GitHub release asset."; exit 1; }
-          CODE="$(curl --silent --show-error --location --range 0-0 --output installer.range --write-out '%{http_code}' "$URL")"
-          SIZE="$(wc -c < installer.range | tr -d ' ')"
-          echo "Final asset HTTP status: $CODE; received bytes: $SIZE"
-          [[ "$CODE" == "206" || "$CODE" == "200" ]] || { echo "::error::Final installer request did not return HTTP 200/206."; exit 1; }
-          test "$SIZE" -gt 0 || { echo "::error::Installer response was empty."; exit 1; }
-          echo "PASS: live Vercel route redirected to the published installer and returned file bytes."
+          CODE="$(curl --fail --silent --show-error --location --retry 3 --retry-delay 5 --output installer.exe --write-out '%{http_code}' "$URL")"
+          ACTUAL_SIZE="$(wc -c < installer.exe | tr -d ' ')"
+          ACTUAL_SHA512="$(openssl dgst -sha512 -binary installer.exe | base64 -w0)"
+          echo "Final asset HTTP status: $CODE; downloaded bytes: $ACTUAL_SIZE"
+          test "$CODE" = "200" || { echo "::error::Full installer download did not return HTTP 200."; exit 1; }
+          test "$ACTUAL_SIZE" = "$EXPECTED_SIZE" || { echo "::error::Installer size mismatch: expected $EXPECTED_SIZE, got $ACTUAL_SIZE."; exit 1; }
+          test "$ACTUAL_SHA512" = "$EXPECTED_SHA512" || { echo "::error::Installer SHA-512 does not match latest.yml."; exit 1; }
+          echo "PASS: complete installer downloaded through Vercel; size and SHA-512 match the live manifest."
