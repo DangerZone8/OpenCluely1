@@ -37,6 +37,15 @@ async function run() {
       assert.equal(String(url), assets[0].browser_download_url);
       return { ok: true, text: async () => ["version: 9.9.9", "path: Slickly-AI-Setup-9.9.9.exe", ""].join(String.fromCharCode(10)) };
     };
+    const routeFallback = response();
+    await handler({ method: "GET", url: "/api/updates/Slickly-AI-Setup-9.9.9.exe", query: {} }, routeFallback);
+    assert.equal(routeFallback.statusCode, 302, "route must recover the asset from req.url when Vercel omits query.path");
+    assert.equal(routeFallback.headers.location, assets[1].browser_download_url);
+
+    const encodedRouteFallback = response();
+    await handler({ method: "GET", url: "/api/updates/Slickly-AI-Setup-9.9.9%2Eexe", query: {} }, encodedRouteFallback);
+    assert.equal(encodedRouteFallback.statusCode, 302, "route must decode a valid URL-encoded asset name");
+
     const manifest = response();
     await handler({ method: "GET", query: { path: ["latest.yml"] } }, manifest);
     assert.equal(manifest.statusCode, 200);
