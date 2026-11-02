@@ -231,3 +231,25 @@ jobs:
             echo "FAIL: installed Electron app exited before the smoke-test timeout (exit $APP_EXIT)."
             exit 1
           fi
+
+  auto-update-v341:
+    name: Installed Windows auto-update v1.0.340 to v1.0.341
+    if: github.event_name == 'pull_request'
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install v1.0.340 and verify automatic upgrade to v1.0.341
+        shell: pwsh
+        run: ./scripts/test-installed-auto-update-v341.ps1
+
+      - name: Upload installed-update diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slickly-v1340-to-v1341-auto-update-logs
+          path: \${{ runner.temp }}/slickly-update-logs/
+          if-no-files-found: warn
+          retention-days: 7
