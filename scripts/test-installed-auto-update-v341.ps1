@@ -8,11 +8,16 @@ $oldReleaseUrl = "$releaseBase/v$fromVersion"
 $installDir = Join-Path $env:RUNNER_TEMP 'SlicklyAutoUpdate341'
 $installer = Join-Path $env:RUNNER_TEMP $oldInstallerName
 $checksumFile = Join-Path $env:RUNNER_TEMP 'SHA256SUMS-1.0.340.txt'
-$logDir = Join-Path $HOME '.OpenCluely\logs'
+$isolatedProfile = Join-Path $env:RUNNER_TEMP 'SlicklyAutoUpdate341Profile'
+$logDir = Join-Path $isolatedProfile '.OpenCluely\logs'
 $artifactLogDir = Join-Path $env:RUNNER_TEMP 'slickly-update-logs'
 
 New-Item -ItemType Directory -Force -Path $env:RUNNER_TEMP | Out-Null
 Remove-Item -LiteralPath $installDir -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath $isolatedProfile -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force -Path $isolatedProfile | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $isolatedProfile 'AppData\Roaming') | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $isolatedProfile 'AppData\Local') | Out-Null
 Remove-Item -LiteralPath (Join-Path $HOME '.OpenCluely') -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $artifactLogDir -Recurse -Force -ErrorAction SilentlyContinue
 
@@ -47,6 +52,13 @@ try {
   # GitHub-hosted runners set CI=true. Slickly intentionally disables auto-update
   # in CI, so clear that variable only for this isolated installed-app process.
   $env:CI = 'false'
+  # Electron's os.homedir() and app.getPath('userData') resolve from these
+  # Windows profile variables. Isolate them so logs and updater state are
+  # deterministic and cannot be redirected by the hosted runner's HOME value.
+  $env:USERPROFILE = $isolatedProfile
+  $env:HOME = $isolatedProfile
+  $env:APPDATA = Join-Path $isolatedProfile 'AppData\Roaming'
+  $env:LOCALAPPDATA = Join-Path $isolatedProfile 'AppData\Local'
   $oldLaunch = Start-Process -FilePath $appExe -ArgumentList '--disable-gpu' -PassThru
 
   $deadline = (Get-Date).AddMinutes(6)
