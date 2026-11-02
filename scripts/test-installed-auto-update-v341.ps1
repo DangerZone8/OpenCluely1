@@ -129,6 +129,6 @@ public static class SlicklyWindowCloser {
 finally {
   if (Test-Path -LiteralPath $logDir) {
     New-Item -ItemType Directory -Force -Path $artifactLogDir | Out-Null
-    Copy-Item -LiteralPath (Join-Path $logDir '*') -Destination $artifactLogDir -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -LiteralPath $logDir -File | Copy-Item -Destination $artifactLogDir -Force
   }
 }
