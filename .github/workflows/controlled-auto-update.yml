@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout test harness
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -38,6 +40,7 @@ jobs:
         run: |
           Set-Location $env:SLICKLY_SOURCE
           npm ci
+          npm version 1.0.341 --no-git-tag-version --ignore-scripts
 
       - name: Build v1.0.341 baseline installer
         shell: pwsh
