@@ -11,6 +11,8 @@ $checksumFile = Join-Path $env:RUNNER_TEMP 'SHA256SUMS-1.0.340.txt'
 $isolatedProfile = Join-Path $env:RUNNER_TEMP 'SlicklyAutoUpdate341Profile'
 $logDir = Join-Path $isolatedProfile '.OpenCluely\logs'
 $artifactLogDir = Join-Path $env:RUNNER_TEMP 'slickly-update-logs'
+$stdoutLog = Join-Path $env:RUNNER_TEMP 'slickly-update-stdout.log'
+$stderrLog = Join-Path $env:RUNNER_TEMP 'slickly-update-stderr.log'
 
 New-Item -ItemType Directory -Force -Path $env:RUNNER_TEMP | Out-Null
 Remove-Item -LiteralPath $installDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -59,7 +61,7 @@ try {
   $env:HOME = $isolatedProfile
   $env:APPDATA = Join-Path $isolatedProfile 'AppData\Roaming'
   $env:LOCALAPPDATA = Join-Path $isolatedProfile 'AppData\Local'
-  $oldLaunch = Start-Process -FilePath $appExe -ArgumentList '--disable-gpu' -PassThru
+  $oldLaunch = Start-Process -FilePath $appExe -ArgumentList '--disable-gpu' -PassThru -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
 
   $deadline = (Get-Date).AddMinutes(6)
   $visible = $null
@@ -139,8 +141,14 @@ public static class SlicklyWindowCloser {
   Write-Host "PASS: complete installed-app upgrade v$fromVersion -> v$toVersion (detection, download, install, restart)."
 }
 finally {
+  New-Item -ItemType Directory -Force -Path $artifactLogDir | Out-Null
   if (Test-Path -LiteralPath $logDir) {
-    New-Item -ItemType Directory -Force -Path $artifactLogDir | Out-Null
-    Get-ChildItem -LiteralPath $logDir -File | Copy-Item -Destination $artifactLogDir -Force
+    Get-ChildItem -LiteralPath $logDir -File -Recurse | Copy-Item -Destination $artifactLogDir -Force
+  }
+  foreach ($capture in @($stdoutLog, $stderrLog)) {
+    if (Test-Path -LiteralPath $capture) { Copy-Item -LiteralPath $capture -Destination $artifactLogDir -Force }
+  }
+  if (Test-Path -LiteralPath $artifactLogDir) {
+    Write-Host "Diagnostic files captured: $((Get-ChildItem -LiteralPath $artifactLogDir -File | Select-Object -ExpandProperty Name) -join ', ')"
   }
 }
