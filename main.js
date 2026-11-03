@@ -377,7 +377,23 @@ class ApplicationController {
   startAutoUpdates() {
     // Auto-update only in installed builds. Development runs and CI's unpacked
     // Electron UI tests must never contact the release feed or install updates.
-    if (!app.isPackaged || process.env.CI === "true" || process.env.SLICKLY_DISABLE_AUTO_UPDATE === "1") return;
+    const updateGate = {
+      packaged: app.isPackaged,
+      ci: process.env.CI || null,
+      explicitlyDisabled: process.env.SLICKLY_DISABLE_AUTO_UPDATE === "1",
+      nodeEnvironment: process.env.NODE_ENV || null
+    };
+    logger.info("Auto-update startup gate", updateGate);
+    if (!app.isPackaged || process.env.CI === "true" || process.env.SLICKLY_DISABLE_AUTO_UPDATE === "1") {
+      logger.info("Auto-update skipped by startup gate", {
+        reason: !app.isPackaged ? "application is not packaged"
+          : process.env.CI === "true" ? "CI environment"
+          : "SLICKLY_DISABLE_AUTO_UPDATE is enabled",
+        ...updateGate
+      });
+      return;
+    }
+    logger.info("Auto-update initialized for installed build");
     try {
       autoUpdater.autoDownload = true;
       autoUpdater.autoInstallOnAppQuit = true;
