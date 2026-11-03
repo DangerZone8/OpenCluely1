@@ -102,7 +102,11 @@ try {
   if ($port -lt 1 -or $port -gt 65535) { throw "Invalid controlled feed port: $port" }
   $feedUrl = "http://127.0.0.1:$port/"
   $originalUpdateConfig = Get-Content -LiteralPath $updateConfig -Raw
-  if ($originalUpdateConfig -notmatch '(?m)^provider:\s*generic\s*
+  $cacheSetting = [regex]::Match($originalUpdateConfig, '(?m)^updaterCacheDirName:\s*.+$').Value
+  if (-not $cacheSetting) { throw 'Built v1.0.341 app-update.yml has no updaterCacheDirName; refusing to replace required updater metadata.' }
+  $testConfig = 'provider: generic' + [Environment]::NewLine + "url: $feedUrl" + [Environment]::NewLine + 'useMultipleRangeRequest: false' + [Environment]::NewLine + $cacheSetting + [Environment]::NewLine
+  [IO.File]::WriteAllText($updateConfig, $testConfig, [Text.UTF8Encoding]::new($false))
+  Write-Host "PASS: installed v1.0.341 is isolated to loopback feed $feedUrl and preserves $cacheSetting."
   $servedManifestResponse = Invoke-WebRequest -Uri ($feedUrl + 'latest.yml') -UseBasicParsing -TimeoutSec 20
   if ($servedManifestResponse.StatusCode -ne 200) { throw "Controlled feed latest.yml returned HTTP $($servedManifestResponse.StatusCode)." }
   $servedManifest = [string]$servedManifestResponse.Content
