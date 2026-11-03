@@ -80,8 +80,9 @@ try {
   $env:APPDATA = Join-Path $profileDir 'AppData\Roaming'
   $env:LOCALAPPDATA = Join-Path $profileDir 'AppData\Local'
   $appProcess = Start-Process -FilePath $appExe -ArgumentList '--disable-gpu' -PassThru -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
-  $logDir = Join-Path $profileDir '.OpenCluely\logs'
-  $logFile = Join-Path $logDir ("application-" + (Get-Date -Format 'yyyy-MM-dd') + '.log')
+  # Use the redirected Winston console stream as the live source of truth.
+  # os.homedir() can resolve differently inside a packaged Electron process.
+  $logFile = $stdoutLog
   Write-Host "[$(Get-Date -Format o)] PHASE: launch installed v1.0.341 and wait for update detection/download."
   $deadline = (Get-Date).AddMinutes(8)
   $updateAvailable = $false
