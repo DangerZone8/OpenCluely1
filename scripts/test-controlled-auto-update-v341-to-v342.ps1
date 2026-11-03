@@ -183,12 +183,17 @@ public static class SlicklyControlledUpdateCloser {
 finally {
   try { Stop-Transcript | Out-Null } catch {}
   if ($serverProcess -and -not $serverProcess.HasExited) { Stop-Process -Id $serverProcess.Id -Force -ErrorAction SilentlyContinue }
-  foreach ($file in @($stdoutLog, $stderrLog, $serverStdoutLog, $serverStderrLog)) { if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination $diagnostics -Force } }
+  foreach ($file in @($stdoutLog, $stderrLog, $serverStdoutLog, $serverStderrLog)) {
+    if (Test-Path -LiteralPath $file -PathType Leaf) {
+      $destination = Join-Path $diagnostics ([IO.Path]::GetFileName($file))
+      Get-Content -LiteralPath $file -Tail 3000 | Set-Content -LiteralPath $destination -Encoding utf8
+    }
+  }
   $requestsFile = Join-Path $FeedRoot 'controlled-feed-requests.jsonl'
   if (Test-Path -LiteralPath $requestsFile) { Copy-Item -LiteralPath $requestsFile -Destination $diagnostics -Force }
-  if (Test-Path -LiteralPath $profileDir) {
-    $logs = Join-Path $profileDir '.OpenCluely\logs'
-    if (Test-Path -LiteralPath $logs) { Get-ChildItem -LiteralPath $logs -File -Recurse | Copy-Item -Destination $diagnostics -Force }
+  if ($logFile -and (Test-Path -LiteralPath $logFile -PathType Leaf)) {
+    $compactLog = Join-Path $diagnostics 'application-tail.log'
+    Get-Content -LiteralPath $logFile -Tail 3000 | Set-Content -LiteralPath $compactLog -Encoding utf8
   }
   Write-Host "Updater diagnostic directory: $diagnostics"
   Get-ChildItem -LiteralPath $diagnostics -File -ErrorAction SilentlyContinue | ForEach-Object {
