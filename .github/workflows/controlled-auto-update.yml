@@ -55,7 +55,12 @@ jobs:
           if (-not $baseline) { throw 'Could not build the v1.0.341 NSIS baseline installer.' }
           $destination = Join-Path $env:RUNNER_TEMP 'Slickly-AI-Setup-1.0.341.exe'
           Copy-Item -LiteralPath $baseline.FullName -Destination $destination -Force
+          $baselineBlockmap = Join-Path $PWD 'dist/Slickly-AI-Setup-1.0.341.exe.blockmap'
+          if (-not (Test-Path -LiteralPath $baselineBlockmap)) { throw 'v1.0.341 blockmap was not built.' }
+          $baselineBlockmapCopy = Join-Path $env:RUNNER_TEMP 'Slickly-AI-Setup-1.0.341.exe.blockmap'
+          Copy-Item -LiteralPath $baselineBlockmap -Destination $baselineBlockmapCopy -Force
           "SLICKLY_BASELINE_INSTALLER=$destination" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "SLICKLY_BASELINE_BLOCKMAP=$baselineBlockmapCopy" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Build v1.0.342 test-only update payload
         shell: pwsh
@@ -70,6 +75,10 @@ jobs:
           $feed = Join-Path $env:RUNNER_TEMP 'Slickly-Controlled-Feed'
           New-Item -ItemType Directory -Force -Path $feed | Out-Null
           Copy-Item -LiteralPath (Join-Path $PWD 'dist/latest.yml') -Destination $feed -Force
+          Copy-Item -LiteralPath $env:SLICKLY_BASELINE_BLOCKMAP -Destination $feed -Force
+          $newBlockmap = Join-Path $PWD 'dist/Slickly-AI-Setup-1.0.342.exe.blockmap'
+          if (-not (Test-Path -LiteralPath $newBlockmap)) { throw 'v1.0.342 blockmap was not built.' }
+          Copy-Item -LiteralPath $newBlockmap -Destination $feed -Force
           $installer = Get-ChildItem -LiteralPath 'dist' -Filter 'Slickly-AI-Setup-1.0.342.exe' -File | Select-Object -First 1
           if (-not $installer) { throw 'Could not build the v1.0.342 NSIS test installer.' }
           Copy-Item -LiteralPath $installer.FullName -Destination $feed -Force
