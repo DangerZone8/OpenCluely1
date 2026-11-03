@@ -107,13 +107,10 @@ try {
   $testConfig = 'provider: generic' + [Environment]::NewLine + "url: $feedUrl" + [Environment]::NewLine + 'useMultipleRangeRequest: false' + [Environment]::NewLine + $cacheSetting + [Environment]::NewLine
   [IO.File]::WriteAllText($updateConfig, $testConfig, [Text.UTF8Encoding]::new($false))
   Write-Host "PASS: installed v1.0.341 is isolated to loopback feed $feedUrl and preserves $cacheSetting."
-  # Validate the exact HTTP manifest before the app is launched.
   $servedManifestResponse = Invoke-WebRequest -Uri ($feedUrl + 'latest.yml') -UseBasicParsing -TimeoutSec 20
   if ($servedManifestResponse.StatusCode -ne 200) { throw "Controlled feed latest.yml returned HTTP $($servedManifestResponse.StatusCode)." }
   $servedManifest = [string]$servedManifestResponse.Content
-  if ($servedManifest -notmatch '(?m)^path:\s*["'']?Slickly-AI-Setup-1\.0\.342\.exe["'']?\s*  $env:CI = 'false'
-  $env:LOG_LEVEL = 'debug'
-  $env:NODE_ENV = 'production'
+  if ($servedManifest -notmatch '(?m)^path:\s*["'']?Slickly-AI-Setup-1\.0\.342\.exe["'']?\s*
   Remove-Item Env:SLICKLY_DISABLE_AUTO_UPDATE -ErrorAction SilentlyContinue
   $env:USERPROFILE = $profileDir
   $env:HOME = $profileDir
@@ -257,8 +254,7 @@ finally {
   }
 }
 ) { throw "Controlled feed latest.yml has an invalid installer path: $servedManifest" }
-  if ($servedManifest -notmatch '(?m)^version:\s*["'']?1\.0\.342["'']?\s*  $env:CI = 'false'
-  $env:NODE_ENV = 'production'
+  if ($servedManifest -notmatch '(?m)^version:\s*["'']?1\.0\.342["'']?\s*
   Remove-Item Env:SLICKLY_DISABLE_AUTO_UPDATE -ErrorAction SilentlyContinue
   $env:USERPROFILE = $profileDir
   $env:HOME = $profileDir
@@ -404,6 +400,7 @@ finally {
 ) { throw "Controlled feed latest.yml advertises an unexpected version: $servedManifest" }
   Write-Host 'PASS: loopback HTTP manifest explicitly advertises the v1.0.342 installer filename.'
   $env:CI = 'false'
+  $env:LOG_LEVEL = 'debug'
   $env:NODE_ENV = 'production'
   Remove-Item Env:SLICKLY_DISABLE_AUTO_UPDATE -ErrorAction SilentlyContinue
   $env:USERPROFILE = $profileDir
