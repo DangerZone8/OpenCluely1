@@ -69,20 +69,25 @@ try {
   $appProcess = Start-Process -FilePath $appExe -ArgumentList '--disable-gpu' -PassThru -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
   $logDir = Join-Path $profileDir '.OpenCluely\logs'
   $logFile = Join-Path $logDir ("application-" + (Get-Date -Format 'yyyy-MM-dd') + '.log')
-  $deadline = (Get-Date).AddMinutes(8)
+  $deadline = (Get-Date).AddMinutes(4)
   $updateAvailable = $false
   $updateDownloaded = $false
-  $visible = $null
+  $visible = $false
+  $log = ''
   while ((Get-Date) -lt $deadline -and (-not $updateAvailable -or -not $updateDownloaded -or -not $visible)) {
-    $visible = Get-Process -Name 'Slickly AI' -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1
     if (Test-Path -LiteralPath $logFile) {
       $log = Get-Content -LiteralPath $logFile -Raw
+      $visible = $log -match 'Main window displayed'
       $updateAvailable = $log -match ('(?s)Slickly AI update available.{0,500}"version"\s*:\s*"' + [regex]::Escape($toVersion) + '"')
       $updateDownloaded = $log -match ('(?s)Slickly AI update downloaded; it will install on quit.{0,500}"version"\s*:\s*"' + [regex]::Escape($toVersion) + '"')
+      if ($log -match 'Slickly AI auto-update check/download failed') {
+        $failure = [regex]::Match($log, '(?s)Slickly AI auto-update check/download failed.{0,700}').Value
+        throw "Updater reported an error before completing the download: $failure"
+      }
     }
     Start-Sleep -Seconds 2
   }
-  if (-not $visible) { throw 'Installed v1.0.341 never displayed a visible window.' }
+  if (-not $visible) { throw 'Installed v1.0.341 did not log that its main window was displayed.' }
   if (-not $updateAvailable) { throw 'Installed v1.0.341 did not detect v1.0.342 from controlled feed within eight minutes.' }
   Write-Host 'PASS: installed v1.0.341 detected v1.0.342.'
   if (-not $updateDownloaded) { throw 'Installed v1.0.341 did not finish downloading v1.0.342 within eight minutes.' }
@@ -95,14 +100,47 @@ try {
   if ($beforePids.Count -eq 0) { throw 'No running Slickly process found before install-on-quit.' }
   Add-Type -TypeDefinition @'
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 public static class SlicklyControlledUpdateCloser {
-  [DllImport("user32.dll", SetLastError=true)]
-  public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+  public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+  [DllImport("user32.dll")] static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+  [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr hWnd);
+  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+  [DllImport("user32.dll", SetLastError=true)] static extern bool PostMessage(IntPtr hWnd, uint message, IntPtr wParam, IntPtr lParam);
+  public static int[] GetVisibleProcessIds() {
+    var ids = new HashSet<int>();
+    EnumWindows((hWnd, lParam) => {
+      if (IsWindowVisible(hWnd)) {
+        uint pid;
+        GetWindowThreadProcessId(hWnd, out pid);
+        if (pid != 0) ids.Add((int)pid);
+      }
+      return true;
+    }, IntPtr.Zero);
+    var result = new int[ids.Count];
+    ids.CopyTo(result);
+    return result;
+  }
+  public static int CloseVisibleWindowsFor(int[] processIds) {
+    int closed = 0;
+    EnumWindows((hWnd, lParam) => {
+      if (IsWindowVisible(hWnd)) {
+        uint pid;
+        GetWindowThreadProcessId(hWnd, out pid);
+        if (Array.IndexOf(processIds, (int)pid) >= 0 && PostMessage(hWnd, 0x0010, IntPtr.Zero, IntPtr.Zero)) closed++;
+      }
+      return true;
+    }, IntPtr.Zero);
+    return closed;
+  }
 }
 '@
-  $windows = Get-Process -Name 'Slickly AI' -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero }
-  foreach ($window in $windows) { [void][SlicklyControlledUpdateCloser]::PostMessage($window.MainWindowHandle, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) }
+  $visiblePids = [SlicklyControlledUpdateCloser]::GetVisibleProcessIds()
+  $appWindowPids = @($beforePids | Where-Object { $visiblePids -contains [int]$_ })
+  if ($appWindowPids.Count -eq 0) { throw "App log reported a visible main window, but no visible top-level window belonged to Slickly processes: $($beforePids -join ', ')." }
+  $closedWindows = [SlicklyControlledUpdateCloser]::CloseVisibleWindowsFor([int[]]$beforePids)
+  if ($closedWindows -eq 0) { throw 'Could not send WM_CLOSE to a visible Slickly window.' }
   $quitDeadline = (Get-Date).AddSeconds(120)
   do {
     $remaining = @($beforePids | Where-Object { Get-Process -Id $_ -ErrorAction SilentlyContinue })
@@ -116,7 +154,9 @@ public static class SlicklyControlledUpdateCloser {
   $newVersion = ''
   while ((Get-Date) -lt $restartDeadline) {
     $newVersion = (Get-Item -LiteralPath $appExe).VersionInfo.ProductVersion
-    $newApp = Get-Process -Name 'Slickly AI' -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero -and $beforePids -notcontains $_.Id } | Select-Object -First 1
+    $newProcesses = @(Get-Process -Name 'Slickly AI' -ErrorAction SilentlyContinue | Where-Object { $beforePids -notcontains $_.Id })
+    $visiblePids = [SlicklyControlledUpdateCloser]::GetVisibleProcessIds()
+    $newApp = $newProcesses | Where-Object { $visiblePids -contains $_.Id } | Select-Object -First 1
     if ($newVersion.StartsWith($toVersion) -and $newApp) { break }
     Start-Sleep -Seconds 2
   }
@@ -128,6 +168,8 @@ public static class SlicklyControlledUpdateCloser {
 finally {
   if ($serverProcess -and -not $serverProcess.HasExited) { Stop-Process -Id $serverProcess.Id -Force -ErrorAction SilentlyContinue }
   foreach ($file in @($stdoutLog, $stderrLog, $serverStdoutLog, $serverStderrLog)) { if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination $diagnostics -Force } }
+  $requestsFile = Join-Path $FeedRoot 'controlled-feed-requests.jsonl'
+  if (Test-Path -LiteralPath $requestsFile) { Copy-Item -LiteralPath $requestsFile -Destination $diagnostics -Force }
   if (Test-Path -LiteralPath $profileDir) {
     $logs = Join-Path $profileDir '.OpenCluely\logs'
     if (Test-Path -LiteralPath $logs) { Get-ChildItem -LiteralPath $logs -File -Recurse | Copy-Item -Destination $diagnostics -Force }
