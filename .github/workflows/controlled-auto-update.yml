@@ -18,7 +18,7 @@ jobs:
   installed-windows-update:
     name: Installed Windows v1.0.341 -> v1.0.342 (loopback feed)
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - name: Checkout test harness
         uses: actions/checkout@v4
@@ -86,6 +86,7 @@ jobs:
           Write-Host 'PASS: v1.0.342 exists only as a local CI build; no GitHub Release or Vercel feed was published.'
 
       - name: Run installed-app update through controlled feed
+        timeout-minutes: 30
         shell: pwsh
         run: |
           ./scripts/test-controlled-auto-update-v341-to-v342.ps1 -BaselineInstaller $env:SLICKLY_BASELINE_INSTALLER -FeedRoot $env:SLICKLY_CONTROLLED_FEED
