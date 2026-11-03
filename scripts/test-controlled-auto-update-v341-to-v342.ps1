@@ -56,7 +56,7 @@ try {
   $port = [int](Get-Content -LiteralPath $portFile -Raw).Trim()
   if ($port -lt 1 -or $port -gt 65535) { throw "Invalid controlled feed port: $port" }
   $feedUrl = "http://127.0.0.1:$port/"
-  $testConfig = 'provider: generic' + [Environment]::NewLine + "url: $feedUrl" + [Environment]::NewLine
+  $testConfig = 'provider: generic' + [Environment]::NewLine + "url: $feedUrl" + [Environment]::NewLine + 'useMultipleRangeRequest: false' + [Environment]::NewLine
   [IO.File]::WriteAllText($updateConfig, $testConfig, [Text.UTF8Encoding]::new($false))
   Write-Host "PASS: installed v1.0.341 is isolated to loopback feed $feedUrl."
   $env:CI = 'false'
