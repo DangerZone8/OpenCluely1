@@ -9,7 +9,7 @@ if (!fs.existsSync(root) || !fs.statSync(root).isDirectory() || !portFile) throw
 const accessLog = path.join(root, "controlled-feed-requests.jsonl");
 const server = http.createServer((req, res) => {
   let name;
-  try { name = decodeURIComponent(new URL(req.url, "http://127.0.0.1").pathname).replace(/^\\/+/, ""); }
+  try { name = decodeURIComponent(new URL(req.url, "http://127.0.0.1").pathname).split("/").filter(Boolean).join("/"); }
   catch { res.writeHead(400).end("Bad URL"); return; }
   name = name || "latest.yml";
   if (req.method !== "GET" && req.method !== "HEAD") { res.writeHead(405, { Allow: "GET, HEAD" }).end(); return; }
