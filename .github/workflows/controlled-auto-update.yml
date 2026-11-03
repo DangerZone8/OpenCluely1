@@ -44,6 +44,16 @@ jobs:
           npm ci
           npm version 1.0.341 --no-git-tag-version --ignore-scripts
 
+      - name: Add test-only controlled-feed hook to v1.0.341 baseline
+        shell: pwsh
+        run: |
+          node scripts/patch-v341-controlled-update-url.js $env:SLICKLY_SOURCE
+          $baselineMain = Get-Content -LiteralPath (Join-Path $env:SLICKLY_SOURCE 'main.js') -Raw
+          if (-not $baselineMain.Contains('Using controlled Slickly AI update feed')) {
+            throw 'v1.0.341 test baseline is missing the controlled-feed override hook.'
+          }
+          Write-Host 'PASS: v1.0.341 baseline has the isolated test-feed hook; production builds are unchanged.'
+
       - name: Build v1.0.341 baseline installer
         shell: pwsh
         env:
