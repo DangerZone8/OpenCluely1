@@ -38,16 +38,23 @@ function readPart(fd, range) {
 }
 
 const server = http.createServer((req, res) => {
-  let name;
-  try { name = decodeURIComponent(new URL(req.url, "http://127.0.0.1").pathname).split("/").filter(Boolean).join("/"); }
+  let requestedPath;
+  try { requestedPath = decodeURIComponent(new URL(req.url, "http://127.0.0.1").pathname).split("/").filter(Boolean).join("/"); }
   catch { res.writeHead(400).end("Bad URL"); return; }
-  name = name || "latest.yml";
-  fs.appendFileSync(accessLog, JSON.stringify({ event: "request", method: req.method, path: name, range: req.headers.range || null }) + "\n");
+  // electron-updater can resolve a manifest asset against the provider root.
+  // Never let an empty/root asset URL silently return latest.yml: that makes
+  // the manifest itself get downloaded as the installer and triggers a SHA-512
+  // mismatch. Keep latest.yml explicit and map root asset requests to the
+  // one controlled installer built for this test.
+  const installerName = fs.readdirSync(root).find(file => /^Slickly-AI-Setup-1\\.0\\.342\\.exe$/i.test(file));
+  const name = requestedPath || installerName;
+  if (!name) { res.writeHead(404, { "Cache-Control": "no-store" }).end("No controlled installer"); return; }
+  fs.appendFileSync(accessLog, JSON.stringify({ event: "request", method: req.method, requestedPath: requestedPath || "/", resolvedPath: name, range: req.headers.range || null }) + "\\n");
   if (req.method !== "GET" && req.method !== "HEAD") { res.writeHead(405, { Allow: "GET, HEAD" }).end(); return; }
   if (path.basename(name) !== name || name.includes("..")) { res.writeHead(400).end("Invalid path"); return; }
   const file = path.join(root, name);
   if (!fs.existsSync(file) || !fs.statSync(file).isFile()) {
-    fs.appendFileSync(accessLog, JSON.stringify({ method: req.method, path: name, range: req.headers.range || null, status: 404 }) + "\n");
+    fs.appendFileSync(accessLog, JSON.stringify({ method: req.method, requestedPath: requestedPath || "/", resolvedPath: name, range: req.headers.range || null, status: 404 }) + "\n");
     res.writeHead(404, { "Cache-Control": "no-store" }).end("Not found");
     return;
   }
@@ -59,7 +66,7 @@ const server = http.createServer((req, res) => {
     const match = /^bytes=(.+)$/i.exec(rangeHeader);
     const ranges = match ? match[1].split(",").map(part => parseRange(part, stat.size)) : null;
     if (!ranges || ranges.length === 0 || ranges.some(range => range == null)) {
-      fs.appendFileSync(accessLog, JSON.stringify({ method: req.method, path: name, range: rangeHeader, status: 416 }) + "\n");
+      fs.appendFileSync(accessLog, JSON.stringify({ method: req.method, requestedPath: requestedPath || "/", resolvedPath: name, range: rangeHeader, status: 416 }) + "\n");
       res.writeHead(416, { "Content-Range": "bytes */" + stat.size, "Cache-Control": "no-store" }).end();
       return;
     }
@@ -67,7 +74,7 @@ const server = http.createServer((req, res) => {
     if (ranges.length === 1) {
       const range = ranges[0];
       const length = range.end - range.start + 1;
-      fs.appendFileSync(accessLog, JSON.stringify({ method: req.method, path: name, range: rangeHeader, status: 206, bytes: length }) + "\n");
+      fs.appendFileSync(accessLog, JSON.stringify({ method: req.method, requestedPath: requestedPath || "/", resolvedPath: name, range: rangeHeader, status: 206, bytes: length }) + "\n");
       res.writeHead(206, {
         "Content-Type": type,
         "Content-Length": length,
@@ -95,7 +102,7 @@ const server = http.createServer((req, res) => {
     }
     chunks.push(Buffer.from("--" + boundary + "--\r\n"));
     const body = Buffer.concat(chunks);
-    fs.appendFileSync(accessLog, JSON.stringify({ method: req.method, path: name, range: rangeHeader, status: 206, ranges: ranges.length, bytes: body.length }) + "\n");
+    fs.appendFileSync(accessLog, JSON.stringify({ method: req.method, requestedPath: requestedPath || "/", resolvedPath: name, range: rangeHeader, status: 206, ranges: ranges.length, bytes: body.length }) + "\n");
     res.writeHead(206, {
       "Content-Type": "multipart/byteranges; boundary=" + boundary,
       "Content-Length": body.length,
@@ -107,7 +114,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  fs.appendFileSync(accessLog, JSON.stringify({ method: req.method, path: name, range: null, status: 200, bytes: stat.size }) + "\n");
+  fs.appendFileSync(accessLog, JSON.stringify({ method: req.method, requestedPath: requestedPath || "/", resolvedPath: name, range: null, status: 200, bytes: stat.size }) + "\n");
   res.writeHead(200, {
     "Content-Type": type,
     "Content-Length": stat.size,
