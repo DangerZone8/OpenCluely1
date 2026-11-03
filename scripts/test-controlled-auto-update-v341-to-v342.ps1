@@ -15,6 +15,7 @@ $stdoutLog = Join-Path $testRoot 'app-stdout.log'
 $stderrLog = Join-Path $testRoot 'app-stderr.log'
 $diagnostics = Join-Path $PWD 'slickly-controlled-update-logs'
 $serverProcess = $null
+$appProcess = $null
 $logFile = $null
 $transcriptPath = Join-Path $diagnostics 'powershell-transcript.txt'
 function Assert-File([string]$Path, [string]$Description) {
@@ -88,7 +89,8 @@ try {
   $visible = $false
   $log = ''
   while ((Get-Date) -lt $deadline -and (-not $updateAvailable -or -not $updateDownloaded -or -not $visible)) {
-    if (Test-Path -LiteralPath $logFile) {
+    if ($appProcess.HasExited) { throw "Installed v1.0.341 exited before update completed. Exit code: $($appProcess.ExitCode)." }
+    if (Test-Path -LiteralPath $logFile -PathType Leaf) {
       $log = Get-Content -LiteralPath $logFile -Raw
       $visible = $log -match 'Main window displayed'
       $updateAvailable = $log -match ('(?s)Slickly AI update available.{0,500}"version"\s*:\s*"' + [regex]::Escape($toVersion) + '"')
@@ -181,8 +183,18 @@ public static class SlicklyControlledUpdateCloser {
   Write-Host "[$(Get-Date -Format o)] PASS: complete controlled installed-app update v1.0.341 -> v1.0.342."
 }
 finally {
-  try { Stop-Transcript | Out-Null } catch {}
+  # Terminate the isolated Electron tree BEFORE reading redirected stdout/stderr.
+  # Get-Content can wait for EOF on a live redirected stream, which previously
+  # held the workflow open until the GitHub Actions step timeout.
+  try {
+    if ($appProcess -and -not $appProcess.HasExited) {
+      & taskkill.exe /PID $appProcess.Id /T /F 2>$null | Out-Null
+      try { Wait-Process -Id $appProcess.Id -Timeout 10 -ErrorAction SilentlyContinue } catch {}
+    }
+    & taskkill.exe /IM 'Slickly AI.exe' /T /F 2>$null | Out-Null
+  } catch { Write-Warning "Could not fully terminate isolated app process tree: $($_.Exception.Message)" }
   if ($serverProcess -and -not $serverProcess.HasExited) { Stop-Process -Id $serverProcess.Id -Force -ErrorAction SilentlyContinue }
+  try { Stop-Transcript | Out-Null } catch {}
   foreach ($file in @($stdoutLog, $stderrLog, $serverStdoutLog, $serverStderrLog)) {
     if (Test-Path -LiteralPath $file -PathType Leaf) {
       $destination = Join-Path $diagnostics ([IO.Path]::GetFileName($file))
