@@ -9,7 +9,8 @@ $testRoot = Join-Path $env:RUNNER_TEMP 'SlicklyControlledAutoUpdate'
 $installDir = Join-Path $testRoot 'installed-v1341'
 $profileDir = Join-Path $testRoot 'isolated-profile'
 $portFile = Join-Path $testRoot 'feed-port.txt'
-$serverLog = Join-Path $testRoot 'feed-server.log'
+$serverStdoutLog = Join-Path $testRoot 'feed-server-stdout.log'
+$serverStderrLog = Join-Path $testRoot 'feed-server-stderr.log'
 $stdoutLog = Join-Path $testRoot 'app-stdout.log'
 $stderrLog = Join-Path $testRoot 'app-stderr.log'
 $diagnostics = Join-Path $PWD 'slickly-controlled-update-logs'
@@ -45,7 +46,7 @@ try {
   Assert-File $updateConfig 'Installed electron-updater app-update.yml'
   $nodeServer = Join-Path $PWD 'scripts\controlled-update-feed-server.js'
   Assert-File $nodeServer 'Controlled local feed server'
-  $serverProcess = Start-Process -FilePath 'node' -ArgumentList @($nodeServer, '--root', $FeedRoot, '--port-file', $portFile) -PassThru -RedirectStandardOutput $serverLog -RedirectStandardError $serverLog
+  $serverProcess = Start-Process -FilePath 'node' -ArgumentList @($nodeServer, '--root', $FeedRoot, '--port-file', $portFile) -PassThru -RedirectStandardOutput $serverStdoutLog -RedirectStandardError $serverStderrLog
   $portDeadline = (Get-Date).AddSeconds(30)
   while ((Get-Date) -lt $portDeadline -and -not (Test-Path -LiteralPath $portFile)) {
     if ($serverProcess.HasExited) { throw 'Controlled feed server exited before binding.' }
@@ -126,7 +127,7 @@ public static class SlicklyControlledUpdateCloser {
 }
 finally {
   if ($serverProcess -and -not $serverProcess.HasExited) { Stop-Process -Id $serverProcess.Id -Force -ErrorAction SilentlyContinue }
-  foreach ($file in @($stdoutLog, $stderrLog, $serverLog)) { if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination $diagnostics -Force } }
+  foreach ($file in @($stdoutLog, $stderrLog, $serverStdoutLog, $serverStderrLog)) { if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination $diagnostics -Force } }
   if (Test-Path -LiteralPath $profileDir) {
     $logs = Join-Path $profileDir '.OpenCluely\logs'
     if (Test-Path -LiteralPath $logs) { Get-ChildItem -LiteralPath $logs -File -Recurse | Copy-Item -Destination $diagnostics -Force }
