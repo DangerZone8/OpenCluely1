@@ -1,0 +1,85 @@
+name: Controlled installed auto-update v1.0.341 to v1.0.342
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/controlled-auto-update.yml"
+      - "scripts/test-controlled-auto-update-v341-to-v342.ps1"
+      - "scripts/controlled-update-feed-server.js"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installed-windows-update:
+    name: Installed Windows v1.0.341 -> v1.0.342 (loopback feed)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout test harness
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: false
+
+      - name: Create pristine v1.0.341 source worktree
+        shell: pwsh
+        run: |
+          $source = Join-Path $env:RUNNER_TEMP 'slickly-v1341-source'
+          git worktree add --detach $source v1.0.341
+          "SLICKLY_SOURCE=$source" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Install v1.0.341 build dependencies
+        shell: pwsh
+        run: |
+          Set-Location $env:SLICKLY_SOURCE
+          npm ci
+
+      - name: Build v1.0.341 baseline installer
+        shell: pwsh
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          Set-Location $env:SLICKLY_SOURCE
+          npm run build:win -- --publish never
+          $baseline = Get-ChildItem -LiteralPath 'dist' -Filter 'Slickly-AI-Setup-1.0.341.exe' -File | Select-Object -First 1
+          if (-not $baseline) { throw 'Could not build the v1.0.341 NSIS baseline installer.' }
+          $destination = Join-Path $env:RUNNER_TEMP 'Slickly-AI-Setup-1.0.341.exe'
+          Copy-Item -LiteralPath $baseline.FullName -Destination $destination -Force
+          "SLICKLY_BASELINE_INSTALLER=$destination" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Build v1.0.342 test-only update payload
+        shell: pwsh
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          Set-Location $env:SLICKLY_SOURCE
+          npm version 1.0.342 --no-git-tag-version --ignore-scripts
+          npm run build:win -- --publish never
+          node scripts/generate-update-manifest.js --platform win --version 1.0.342 --dir dist
+          $feed = Join-Path $env:RUNNER_TEMP 'Slickly-Controlled-Feed'
+          New-Item -ItemType Directory -Force -Path $feed | Out-Null
+          Copy-Item -LiteralPath (Join-Path $PWD 'dist/latest.yml') -Destination $feed -Force
+          $installer = Get-ChildItem -LiteralPath 'dist' -Filter 'Slickly-AI-Setup-1.0.342.exe' -File | Select-Object -First 1
+          if (-not $installer) { throw 'Could not build the v1.0.342 NSIS test installer.' }
+          Copy-Item -LiteralPath $installer.FullName -Destination $feed -Force
+          "SLICKLY_CONTROLLED_FEED=$feed" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host 'PASS: v1.0.342 exists only as a local CI build; no GitHub Release or Vercel feed was published.'
+
+      - name: Run installed-app update through controlled feed
+        shell: pwsh
+        run: |
+          ./scripts/test-controlled-auto-update-v341-to-v342.ps1 -BaselineInstaller $env:SLICKLY_BASELINE_INSTALLER -FeedRoot $env:SLICKLY_CONTROLLED_FEED
+
+      - name: Upload controlled updater diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slickly-controlled-v1341-to-v1342-updater-diagnostics
+          path: slickly-controlled-update-logs/
+          if-no-files-found: warn
+          retention-days: 7
