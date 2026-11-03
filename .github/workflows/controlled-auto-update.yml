@@ -1,6 +1,9 @@
 name: Controlled installed auto-update v1.0.341 to v1.0.342
 
 on:
+  push:
+    branches:
+      - "test/controlled-v1341-to-v1342-auto-update"
   pull_request:
     paths:
       - ".github/workflows/controlled-auto-update.yml"
