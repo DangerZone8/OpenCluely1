@@ -108,7 +108,14 @@ try {
   if ($port -lt 1 -or $port -gt 65535) { throw "Invalid controlled feed port: $port" }
   $feedUrl = "http://127.0.0.1:$port/"
   $originalUpdateConfig = Get-Content -LiteralPath $updateConfig -Raw
-  if ($originalUpdateConfig -notmatch '(?m)^provider:\s*generic\s*
+  if (-not $originalUpdateConfig.Contains('provider: generic')) {
+    throw 'Installed v1.0.341 app-update.yml does not use the generic provider.'
+  }
+  if (-not $originalUpdateConfig.Contains('https://slicklyai.vercel.app/api/updates/')) {
+    throw 'Installed v1.0.341 app-update.yml does not contain the permanent Slickly Vercel update URL.'
+  }
+  Write-Host 'PASS: v1.0.341 installer embeds the permanent Vercel update endpoint.'
+  $cacheSetting = [regex]::Match($originalUpdateConfig, '(?m)^updaterCacheDirName:\s*.+$').Value
   if (-not $cacheSetting) { throw 'Built v1.0.341 app-update.yml has no updaterCacheDirName; refusing to replace required updater metadata.' }
   $testConfig = 'provider: generic' + [Environment]::NewLine + "url: $feedUrl" + [Environment]::NewLine + 'useMultipleRangeRequest: false' + [Environment]::NewLine + $cacheSetting + [Environment]::NewLine
   [IO.File]::WriteAllText($updateConfig, $testConfig, [Text.UTF8Encoding]::new($false))
