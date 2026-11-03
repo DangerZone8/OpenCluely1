@@ -41,14 +41,15 @@ const server = http.createServer((req, res) => {
   let requestedPath;
   try { requestedPath = decodeURIComponent(new URL(req.url, "http://127.0.0.1").pathname).split("/").filter(Boolean).join("/"); }
   catch { res.writeHead(400).end("Bad URL"); return; }
-  // electron-updater can resolve a manifest asset against the provider root.
-  // Never let an empty/root asset URL silently return latest.yml: that makes
-  // the manifest itself get downloaded as the installer and triggers a SHA-512
-  // mismatch. Keep latest.yml explicit and map root asset requests to the
-  // one controlled installer built for this test.
-  const installerName = fs.readdirSync(root).find(file => /^Slickly-AI-Setup-1\.0\.342\.exe$/i.test(file));
-  const name = requestedPath || installerName;
-  if (!name) { res.writeHead(404, { "Cache-Control": "no-store" }).end("No controlled installer"); return; }
+  // Never map the provider root to an installer. A root request means the
+  // manifest's asset URL is missing/incorrect; returning an EXE there masks
+  // the malformed feed. The manifest and installer must be requested explicitly.
+  const name = requestedPath;
+  if (!name) {
+    fs.appendFileSync(accessLog, JSON.stringify({ method: req.method, requestedPath: "/", range: req.headers.range || null, status: 404, error: "Root URL is not a valid update asset" }) + "\n");
+    res.writeHead(404, { "Cache-Control": "no-store" }).end("Root URL is not a valid update asset");
+    return;
+  }
   fs.appendFileSync(accessLog, JSON.stringify({ event: "request", method: req.method, requestedPath: requestedPath || "/", resolvedPath: name, range: req.headers.range || null }) + "\n");
   if (req.method !== "GET" && req.method !== "HEAD") { res.writeHead(405, { Allow: "GET, HEAD" }).end(); return; }
   if (path.basename(name) !== name || name.includes("..")) { res.writeHead(400).end("Invalid path"); return; }
