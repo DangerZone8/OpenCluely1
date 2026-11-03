@@ -7,6 +7,36 @@ const root = path.resolve(arg("--root") || "");
 const portFile = path.resolve(arg("--port-file") || "");
 if (!fs.existsSync(root) || !fs.statSync(root).isDirectory() || !portFile) throw new Error("Missing --root or --port-file");
 const accessLog = path.join(root, "controlled-feed-requests.jsonl");
+
+function parseRange(spec, size) {
+  const match = /^(\d*)-(\d*)$/.exec(spec.trim());
+  if (!match || (!match[1] && !match[2])) return null;
+  let start;
+  let end;
+  if (!match[1]) {
+    const suffixLength = Number(match[2]);
+    if (!Number.isSafeInteger(suffixLength) || suffixLength <= 0) return null;
+    start = Math.max(0, size - suffixLength);
+    end = size - 1;
+  } else {
+    start = Number(match[1]);
+    end = match[2] ? Math.min(Number(match[2]), size - 1) : size - 1;
+  }
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || start >= size || start > end) return null;
+  return { start, end };
+}
+
+function readPart(fd, range) {
+  const buffer = Buffer.alloc(range.end - range.start + 1);
+  let offset = 0;
+  while (offset < buffer.length) {
+    const read = fs.readSync(fd, buffer, offset, buffer.length - offset, range.start + offset);
+    if (read <= 0) throw new Error("Unexpected end of file while reading requested range");
+    offset += read;
+  }
+  return buffer;
+}
+
 const server = http.createServer((req, res) => {
   let name;
   try { name = decodeURIComponent(new URL(req.url, "http://127.0.0.1").pathname).split("/").filter(Boolean).join("/"); }
@@ -17,31 +47,81 @@ const server = http.createServer((req, res) => {
   const file = path.join(root, name);
   if (!fs.existsSync(file) || !fs.statSync(file).isFile()) {
     fs.appendFileSync(accessLog, JSON.stringify({ method: req.method, path: name, range: req.headers.range || null, status: 404 }) + "\n");
-    res.writeHead(404, { "Cache-Control": "no-store" }).end("Not found"); return;
+    res.writeHead(404, { "Cache-Control": "no-store" }).end("Not found");
+    return;
   }
+
   const stat = fs.statSync(file);
-  const type = name.endsWith(".yml") ? "text/yaml; charset=utf-8" : name.endsWith(".blockmap") ? "application/octet-stream" : "application/octet-stream";
-  const range = req.method === "GET" && req.headers.range ? /^bytes=(\d+)-(\d*)$/.exec(req.headers.range) : null;
-  let start = 0;
-  let end = stat.size - 1;
-  let status = 200;
-  if (req.headers.range && !range) { res.writeHead(416, { "Content-Range": "bytes */" + stat.size }).end(); return; }
-  if (range) {
-    start = Number(range[1]);
-    end = range[2] ? Math.min(Number(range[2]), stat.size - 1) : stat.size - 1;
-    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start > end || start >= stat.size) {
-      res.writeHead(416, { "Content-Range": "bytes */" + stat.size }).end(); return;
+  const type = name.endsWith(".yml") ? "text/yaml; charset=utf-8" : "application/octet-stream";
+  const rangeHeader = req.method === "GET" ? req.headers.range : null;
+  if (rangeHeader) {
+    const match = /^bytes=(.+)$/i.exec(rangeHeader);
+    const ranges = match ? match[1].split(",").map(part => parseRange(part, stat.size)) : null;
+    if (!ranges || ranges.length === 0 || ranges.some(range => range == null)) {
+      fs.appendFileSync(accessLog, JSON.stringify({ method: req.method, path: name, range: rangeHeader, status: 416 }) + "\n");
+      res.writeHead(416, { "Content-Range": "bytes */" + stat.size, "Cache-Control": "no-store" }).end();
+      return;
     }
-    status = 206;
+
+    if (ranges.length === 1) {
+      const range = ranges[0];
+      const length = range.end - range.start + 1;
+      fs.appendFileSync(accessLog, JSON.stringify({ method: req.method, path: name, range: rangeHeader, status: 206, bytes: length }) + "\n");
+      res.writeHead(206, {
+        "Content-Type": type,
+        "Content-Length": length,
+        "Content-Range": "bytes " + range.start + "-" + range.end + "/" + stat.size,
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff"
+      });
+      fs.createReadStream(file, { start: range.start, end: range.end }).pipe(res);
+      return;
+    }
+
+    const boundary = "slickly-range-" + process.pid + "-" + Date.now();
+    const chunks = [];
+    const fd = fs.openSync(file, "r");
+    try {
+      for (const range of ranges) {
+        const header = "--" + boundary + "\r\n" +
+          "Content-Type: " + type + "\r\n" +
+          "Content-Range: bytes " + range.start + "-" + range.end + "/" + stat.size + "\r\n\r\n";
+        chunks.push(Buffer.from(header), readPart(fd, range), Buffer.from("\r\n"));
+      }
+    } finally {
+      fs.closeSync(fd);
+    }
+    chunks.push(Buffer.from("--" + boundary + "--\r\n"));
+    const body = Buffer.concat(chunks);
+    fs.appendFileSync(accessLog, JSON.stringify({ method: req.method, path: name, range: rangeHeader, status: 206, ranges: ranges.length, bytes: body.length }) + "\n");
+    res.writeHead(206, {
+      "Content-Type": "multipart/byteranges; boundary=" + boundary,
+      "Content-Length": body.length,
+      "Accept-Ranges": "bytes",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff"
+    });
+    res.end(body);
+    return;
   }
-  const length = end - start + 1;
-  fs.appendFileSync(accessLog, JSON.stringify({ method: req.method, path: name, range: req.headers.range || null, status, bytes: length }) + "\n");
-  const headers = { "Content-Type": type, "Content-Length": length, "Accept-Ranges": "bytes", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
-  if (status === 206) headers["Content-Range"] = "bytes " + start + "-" + end + "/" + stat.size;
-  res.writeHead(status, headers);
+
+  fs.appendFileSync(accessLog, JSON.stringify({ method: req.method, path: name, range: null, status: 200, bytes: stat.size }) + "\n");
+  res.writeHead(200, {
+    "Content-Type": type,
+    "Content-Length": stat.size,
+    "Accept-Ranges": "bytes",
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff"
+  });
   if (req.method === "HEAD") return res.end();
-  fs.createReadStream(file, { start, end }).pipe(res);
+  fs.createReadStream(file).pipe(res);
 });
-server.listen(0, "127.0.0.1", () => { fs.writeFileSync(portFile, String(server.address().port)); process.stdout.write("Controlled updater feed ready\n"); });
+
+server.listen(0, "127.0.0.1", () => {
+  fs.writeFileSync(portFile, String(server.address().port));
+  process.stdout.write("Controlled updater feed ready\n");
+});
 function stop() { server.close(() => process.exit(0)); }
-process.on("SIGTERM", stop); process.on("SIGINT", stop);
+process.on("SIGTERM", stop);
+process.on("SIGINT", stop);
