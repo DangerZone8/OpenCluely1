@@ -27,7 +27,7 @@ if (matches.length !== 1) {
 }
 const match = matches[0];
 const indent = match[1];
-const newline = method.includes('\\r\\n') ? '\\r\\n' : '\\n';
+const newline = method.includes('\r\n') ? '\r\n' : '\n';
 const patch = [
   'const controlledFeedUrl = process.env.SLICKLY_UPDATE_URL;',
   'if (controlledFeedUrl) {',
