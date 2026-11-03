@@ -4,12 +4,12 @@ on:
   push:
     branches:
       - "test/controlled-v1341-to-v1342-auto-update"
-  pull_request:
-    paths:
-      - ".github/workflows/controlled-auto-update.yml"
-      - "scripts/test-controlled-auto-update-v341-to-v342.ps1"
-      - "scripts/controlled-update-feed-server.js"
   workflow_dispatch:
+
+# One controlled updater run per branch. Never cancel an in-flight install/update test.
+concurrency:
+  group: controlled-auto-update-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
