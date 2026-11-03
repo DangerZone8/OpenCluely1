@@ -22,10 +22,19 @@ function Assert-File([string]$Path, [string]$Description) {
   if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "$Description not found: $Path" }
 }
 function Read-SharedTextFile([string]$Path) {
+  # Snapshot the current file length and read only those bytes. ReadToEnd() on
+  # a live redirected stream can keep chasing concurrent writes indefinitely.
   $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
   try {
-    $reader = [IO.StreamReader]::new($stream)
-    try { return $reader.ReadToEnd() } finally { $reader.Dispose() }
+    $length = [int][Math]::Min($stream.Length, 5MB)
+    $bytes = New-Object byte[] $length
+    $offset = 0
+    while ($offset -lt $length) {
+      $count = $stream.Read($bytes, $offset, $length - $offset)
+      if ($count -le 0) { break }
+      $offset += $count
+    }
+    return [Text.Encoding]::UTF8.GetString($bytes, 0, $offset)
   } finally { $stream.Dispose() }
 }
 New-Item -ItemType Directory -Force -Path $testRoot, $profileDir, $diagnostics | Out-Null
