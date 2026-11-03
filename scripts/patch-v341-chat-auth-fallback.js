@@ -28,8 +28,6 @@ if (matches.length !== 1) {
   throw new Error('Expected exactly one streaming catch anchor in v1.0.341; found ' + matches.length + '. Refusing an ambiguous patch.');
 }
 const match = matches[0];
-if (match[1] !== match[2]) throw new Error('Streaming catch anchor indentation is inconsistent.');
-
 const newline = method.includes('\r\n') ? '\r\n' : '\n';
 const indent = match[1];
 const patch = [
@@ -56,7 +54,7 @@ const patch = [
 ].map(line => indent + line).join(newline);
 
 const insertionOffset = methodStart + match.index + match[0].length;
-source = source.slice(0, insertionOffset) + patch + source.slice(insertionOffset);
+source = source.slice(0, insertionOffset) + newline + patch + source.slice(insertionOffset);
 fs.writeFileSync(file, source, 'utf8');
 
 const verifyStart = source.indexOf('async executeStreamingRequest(');
