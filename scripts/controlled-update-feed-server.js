@@ -48,10 +48,6 @@ const server = http.createServer((req, res) => {
   if (!requestedPath) {
     fs.appendFileSync(accessLog, JSON.stringify({ event: "root-manifest-alias", method: req.method, requestedPath: "/", resolvedPath: name, range: req.headers.range || null }) + "\n");
   }
-  fs.appendFileSync(accessLog, JSON.stringify({ method: req.method, requestedPath: "/", range: req.headers.range || null, status: 404, error: "Root URL is not a valid update asset" }) + "\n");
-    res.writeHead(404, { "Cache-Control": "no-store" }).end("Root URL is not a valid update asset");
-    return;
-  }
   fs.appendFileSync(accessLog, JSON.stringify({ event: "request", method: req.method, requestedPath: requestedPath || "/", resolvedPath: name, range: req.headers.range || null }) + "\n");
   if (req.method !== "GET" && req.method !== "HEAD") { res.writeHead(405, { Allow: "GET, HEAD" }).end(); return; }
   if (path.basename(name) !== name || name.includes("..")) { res.writeHead(400).end("Invalid path"); return; }
