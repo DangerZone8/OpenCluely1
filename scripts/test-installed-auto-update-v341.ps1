@@ -54,6 +54,8 @@ try {
   # GitHub-hosted runners set CI=true. Slickly intentionally disables auto-update
   # in CI, so clear that variable only for this isolated installed-app process.
   $env:CI = 'false'
+  $env:NODE_ENV = 'production'
+  Remove-Item Env:SLICKLY_DISABLE_AUTO_UPDATE -ErrorAction SilentlyContinue
   # Electron's os.homedir() and app.getPath('userData') resolve from these
   # Windows profile variables. Isolate them so logs and updater state are
   # deterministic and cannot be redirected by the hosted runner's HOME value.
