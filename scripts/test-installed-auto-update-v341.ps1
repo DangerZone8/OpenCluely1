@@ -10,7 +10,7 @@ $installer = Join-Path $env:RUNNER_TEMP $oldInstallerName
 $checksumFile = Join-Path $env:RUNNER_TEMP 'SHA256SUMS-1.0.340.txt'
 $isolatedProfile = Join-Path $env:RUNNER_TEMP 'SlicklyAutoUpdate341Profile'
 $logDir = Join-Path $isolatedProfile '.OpenCluely\logs'
-$artifactLogDir = Join-Path $env:RUNNER_TEMP 'slickly-update-logs'
+$artifactLogDir = Join-Path $PWD 'slickly-update-logs'
 $stdoutLog = Join-Path $env:RUNNER_TEMP 'slickly-update-stdout.log'
 $stderrLog = Join-Path $env:RUNNER_TEMP 'slickly-update-stderr.log'
 
@@ -149,6 +149,11 @@ finally {
     if (Test-Path -LiteralPath $capture) { Copy-Item -LiteralPath $capture -Destination $artifactLogDir -Force }
   }
   if (Test-Path -LiteralPath $artifactLogDir) {
-    Write-Host "Diagnostic files captured: $((Get-ChildItem -LiteralPath $artifactLogDir -File | Select-Object -ExpandProperty Name) -join ', ')"
+    $captured = @(Get-ChildItem -LiteralPath $artifactLogDir -File -Recurse)
+    Write-Host "Diagnostic files captured: $(($captured | Select-Object -ExpandProperty Name) -join ', ')"
+    foreach ($file in $captured) {
+      Write-Host "===== DIAGNOSTIC: $($file.Name) (last 180 lines) ====="
+      Get-Content -LiteralPath $file.FullName -Tail 180 -ErrorAction SilentlyContinue
+    }
   }
 }
