@@ -21,7 +21,7 @@ const streamingStart = source.indexOf('async executeStreamingRequest(');
 if (streamingStart < 0) {
   throw new Error('Could not find executeStreamingRequest in the v1.0.341 source.');
 }
-const anchor = '          const errorInfo = this.analyzeError(error);\\n          lastError = error;\\n';
+const anchor = '          const errorInfo = this.analyzeError(error);\n          lastError = error;\n';
 const anchorIndex = source.indexOf(anchor, streamingStart);
 if (anchorIndex < 0) {
   throw new Error('Could not find the v1.0.341 streaming catch block; refusing to patch an unexpected source revision.');
