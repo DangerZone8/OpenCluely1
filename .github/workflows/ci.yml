@@ -250,6 +250,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: slickly-v1340-to-v1341-auto-update-logs
-          path: ${{ runner.temp }}/slickly-update-logs/
+          path: slickly-update-logs/
           if-no-files-found: warn
           retention-days: 7
