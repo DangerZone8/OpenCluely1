@@ -189,7 +189,22 @@ module.exports = async function handler(req, res) {
           code: providerCode || undefined,
           message: typeof result.error?.message === 'string' ? result.error.message.slice(0, 180) : undefined
         };
+        const invalidApiKey = providerCode === 'API_KEY_INVALID' ||
+          /api key not valid|invalid api key/i.test(lastFailure.message || '');
+        // A stale primary key must not block a valid secondary key configured
+        // for the same deployment. Never log or expose any key material.
+        if (invalidApiKey && keyIndex + 1 < keys.length) break;
         if (providerCode === 'RESOURCE_EXHAUSTED' && keyIndex + 1 < keys.length) break;
+        if (invalidApiKey) {
+          return respond(res, 503, {
+            error: 'The Gemini API key configured for this deployment was rejected by Google. Update GEMINI_API_KEY in the Vercel Production environment and redeploy.',
+            providerStatus: upstream.status,
+            providerCode: 'API_KEY_INVALID',
+            attemptedKeySources,
+            configuredKeyCount: keys.length,
+            attemptedModels: [model]
+          });
+        }
         const transient = [500, 502, 503, 504].includes(upstream.status) ||
           ['UNAVAILABLE', 'INTERNAL', 'DEADLINE_EXCEEDED'].includes(providerCode);
         if (transient && providerAttempt < maxProviderAttempts && Date.now() + 200 < requestDeadline) {
@@ -233,7 +248,7 @@ module.exports = async function handler(req, res) {
         break;
       }
     }
-    if (lastFailure?.code === 'RESOURCE_EXHAUSTED' && keyIndex + 1 < keys.length) continue;
+    if ((lastFailure?.code === 'RESOURCE_EXHAUSTED' || lastFailure?.code === 'API_KEY_INVALID') && keyIndex + 1 < keys.length) continue;
     if ((lastFailure?.code === 'NETWORK_OR_TIMEOUT' || lastFailure?.status === 0) && keyIndex + 1 >= keys.length) break;
   }
 
