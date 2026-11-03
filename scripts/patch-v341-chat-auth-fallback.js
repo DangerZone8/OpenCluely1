@@ -22,7 +22,7 @@ const method = source.slice(methodStart, methodEnd);
 
 // Windows checkout may convert LF to CRLF. Match either newline style and
 // preserve the original indentation rather than depending on logger formatting.
-const anchorPattern = /([ \\t]*)const errorInfo = this\\.analyzeError\\(error\\);\\r?\\n([ \\t]*)lastError = error;\\r?\\n/g;
+const anchorPattern = /([ \t]*)const errorInfo = this\.analyzeError\(error\);\r?\n([ \t]*)lastError = error;\r?\n/g;
 const matches = [...method.matchAll(anchorPattern)];
 if (matches.length !== 1) {
   throw new Error('Expected exactly one streaming catch anchor in v1.0.341; found ' + matches.length + '. Refusing an ambiguous patch.');
@@ -30,7 +30,7 @@ if (matches.length !== 1) {
 const match = matches[0];
 if (match[1] !== match[2]) throw new Error('Streaming catch anchor indentation is inconsistent.');
 
-const newline = method.includes('\\r\\n') ? '\\r\\n' : '\\n';
+const newline = method.includes('\r\n') ? '\r\n' : '\n';
 const indent = match[1];
 const patch = [
   '// A stale or invalid local BYOK key must not permanently disable',
