@@ -21,12 +21,15 @@ $transcriptPath = Join-Path $diagnostics 'powershell-transcript.txt'
 function Assert-File([string]$Path, [string]$Description) {
   if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "$Description not found: $Path" }
 }
-function Read-SharedTextFile([string]$Path) {
-  # Snapshot the current file length and read only those bytes. ReadToEnd() on
-  # a live redirected stream can keep chasing concurrent writes indefinitely.
+function Read-SharedTextFile([string]$Path, [int]$MaxBytes = 5MB) {
+  # Read a bounded snapshot from the END of the live console log. The app can
+  # emit substantial startup/Chromium output; reading only the first bytes
+  # hides later updater events and makes a healthy update look like a timeout.
   $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
   try {
-    $length = [int][Math]::Min($stream.Length, 5MB)
+    $length = [int][Math]::Min($stream.Length, $MaxBytes)
+    $start = [Math]::Max(0L, $stream.Length - $length)
+    [void]$stream.Seek($start, [IO.SeekOrigin]::Begin)
     $bytes = New-Object byte[] $length
     $offset = 0
     while ($offset -lt $length) {
@@ -35,6 +38,22 @@ function Read-SharedTextFile([string]$Path) {
       $offset += $count
     }
     return [Text.Encoding]::UTF8.GetString($bytes, 0, $offset)
+  } finally { $stream.Dispose() }
+}
+function Save-LogTail([string]$Source, [string]$Destination, [int]$MaxBytes = 2MB) {
+  if (-not (Test-Path -LiteralPath $Source -PathType Leaf)) { return }
+  $stream = [IO.File]::Open($Source, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+  try {
+    $length = [int][Math]::Min($stream.Length, $MaxBytes)
+    [void]$stream.Seek([Math]::Max(0L, $stream.Length - $length), [IO.SeekOrigin]::Begin)
+    $bytes = New-Object byte[] $length
+    $offset = 0
+    while ($offset -lt $length) {
+      $count = $stream.Read($bytes, $offset, $length - $offset)
+      if ($count -le 0) { break }
+      $offset += $count
+    }
+    [IO.File]::WriteAllBytes($Destination, $bytes[0..([Math]::Max(0, $offset - 1))])
   } finally { $stream.Dispose() }
 }
 New-Item -ItemType Directory -Force -Path $testRoot, $profileDir, $diagnostics | Out-Null
@@ -217,7 +236,7 @@ finally {
   try { Stop-Transcript | Out-Null } catch {}
   foreach ($file in @($stdoutLog, $stderrLog, $serverStdoutLog, $serverStderrLog)) {
     if (Test-Path -LiteralPath $file -PathType Leaf) {
-      Copy-Item -LiteralPath $file -Destination (Join-Path $diagnostics ([IO.Path]::GetFileName($file))) -Force
+      Save-LogTail -Source $file -Destination (Join-Path $diagnostics ([IO.Path]::GetFileName($file)))
     }
   }
   $requestsFile = Join-Path $FeedRoot 'controlled-feed-requests.jsonl'
@@ -227,7 +246,8 @@ finally {
   }
   Write-Host "Updater diagnostic directory: $diagnostics"
   Get-ChildItem -LiteralPath $diagnostics -File -ErrorAction SilentlyContinue | ForEach-Object {
-    Write-Host "===== $($_.Name) ====="
-    Get-Content -LiteralPath $_.FullName -Tail 160 -ErrorAction SilentlyContinue
+    Write-Host "===== $($_.Name) (last 2 MB max) ====="
+    $tail = Read-SharedTextFile -Path $_.FullName -MaxBytes 2MB
+    $tail -split "`r?`n" | Select-Object -Last 160 | ForEach-Object { Write-Host $_ }
   }
 }
