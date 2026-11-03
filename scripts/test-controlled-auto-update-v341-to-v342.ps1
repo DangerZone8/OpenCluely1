@@ -53,7 +53,13 @@ function Save-LogTail([string]$Source, [string]$Destination, [int]$MaxBytes = 2M
       if ($count -le 0) { break }
       $offset += $count
     }
-    [IO.File]::WriteAllBytes($Destination, $bytes[0..([Math]::Max(0, $offset - 1))])
+    if ($offset -le 0) {
+      [IO.File]::WriteAllBytes($Destination, [byte[]]@())
+    } else {
+      $written = New-Object byte[] $offset
+      [Array]::Copy($bytes, 0, $written, 0, $offset)
+      [IO.File]::WriteAllBytes($Destination, $written)
+    }
   } finally { $stream.Dispose() }
 }
 New-Item -ItemType Directory -Force -Path $testRoot, $profileDir, $diagnostics | Out-Null
@@ -121,7 +127,17 @@ try {
   $env:HOME = $profileDir
   $env:APPDATA = Join-Path $profileDir 'AppData\Roaming'
   $env:LOCALAPPDATA = Join-Path $profileDir 'AppData\Local'
-  $appProcess = Start-Process -FilePath $appExe -ArgumentList '--disable-gpu' -PassThru -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
+  # The test hook is inherited by this one installed-app process only.
+  # It is deliberately not a GitHub Secret or a permanent user setting.
+  $hadPreviousUpdateUrl = Test-Path Env:SLICKLY_UPDATE_URL
+  $previousUpdateUrl = $env:SLICKLY_UPDATE_URL
+  $env:SLICKLY_UPDATE_URL = $feedUrl
+  try {
+    $appProcess = Start-Process -FilePath $appExe -ArgumentList '--disable-gpu' -PassThru -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
+  } finally {
+    if ($hadPreviousUpdateUrl) { $env:SLICKLY_UPDATE_URL = $previousUpdateUrl }
+    else { Remove-Item Env:SLICKLY_UPDATE_URL -ErrorAction SilentlyContinue }
+  }
   # Use the redirected Winston console stream as the live source of truth.
   # os.homedir() can resolve differently inside a packaged Electron process.
   $logFile = $stdoutLog
