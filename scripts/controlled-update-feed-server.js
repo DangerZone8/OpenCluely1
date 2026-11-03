@@ -46,7 +46,7 @@ const server = http.createServer((req, res) => {
   // the manifest itself get downloaded as the installer and triggers a SHA-512
   // mismatch. Keep latest.yml explicit and map root asset requests to the
   // one controlled installer built for this test.
-  const installerName = fs.readdirSync(root).find(file => /^Slickly-AI-Setup-1\.0\.342\\.exe$/i.test(file));
+  const installerName = fs.readdirSync(root).find(file => /^Slickly-AI-Setup-1\.0\.342\.exe$/i.test(file));
   const name = requestedPath || installerName;
   if (!name) { res.writeHead(404, { "Cache-Control": "no-store" }).end("No controlled installer"); return; }
   fs.appendFileSync(accessLog, JSON.stringify({ event: "request", method: req.method, requestedPath: requestedPath || "/", resolvedPath: name, range: req.headers.range || null }) + "\n");
