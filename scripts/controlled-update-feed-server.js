@@ -41,12 +41,14 @@ const server = http.createServer((req, res) => {
   let requestedPath;
   try { requestedPath = decodeURIComponent(new URL(req.url, "http://127.0.0.1").pathname).split("/").filter(Boolean).join("/"); }
   catch { res.writeHead(400).end("Bad URL"); return; }
-  // electron-updater can request the generic-provider channel manifest at
-  // the provider root when the channel filename is supplied separately.
-  // Root aliases latest.yml only; installer assets still require explicit URLs.
-  const name = requestedPath || "latest.yml";
-  if (!requestedPath) {
-    fs.appendFileSync(accessLog, JSON.stringify({ event: "root-manifest-alias", method: req.method, requestedPath: "/", resolvedPath: name, range: req.headers.range || null }) + "\n");
+  // Do not disguise an invalid asset URL as a valid manifest or installer.
+  // A root request is a useful diagnostic: the updater must request latest.yml
+  // and the installer by their explicit paths.
+  const name = requestedPath;
+  if (!name) {
+    fs.appendFileSync(accessLog, JSON.stringify({ method: req.method, requestedPath: "/", range: req.headers.range || null, status: 404, error: "Root URL is not a valid update asset" }) + "\n");
+    res.writeHead(404, { "Cache-Control": "no-store" }).end("Root URL is not a valid update asset");
+    return;
   }
   fs.appendFileSync(accessLog, JSON.stringify({ event: "request", method: req.method, requestedPath: requestedPath || "/", resolvedPath: name, range: req.headers.range || null }) + "\n");
   if (req.method !== "GET" && req.method !== "HEAD") { res.writeHead(405, { Allow: "GET, HEAD" }).end(); return; }
