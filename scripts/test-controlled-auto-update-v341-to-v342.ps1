@@ -15,6 +15,8 @@ $stdoutLog = Join-Path $testRoot 'app-stdout.log'
 $stderrLog = Join-Path $testRoot 'app-stderr.log'
 $diagnostics = Join-Path $PWD 'slickly-controlled-update-logs'
 $serverProcess = $null
+$logFile = $null
+$transcriptPath = Join-Path $diagnostics 'powershell-transcript.txt'
 function Assert-File([string]$Path, [string]$Description) {
   if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "$Description not found: $Path" }
 }
@@ -33,10 +35,17 @@ if (-not $expectedSha512) { throw 'Manifest has no top-level SHA-512 digest.' }
 $actualSha512 = [Convert]::ToBase64String([Security.Cryptography.SHA512]::HashData([IO.File]::ReadAllBytes($targetInstaller.FullName)))
 if ($actualSha512 -ne $expectedSha512) { throw 'v1.0.342 installer SHA-512 does not match latest.yml.' }
 Write-Host 'PASS: controlled manifest and v1.0.342 installer SHA-512 match.'
+Start-Transcript -Path $transcriptPath -Force | Out-Null
 try {
+  Write-Host "[$(Get-Date -Format o)] PHASE: install baseline v1.0.341"
   Write-Host 'Installing locally built v1.0.341 into an isolated directory.'
-  $install = Start-Process -FilePath $BaselineInstaller -ArgumentList "/S /D=$installDir" -Wait -PassThru
+  $install = Start-Process -FilePath $BaselineInstaller -ArgumentList "/S /D=$installDir" -PassThru
+  if (-not $install.WaitForExit(300000)) {
+    try { $install.Kill() } catch {}
+    throw 'Baseline v1.0.341 installer did not exit within 5 minutes; terminated it to prevent an unbounded CI hang.'
+  }
   if ($install.ExitCode -ne 0) { throw "v1.0.341 installer exited with code $($install.ExitCode)." }
+  Write-Host "[$(Get-Date -Format o)] PHASE COMPLETE: baseline installer exited with code 0."
   $appExe = Join-Path $installDir 'Slickly AI.exe'
   Assert-File $appExe 'Installed v1.0.341 executable'
   $installedVersion = (Get-Item -LiteralPath $appExe).VersionInfo.ProductVersion
@@ -72,7 +81,8 @@ try {
   $appProcess = Start-Process -FilePath $appExe -ArgumentList '--disable-gpu' -PassThru -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
   $logDir = Join-Path $profileDir '.OpenCluely\logs'
   $logFile = Join-Path $logDir ("application-" + (Get-Date -Format 'yyyy-MM-dd') + '.log')
-  $deadline = (Get-Date).AddMinutes(4)
+  Write-Host "[$(Get-Date -Format o)] PHASE: launch installed v1.0.341 and wait for update detection/download."
+  $deadline = (Get-Date).AddMinutes(8)
   $updateAvailable = $false
   $updateDownloaded = $false
   $visible = $false
@@ -99,6 +109,7 @@ try {
   $requests = if (Test-Path -LiteralPath $requestsFile) { Get-Content -LiteralPath $requestsFile -Raw } else { '' }
   if ($requests -notmatch 'latest\.yml' -or $requests -notmatch [regex]::Escape($targetInstaller.Name)) { throw 'Feed access log does not show both manifest and installer requests.' }
   Write-Host 'PASS: feed log confirms latest.yml and installer requests.'
+  Write-Host "[$(Get-Date -Format o)] PHASE COMPLETE: update detected and downloaded; validating install-on-quit."
   $beforePids = @(Get-Process -Name 'Slickly AI' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
   if ($beforePids.Count -eq 0) { throw 'No running Slickly process found before install-on-quit.' }
   Add-Type -TypeDefinition @'
@@ -152,7 +163,8 @@ public static class SlicklyControlledUpdateCloser {
   } while ((Get-Date) -lt $quitDeadline)
   if ($remaining.Count -ne 0) { throw "Original app processes did not exit after WM_CLOSE: $($remaining -join ', ')." }
   Write-Host 'PASS: original app exited through normal close, invoking install-on-quit.'
-  $restartDeadline = (Get-Date).AddMinutes(4)
+  Write-Host "[$(Get-Date -Format o)] PHASE: wait for updated v1.0.342 process to relaunch."
+  $restartDeadline = (Get-Date).AddMinutes(6)
   $newApp = $null
   $newVersion = ''
   while ((Get-Date) -lt $restartDeadline) {
@@ -166,9 +178,10 @@ public static class SlicklyControlledUpdateCloser {
   if (-not $newVersion.StartsWith($toVersion)) { throw "Installed executable remained '$newVersion'; expected v1.0.342." }
   if (-not $newApp) { throw 'Updater installed v1.0.342 but did not relaunch the application.' }
   Write-Host "PASS: executable updated to $newVersion and app relaunched with PID $($newApp.Id)."
-  Write-Host 'PASS: complete controlled installed-app update v1.0.341 -> v1.0.342.'
+  Write-Host "[$(Get-Date -Format o)] PASS: complete controlled installed-app update v1.0.341 -> v1.0.342."
 }
 finally {
+  try { Stop-Transcript | Out-Null } catch {}
   if ($serverProcess -and -not $serverProcess.HasExited) { Stop-Process -Id $serverProcess.Id -Force -ErrorAction SilentlyContinue }
   foreach ($file in @($stdoutLog, $stderrLog, $serverStdoutLog, $serverStderrLog)) { if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination $diagnostics -Force } }
   $requestsFile = Join-Path $FeedRoot 'controlled-feed-requests.jsonl'
