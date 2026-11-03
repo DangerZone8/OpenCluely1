@@ -21,6 +21,13 @@ $transcriptPath = Join-Path $diagnostics 'powershell-transcript.txt'
 function Assert-File([string]$Path, [string]$Description) {
   if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "$Description not found: $Path" }
 }
+function Read-SharedTextFile([string]$Path) {
+  $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+  try {
+    $reader = [IO.StreamReader]::new($stream)
+    try { return $reader.ReadToEnd() } finally { $reader.Dispose() }
+  } finally { $stream.Dispose() }
+}
 New-Item -ItemType Directory -Force -Path $testRoot, $profileDir, $diagnostics | Out-Null
 Remove-Item -LiteralPath $installDir -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $profileDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -92,7 +99,7 @@ try {
   while ((Get-Date) -lt $deadline -and (-not $updateAvailable -or -not $updateDownloaded -or -not $visible)) {
     if ($appProcess.HasExited) { throw "Installed v1.0.341 exited before update completed. Exit code: $($appProcess.ExitCode)." }
     if (Test-Path -LiteralPath $logFile -PathType Leaf) {
-      $log = Get-Content -LiteralPath $logFile -Raw
+      $log = Read-SharedTextFile $logFile
       $visible = $log -match 'Main window displayed'
       $updateAvailable = $log -match ('(?s)Slickly AI update available.{0,500}"version"\s*:\s*"' + [regex]::Escape($toVersion) + '"')
       $updateDownloaded = $log -match ('(?s)Slickly AI update downloaded; it will install on quit.{0,500}"version"\s*:\s*"' + [regex]::Escape($toVersion) + '"')
@@ -184,29 +191,30 @@ public static class SlicklyControlledUpdateCloser {
   Write-Host "[$(Get-Date -Format o)] PASS: complete controlled installed-app update v1.0.341 -> v1.0.342."
 }
 finally {
-  # Terminate the isolated Electron tree BEFORE reading redirected stdout/stderr.
-  # Get-Content can wait for EOF on a live redirected stream, which previously
-  # held the workflow open until the GitHub Actions step timeout.
+  # Bound cleanup itself: terminate the app tree with a 5-second cap, then
+  # force-stop the main process. Never read a live redirected stream.
   try {
     if ($appProcess -and -not $appProcess.HasExited) {
-      & taskkill.exe /PID $appProcess.Id /T /F 2>$null | Out-Null
-      try { Wait-Process -Id $appProcess.Id -Timeout 10 -ErrorAction SilentlyContinue } catch {}
+      $killer = Start-Process -FilePath 'taskkill.exe' -ArgumentList @('/PID', [string]$appProcess.Id, '/T', '/F') -PassThru -WindowStyle Hidden
+      if (-not $killer.WaitForExit(5000)) {
+        try { $killer.Kill() } catch {}
+        Stop-Process -Id $appProcess.Id -Force -ErrorAction SilentlyContinue
+      }
     }
-    & taskkill.exe /IM 'Slickly AI.exe' /T /F 2>$null | Out-Null
-  } catch { Write-Warning "Could not fully terminate isolated app process tree: $($_.Exception.Message)" }
+  } catch {
+    if ($appProcess) { Stop-Process -Id $appProcess.Id -Force -ErrorAction SilentlyContinue }
+  }
   if ($serverProcess -and -not $serverProcess.HasExited) { Stop-Process -Id $serverProcess.Id -Force -ErrorAction SilentlyContinue }
   try { Stop-Transcript | Out-Null } catch {}
   foreach ($file in @($stdoutLog, $stderrLog, $serverStdoutLog, $serverStderrLog)) {
     if (Test-Path -LiteralPath $file -PathType Leaf) {
-      $destination = Join-Path $diagnostics ([IO.Path]::GetFileName($file))
-      Get-Content -LiteralPath $file -Tail 3000 | Set-Content -LiteralPath $destination -Encoding utf8
+      Copy-Item -LiteralPath $file -Destination (Join-Path $diagnostics ([IO.Path]::GetFileName($file))) -Force
     }
   }
   $requestsFile = Join-Path $FeedRoot 'controlled-feed-requests.jsonl'
-  if (Test-Path -LiteralPath $requestsFile) { Copy-Item -LiteralPath $requestsFile -Destination $diagnostics -Force }
-  if ($logFile -and (Test-Path -LiteralPath $logFile -PathType Leaf)) {
-    $compactLog = Join-Path $diagnostics 'application-tail.log'
-    Get-Content -LiteralPath $logFile -Tail 3000 | Set-Content -LiteralPath $compactLog -Encoding utf8
+  if (Test-Path -LiteralPath $requestsFile -PathType Leaf) { Copy-Item -LiteralPath $requestsFile -Destination $diagnostics -Force }
+  if ($logFile -and (Test-Path -LiteralPath $logFile -PathType Leaf) -and $logFile -ne $stdoutLog) {
+    Copy-Item -LiteralPath $logFile -Destination (Join-Path $diagnostics 'application.log') -Force
   }
   Write-Host "Updater diagnostic directory: $diagnostics"
   Get-ChildItem -LiteralPath $diagnostics -File -ErrorAction SilentlyContinue | ForEach-Object {
