@@ -63,6 +63,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: |
           Set-Location $env:SLICKLY_SOURCE
+          npm run clean
           npm version 1.0.342 --no-git-tag-version --ignore-scripts
           npm run build:win -- --publish never
           node scripts/generate-update-manifest.js --platform win --version 1.0.342 --dir dist
