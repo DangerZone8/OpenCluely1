@@ -398,7 +398,52 @@
         }
       }
 
-    </style>
+    
+      /* Compact always-on-top toolbar aligned with the Slickly desktop workspace. */
+      body { background: transparent !important; font-family: "DM Sans", "Segoe UI", sans-serif; }
+      .command-tab {
+        min-height: 42px; height: 42px; padding: 0 12px; gap: 10px;
+        background: rgba(23,27,24,.96); border: 1px solid #465244;
+        border-radius: 8px; box-shadow: 0 12px 32px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.05);
+        backdrop-filter: blur(18px);
+      }
+      .command-item {
+        min-height: 30px; padding: 5px 9px; gap: 7px; border-radius: 6px;
+        color: #e4eadd; font-weight: 600;
+      }
+      .command-item:hover { background: #303b30; color: #c8e879; }
+      .command-item i { color: #c8e879; }
+      .command-item span { color: #aab5a7; font: 10px "DM Mono", Consolas, monospace; }
+      .command-item.active, .command-item.active:hover {
+        background: rgba(200,232,121,.12); color: #c8e879; text-shadow: none;
+      }
+      .command-item select {
+        background-color: #202720; border-color: #4b5847; color: #edf2e7;
+        border-radius: 5px; font: 10px "DM Mono", Consolas, monospace;
+      }
+      .command-item select:hover, .command-item select:focus {
+        border-color: #c8e879; box-shadow: 0 0 0 2px rgba(200,232,121,.12);
+      }
+      .command-separator { background: linear-gradient(to bottom, transparent, #53604d, transparent); }
+      .status-dot.interactive { background: #c8e879; box-shadow: 0 0 10px rgba(200,232,121,.55); }
+      .status-dot.non-interactive { background: #d47d70; box-shadow: 0 0 8px rgba(212,125,112,.45); }
+      .window-controls { background: #171b18; border-color: #465244; }
+      .window-control { background: #293229; color: #dce5d7; }
+      .window-control:hover { background: #3b4935; color: #c8e879; }
+      .window-control.close:hover { background: #a94f45; color: #fff; }
+      .shortcuts-popover {
+        background: rgba(23,27,24,.98); border-color: #465244; border-radius: 8px;
+        box-shadow: 0 18px 48px rgba(0,0,0,.42);
+      }
+      .shortcuts-title { color: #c8e879; }
+      .shortcuts-table th, .shortcuts-table td { border-color: #354034; }
+      .kbd { background: #293229; border-color: #4b5847; color: #edf2e7; }
+      .shortcuts-footer { color: #aab5a7; }
+      .shortcuts-footer a { color: #c8e879; }
+      @media (prefers-reduced-motion: reduce) {
+        .status-dot.interactive { animation: none !important; }
+      }
+</style>
   </head>
   <body>
     <div class="command-tab">
