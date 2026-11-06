@@ -382,6 +382,13 @@ class ApplicationController {
     // Electron UI tests must never contact the release feed or install updates.
     if (!app.isPackaged || process.env.CI === "true" || process.env.SLICKLY_DISABLE_AUTO_UPDATE === "1") return;
     try {
+      // Controlled CI can point the real packaged updater at an isolated loopback feed.
+      // Normal installations never set this variable and continue using app-update.yml.
+      const controlledFeedUrl = process.env.SLICKLY_UPDATE_URL;
+      if (controlledFeedUrl) {
+        autoUpdater.setFeedURL({ provider: "generic", url: controlledFeedUrl });
+        logger.info("Using controlled Slickly AI update feed", { url: controlledFeedUrl });
+      }
       autoUpdater.autoDownload = true;
       autoUpdater.autoInstallOnAppQuit = true;
       autoUpdater.allowPrerelease = false;
