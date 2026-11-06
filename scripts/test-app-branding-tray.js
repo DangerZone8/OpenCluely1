@@ -22,10 +22,10 @@ assert.match(main, /new Tray\(iconPath\)/);
 assert.match(main, /Show Slickly AI/);
 assert.match(main, /Quit Slickly AI/);
 assert.match(main, /this\.setupTray\(\)/);
-assert.match(windows, /const hideToTray = \(\) => \{[\s\S]*?setSkipTaskbar\(true\)/);
-assert.match(windows, /window\.on\('minimize', \(event\) => \{\s*if \(!this\.trayAvailable\) return;\s*event\.preventDefault\(\);\s*hideToTray\(\);/);
-assert.match(windows, /window\.on\('close', \(event\) => \{\s*if \(this\.isQuitting[^\n]*!this\.trayAvailable/);
-assert.match(windows, /if \(!this\.trayAvailable\) return;/);
+assert.match(windows, /window\.setOverlayIcon\(nativeImage\.createFromPath\(overlayPath\), 'Slickly AI'\)/);
+assert.match(windows, /if \(type === 'main'\) \{[\s\S]*?Keep normal Windows taskbar behavior/);
+assert.doesNotMatch(windows, /Main window hidden to the Slickly system tray/);
+assert.match(windows, /nativeImage\.createFromPath\(overlayPath\)/);
 assert.match(main, /windowManager\.trayAvailable = true/);
 assert.match(main, /windowManager\.trayAvailable = false/);
 assert.match(windows, /mainWindow\.setSkipTaskbar\(false\)/);
@@ -50,4 +50,4 @@ assert.strictEqual(ico.readUInt32LE(14), ico.length - 22);
 if (process.platform === 'darwin') {
   assert.ok(fs.existsSync(path.join(icons, 'icon.icns')), 'macOS build must generate an ICNS file');
 }
-console.log('PASS: branded app icons, tray restore/quit behavior, and hosted chat streaming contracts.');
+console.log('PASS: branded app icons, visible taskbar overlay badge, normal taskbar behavior, and hosted chat streaming contracts.');
