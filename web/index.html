@@ -128,6 +128,8 @@
     .platform-link:hover{background:#2d372d;border-color:#c8e879}
     .platform-link .platform-name{font:600 15px var(--display)}
     .platform-link .platform-action{color:#c8e879;font:10px var(--mono);overflow-wrap:anywhere}
+    .platform-actions{display:flex;flex-direction:column;align-items:flex-end;gap:9px}
+    .platform-actions a{text-decoration:none}.platform-actions a:hover{text-decoration:underline}
     .download-status{min-height:22px;margin:17px 0 0;color:#aab3a6;font:11px var(--mono)}
     .trust-note{max-width:790px;margin:28px 0 0;color:#9ba597;font-size:12px;line-height:1.7}
     .faq-layout{display:grid;grid-template-columns:.7fr 1.3fr;gap:60px}
@@ -172,6 +174,7 @@
       .download-main{grid-template-columns:1fr}.download-recommend{display:block}.download-recommend .button{width:100%;margin-top:20px}
       .download-platforms{grid-template-columns:1fr}
       .platform-link{min-height:86px;flex-direction:row;align-items:center}
+      .platform-link--mac{align-items:flex-start}.platform-actions{align-items:flex-end}
       .closing{padding:65px 0 25px}.closing-row{display:block;padding-bottom:45px}.closing .button{margin-top:28px;width:100%}
       .footer-row{align-items:flex-start;flex-direction:column}
     }
@@ -272,7 +275,7 @@
           </div>
           <div class="download-platforms">
             <a class="platform-link" id="windows-download" href="#download"><span class="platform-name">Windows</span><span class="platform-action">CHECKING · EXE ↗</span></a>
-            <a class="platform-link" id="mac-download" href="#download"><span class="platform-name">macOS</span><span class="platform-action">CHECKING · DMG ↗</span></a>
+            <div class="platform-link platform-link--mac"><span class="platform-name">macOS</span><div class="platform-actions"><a class="platform-action" id="mac-arm-download" href="#download">Apple silicon · checking ↗</a><a class="platform-action" id="mac-intel-download" href="#download">Intel · checking ↗</a></div></div>
             <a class="platform-link" id="linux-download" href="#download"><span class="platform-name">Linux</span><span class="platform-action">CHECKING · APPIMAGE ↗</span></a>
           </div>
         </div>
@@ -310,9 +313,10 @@
       var byId = function (id) { return document.getElementById(id); };
       var links = {
         windows: byId("windows-download"),
-        mac: byId("mac-download"),
         linux: byId("linux-download")
       };
+      var macArmLink = byId("mac-arm-download");
+      var macIntelLink = byId("mac-intel-download");
       var recommended = byId("recommended-download");
       var status = byId("release-status");
       var version = byId("hero-release");
@@ -321,7 +325,7 @@
 
       function downloadUrl(asset) { return "/api/updates/" + encodeURIComponent(asset.name); }
       function setLink(link, asset, label, extension) {
-        var action = link.querySelector(".platform-action");
+        var action = link.querySelector(".platform-action") || (link.classList.contains("platform-action") ? link : null);
         if (!asset) {
           link.href = fallback;
           if (action) action.textContent = "VIEW RELEASE ↗";
@@ -367,10 +371,11 @@
           var macIntel = findAsset(assets, [/^Slickly\.AI-.*\.dmg$/i, /^(?!.*arm64).*\.zip$/i]);
           var linux = findAsset(assets, [/\.AppImage$/i, /_amd64\.deb$/i, /\.deb$/i]);
           setLink(links.windows, windows, "Windows", "EXE");
-          setLink(links.mac, macArm || macIntel, "macOS", "DMG");
+          setLink(macArmLink, macArm, "macOS", "APPLE SILICON DMG");
+          setLink(macIntelLink, macIntel, "macOS", "INTEL DMG");
           setLink(links.linux, linux, "Linux", linux && /\.deb$/i.test(linux.name) ? "DEB" : "APPIMAGE");
           var os = detectOS();
-          var selected = os === "windows" ? windows : os === "mac" ? (macArm || macIntel) : os === "linux" ? linux : null;
+          var selected = os === "windows" ? windows : os === "mac" ? (macIntel || macArm) : os === "linux" ? linux : null;
           if (selected) {
             recommended.href = downloadUrl(selected);
             recommended.textContent = "Download for " + (os === "mac" ? "macOS" : os.charAt(0).toUpperCase() + os.slice(1)) + " ↗";
