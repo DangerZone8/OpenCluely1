@@ -7,6 +7,7 @@ class WindowManager {
   constructor() {
     this.windows = new Map();
     this.isQuitting = false;
+    this.trayAvailable = false;
     app.on('before-quit', () => {
       this.isQuitting = true;
     });
@@ -907,11 +908,12 @@ class WindowManager {
           logger.info('Main window hidden to the Slickly system tray');
         };
         window.on('minimize', (event) => {
+          if (!this.trayAvailable) return;
           event.preventDefault();
           hideToTray();
         });
         window.on('close', (event) => {
-          if (this.isQuitting || app.isQuitting) return;
+          if (this.isQuitting || app.isQuitting || !this.trayAvailable) return;
           event.preventDefault();
           hideToTray();
         });
