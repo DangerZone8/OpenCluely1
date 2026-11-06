@@ -1,156 +1,419 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-type="software" data-radius="sharp">
 <head>
-  <meta name="cleverly-api-revision" content="v175-fast-chat-2026-10-25-e">
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0b0d12">
-  <meta name="description" content="Download Slickly AI, an open-source desktop AI assistant for coding practice and learning.">
-  <title>Download Slickly AI — Desktop AI Assistant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f3f2ec">
+  <meta name="description" content="Slickly is a desktop AI assistant for screen-aware help, natural voice input and contextual chat. Available for Windows, macOS and Linux.">
+  <meta name="page-type" content="software">
+  <meta name="site-kind" content="software">
+  <title>Slickly — AI that works with your screen</title>
+  <link rel="canonical" href="https://slicklyai.vercel.app/">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0b0d12; color: #f5f7fb; }
-    * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; background: radial-gradient(ellipse at top, #1a2340 0%, #0b0d12 55%); }
-    main { width: min(960px, calc(100% - 36px)); margin: 0 auto; padding: 54px 0 42px; }
-    .eyebrow { color: #a9b4ff; font-size: .8rem; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; }
-    h1 { max-width: 740px; margin: 16px 0; font-size: clamp(2.7rem, 8vw, 5rem); line-height: .98; letter-spacing: -.055em; }
-    p { max-width: 690px; color: #b7bfce; font-size: 1.06rem; line-height: 1.7; }
-    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 26px 0 34px; }
-    a.button { display: inline-flex; align-items: center; justify-content: center; padding: 13px 17px; border-radius: 10px; text-decoration: none; font-weight: 750; transition: transform .15s ease, opacity .15s ease; }
-    a.button:hover { transform: translateY(-1px); }
-    .primary { background: #dce2ff; color: #101528; }
-    .secondary { border: 1px solid #343b4d; color: #f5f7fb; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 22px; }
-    .platform { border: 1px solid #2b3242; border-radius: 16px; padding: 20px; background: rgba(17, 21, 32, .78); }
-    .platform h2 { margin: 0 0 8px; font-size: 1.1rem; }
-    .platform p { min-height: 54px; margin: 0 0 16px; font-size: .93rem; }
-    .platform .button { width: 100%; }
-    .status { color: #9fa9bc; font-size: .9rem; min-height: 1.5em; margin-top: 10px; }
-    .note { font-size: .9rem; color: #929db1; }
-    section { border-top: 1px solid #252b38; padding-top: 22px; margin-top: 30px; }
-    footer { margin-top: 42px; padding-top: 18px; border-top: 1px solid #252b38; color: #8e99ad; font-size: .9rem; }
-    footer a, .text-link { color: #b9c3ff; }
-    @media (max-width: 520px) { main { padding-top: 38px; } .platform p { min-height: 0; } }
+    :root {
+      color-scheme: light;
+      --bg:#f3f2ec; --paper:#fbfaf6; --ink:#171916; --muted:#62675f;
+      --line:rgba(23,25,22,.15); --line-strong:rgba(23,25,22,.28);
+      --accent:#d5f45b; --accent-ink:#17200b; --dark:#171b18; --dark-2:#222923;
+      --white:#f7f7ef; --radius:5px; --nav:72px;
+      --display:"Space Grotesk","DM Sans",sans-serif; --body:"DM Sans",sans-serif; --mono:"DM Mono",monospace;
+      --wrap:min(1280px,calc(100% - 112px));
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth;scroll-padding-top:88px}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased}
+    a{color:inherit}
+    button,a{-webkit-tap-highlight-color:transparent}
+    a:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid #526d16;outline-offset:4px}
+    .wrap{width:var(--wrap);max-width:1280px;margin:0 auto}
+    .topbar{height:var(--nav);position:fixed;z-index:20;inset:0 0 auto;background:rgba(243,242,236,.97);border-bottom:1px solid var(--line)}
+    .nav{height:100%;display:flex;align-items:center;justify-content:space-between;gap:28px}
+    .brand{display:inline-flex;align-items:center;gap:11px;text-decoration:none;font:700 21px var(--display);letter-spacing:-.06em}
+    .brand-mark{width:26px;height:26px;background:var(--ink);display:grid;place-items:center;border-radius:50%;position:relative}
+    .brand-mark:before,.brand-mark:after{content:"";position:absolute;background:var(--accent);border-radius:99px}
+    .brand-mark:before{width:13px;height:3px;transform:rotate(-42deg)}
+    .brand-mark:after{width:3px;height:13px;transform:rotate(-42deg)}
+    .navlinks{display:flex;align-items:center;gap:34px}
+    .navlinks a{font-size:14px;font-weight:600;text-decoration:none;color:#42473f;transition:color .18s}
+    .navlinks a:hover{color:#000}
+    .nav-cta,.button{display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:48px;padding:0 21px;border:1px solid var(--ink);border-radius:var(--radius);background:var(--ink);color:var(--white);font:700 14px var(--body);text-decoration:none;cursor:pointer;transition:transform .18s,background .18s,color .18s}
+    .nav-cta{min-height:42px;padding:0 17px}
+    .nav-cta:hover,.button:hover{transform:translateY(-2px);background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+    .button--light{background:transparent;color:var(--ink);border-color:var(--line-strong)}
+    .button--light:hover{background:var(--ink);color:var(--white);border-color:var(--ink)}
+    .button--lime{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+    .button--lime:hover{background:#e3ff77;border-color:#e3ff77}
+    .arrow{font-size:18px;line-height:1}
+    .menu-toggle{display:none;width:44px;height:44px;border:1px solid var(--line-strong);background:transparent;border-radius:var(--radius);font-size:21px}
+    .page-offset{height:var(--nav)}
+    .hero{min-height:calc(100svh - var(--nav));display:flex;align-items:center;padding:76px 0 72px;border-bottom:1px solid var(--line);overflow:hidden}
+    .hero-grid{display:grid;grid-template-columns:minmax(0,.88fr) minmax(0,1.12fr);gap:52px;align-items:center}
+    .eyebrow{display:flex;align-items:center;gap:10px;margin:0 0 25px;color:#59614e;font:500 12px var(--mono);letter-spacing:.035em;text-transform:uppercase}
+    .eyebrow:before{content:"";width:24px;height:1px;background:#687d2b}
+    h1,h2,h3,p{margin-top:0}
+    h1{max-width:650px;margin-bottom:25px;font:600 clamp(54px,6vw,88px)/.99 var(--display);letter-spacing:-.075em}
+    h1 .accent{position:relative;white-space:nowrap}
+    h1 .accent:after{content:"";position:absolute;z-index:-1;left:0;right:-5px;bottom:4px;height:16px;background:var(--accent)}
+    .hero-lead{max-width:490px;margin-bottom:30px;color:#555b52;font-size:18px;line-height:1.65}
+    .hero-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+    .release-line{margin:17px 0 0;color:#777d72;font:12px var(--mono);min-height:18px}
+    .release-line .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#7e9d34;margin-right:8px}
+    .hero-art{position:relative;min-width:0}
+    .art-label{display:flex;justify-content:space-between;align-items:center;margin:0 0 12px;color:#777d72;font:11px var(--mono);text-transform:uppercase;letter-spacing:.06em}
+    .desktop-window{position:relative;background:var(--dark);border:1px solid #303831;border-radius:9px;overflow:hidden;box-shadow:0 28px 70px rgba(23,27,24,.16);color:#f2f3eb}
+    .window-bar{height:43px;padding:0 15px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #343c35;background:#1d231e}
+    .window-dots{display:flex;gap:6px}.window-dots i{width:7px;height:7px;border-radius:50%;background:#60695d}
+    .window-title{font:11px var(--mono);color:#9da69a}
+    .window-status{display:flex;align-items:center;gap:7px;color:#c8e879;font:10px var(--mono)}
+    .window-status:before{content:"";width:6px;height:6px;border-radius:50%;background:#c8e879}
+    .app-body{display:grid;grid-template-columns:52px 1fr;min-height:405px}
+    .app-rail{padding:16px 0;display:flex;align-items:center;flex-direction:column;gap:17px;border-right:1px solid #343c35;background:#1c211d}
+    .rail-icon{width:27px;height:27px;border:1px solid #485147;border-radius:5px;display:grid;place-items:center;color:#aab4a4;font-size:12px}
+    .rail-icon.active{background:var(--accent);border-color:var(--accent);color:#17200b}
+    .app-content{padding:23px 25px 21px;min-width:0}
+    .app-topline{display:flex;align-items:center;justify-content:space-between;margin-bottom:21px}
+    .app-topline strong{font:600 14px var(--display);letter-spacing:-.02em}
+    .app-topline span{color:#9aa397;font:10px var(--mono)}
+    .screen-context{display:grid;grid-template-columns:1fr 120px;gap:14px;padding:13px;border:1px solid #465044;background:#252d26;border-radius:6px;margin-bottom:15px}
+    .context-kicker{font:10px var(--mono);color:#b7ca8e;margin-bottom:8px}
+    .context-title{font:500 13px var(--display);margin-bottom:6px}
+    .context-copy{font-size:10px;line-height:1.5;color:#aeb7aa}
+    .context-thumb{min-height:84px;background:#d9dfd1;border-radius:3px;padding:9px;color:#2c332a;font:9px var(--mono);display:flex;flex-direction:column;justify-content:space-between}
+    .thumb-lines{display:grid;gap:5px}.thumb-lines i{height:3px;background:#8b9682;width:100%}.thumb-lines i:nth-child(2){width:72%}.thumb-lines i:nth-child(3){width:86%}
+    .message{padding:13px 14px;border-radius:6px;margin:0 0 11px;font-size:11px;line-height:1.55;max-width:91%}
+    .message--user{margin-left:auto;background:#333d33;color:#e8eee2;border:1px solid #485447}
+    .message--ai{background:#252c26;border:1px solid #3c463c;color:#e6eae0}
+    .message-tag{display:block;margin-bottom:5px;color:#c8e879;font:9px var(--mono);text-transform:uppercase}
+    .message--ai strong{font-weight:700;color:#fff}
+    .composer{display:flex;align-items:center;gap:9px;margin-top:16px;padding:9px 11px;border:1px solid #505b4d;border-radius:5px;color:#9da79a;font-size:10px}
+    .composer .send{margin-left:auto;width:25px;height:25px;display:grid;place-items:center;background:var(--accent);color:#17200b;border-radius:4px;font-size:13px}
+    .art-caption{display:flex;justify-content:space-between;gap:12px;margin-top:12px;color:#747b70;font:10px var(--mono)}
+    .art-caption span:last-child{color:#5b6c34}
+    .ticker{background:var(--accent);color:#202719;padding:15px 0;border-bottom:1px solid rgba(23,25,22,.2)}
+    .ticker-inner{display:flex;justify-content:space-between;gap:20px;align-items:center;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.045em}
+    .ticker b{font-weight:500}.ticker .asterisk{font-size:18px}
+    .section{padding:112px 0;border-bottom:1px solid var(--line)}
+    .section-head{display:grid;grid-template-columns:.7fr 1.3fr;gap:50px;align-items:start;margin-bottom:55px}
+    .section-index{color:#78816d;font:12px var(--mono)}
+    h2{max-width:760px;margin:0;font:600 clamp(38px,4.4vw,62px)/1.04 var(--display);letter-spacing:-.065em}
+    .section-intro{max-width:520px;margin:18px 0 0 auto;color:#5d6359;font-size:16px;line-height:1.7}
+    .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+    .feature{min-height:315px;padding:24px;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);display:flex;flex-direction:column;justify-content:space-between;transition:transform .2s,border-color .2s}
+    .feature:hover{transform:translateY(-3px);border-color:#7e8a69}
+    .feature-no{font:11px var(--mono);color:#7c8378}
+    .feature-symbol{width:48px;height:48px;margin:20px 0 27px;border:1px solid var(--line-strong);border-radius:50%;display:grid;place-items:center;font-size:21px}
+    .feature h3{margin-bottom:9px;font:600 22px var(--display);letter-spacing:-.04em}
+    .feature p{max-width:310px;margin:0;color:#656b61;font-size:14px;line-height:1.65}
+    .workflow{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line-strong);border-bottom:1px solid var(--line-strong)}
+    .step{padding:28px 25px 32px 0;position:relative}
+    .step+.step{padding-left:25px;border-left:1px solid var(--line)}
+    .step-number{color:#7d865f;font:12px var(--mono);margin-bottom:45px}
+    .step h3{font:600 24px var(--display);letter-spacing:-.04em;margin-bottom:10px}
+    .step p{max-width:300px;margin:0;color:#62685e;font-size:14px;line-height:1.7}
+    .download-section{background:var(--dark);color:var(--white);padding:112px 0}
+    .download-head{display:flex;justify-content:space-between;align-items:end;gap:40px;margin-bottom:44px}
+    .download-head .eyebrow{color:#bdcf9d}
+    .download-head h2{max-width:680px}
+    .download-head p{max-width:320px;margin:0;color:#aab3a6;font-size:14px;line-height:1.65}
+    .download-main{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}
+    .download-recommend{padding:30px;background:#252d26;border:1px solid #455044;border-radius:var(--radius);display:flex;justify-content:space-between;align-items:center;gap:25px}
+    .download-recommend .os-label{font:11px var(--mono);color:#c8e879;text-transform:uppercase;margin-bottom:10px}
+    .download-recommend h3{font:600 25px var(--display);margin:0 0 8px;letter-spacing:-.04em}
+    .download-recommend p{margin:0;color:#aab3a6;font-size:13px;line-height:1.5}
+    .download-platforms{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+    .platform-link{min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:18px;padding:20px 17px;border:1px solid #455044;border-radius:var(--radius);text-decoration:none;transition:background .18s,border-color .18s}
+    .platform-link:hover{background:#2d372d;border-color:#c8e879}
+    .platform-link .platform-name{font:600 15px var(--display)}
+    .platform-link .platform-action{color:#c8e879;font:10px var(--mono);overflow-wrap:anywhere}
+    .platform-actions{display:flex;flex-direction:column;align-items:flex-end;gap:9px}
+    .platform-actions a{text-decoration:none}.platform-actions a:hover{text-decoration:underline}
+    .download-status{min-height:22px;margin:17px 0 0;color:#aab3a6;font:11px var(--mono)}
+    .trust-note{max-width:790px;margin:28px 0 0;color:#9ba597;font-size:12px;line-height:1.7}
+    .faq-layout{display:grid;grid-template-columns:.7fr 1.3fr;gap:60px}
+    .faq-list{border-top:1px solid var(--line-strong)}
+    details{border-bottom:1px solid var(--line);padding:20px 0}
+    summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:20px;font:600 17px var(--display)}
+    summary::-webkit-details-marker{display:none}
+    summary:after{content:"+";font:20px var(--body);color:#66724e}
+    details[open] summary:after{content:"−"}
+    details p{max-width:640px;margin:13px 35px 0 0;color:#62685e;font-size:14px;line-height:1.7}
+    .closing{padding:84px 0 35px;background:var(--accent);color:#202719}
+    .closing-row{display:flex;justify-content:space-between;align-items:end;gap:35px;padding-bottom:65px}
+    .closing h2{max-width:760px;font-size:clamp(42px,6vw,78px)}
+    .closing .button{background:var(--ink);color:var(--white);border-color:var(--ink);white-space:nowrap}
+    .closing .button:hover{background:#fff;color:var(--ink);border-color:#fff}
+    .footer-row{display:flex;justify-content:space-between;align-items:center;gap:20px;padding-top:20px;border-top:1px solid rgba(23,25,22,.25);font:11px var(--mono)}
+    .footer-links{display:flex;gap:22px;flex-wrap:wrap}.footer-links a{text-decoration:none}.footer-links a:hover{text-decoration:underline}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    @media(max-width:1000px){
+      :root{--wrap:min(100% - 64px,1280px)}
+      .hero-grid{grid-template-columns:1fr;gap:45px}.hero-copy{max-width:740px}.hero-art{max-width:800px}
+      .hero{padding:70px 0}.section-head{grid-template-columns:1fr;gap:18px}.section-intro{margin:0}
+      .faq-layout{grid-template-columns:1fr;gap:35px}
+    }
+    @media(max-width:700px){
+      :root{--nav:62px;--wrap:calc(100% - 40px)}
+      .navlinks{display:none;position:fixed;inset:var(--nav) 0 auto;background:var(--bg);padding:20px;width:100%;border-bottom:1px solid var(--line);flex-direction:column;align-items:stretch;gap:0}
+      .navlinks.open{display:flex}.navlinks a{padding:16px 0;border-bottom:1px solid var(--line)}
+      .nav-cta{margin-left:auto;min-height:40px;padding:0 12px;font-size:12px}.menu-toggle{display:block}
+      .hero{padding:56px 0 54px;min-height:0}.hero-grid{gap:36px}
+      h1{font-size:clamp(49px,13vw,72px)}.hero-lead{font-size:16px}
+      .hero-actions .button{width:100%}
+      .app-body{grid-template-columns:39px 1fr;min-height:360px}.app-content{padding:17px 13px}
+      .screen-context{grid-template-columns:1fr 85px;padding:10px;gap:9px}.context-thumb{min-height:76px}
+      .message{max-width:100%;font-size:10px}
+      .ticker-inner{justify-content:flex-start;flex-wrap:wrap;gap:9px 20px}
+      .section{padding:78px 0}.section-head{margin-bottom:34px}
+      .feature-grid{grid-template-columns:1fr}.feature{min-height:235px}
+      .workflow{grid-template-columns:1fr}.step,.step+.step{padding:22px 0;border-left:0;border-bottom:1px solid var(--line)}
+      .step-number{margin-bottom:18px}.step:last-child{border-bottom:0}
+      .download-section{padding:78px 0}.download-head{display:block}.download-head p{margin-top:18px}
+      .download-main{grid-template-columns:1fr}.download-recommend{display:block}.download-recommend .button{width:100%;margin-top:20px}
+      .download-platforms{grid-template-columns:1fr}
+      .platform-link{min-height:86px;flex-direction:row;align-items:center}
+      .platform-link--mac{align-items:flex-start}.platform-actions{align-items:flex-end}
+      .closing{padding:65px 0 25px}.closing-row{display:block;padding-bottom:45px}.closing .button{margin-top:28px;width:100%}
+      .footer-row{align-items:flex-start;flex-direction:column}
+    }
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important;animation:none!important}}
   </style>
 </head>
-<body>
-  <main>
-    <div class="eyebrow">Open source · Desktop · Cross-platform · <span id="release-version">Checking latest version…</span></div>
-    <h1>Get Slickly AI for your computer.</h1>
-    <p>Download the desktop installer directly from this page. Choose your operating system and the download starts from the published installer file; you do not need to open a release page.</p>
-    <div class="actions">
-      <a id="recommended-download" class="button primary" href="#" aria-disabled="true">Preparing direct download…</a>
-      <a class="button secondary" href="https://github.com/DangerZone8/OpenCluely1">View source on GitHub</a>
+<body id="top">
+  <header class="topbar">
+    <div class="wrap nav">
+      <a class="brand" href="#top" aria-label="Slickly home"><span class="brand-mark" aria-hidden="true"></span>Slickly</a>
+      <nav class="navlinks" id="site-nav" aria-label="Main navigation">
+        <a href="#product">Product</a><a href="#workflow">How it works</a><a href="#download">Download</a><a href="#faq">FAQ</a>
+      </nav>
+      <a class="nav-cta" href="#download">Get Slickly <span class="arrow">↗</span></a>
+      <button class="menu-toggle" id="menu-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="site-nav">☰</button>
     </div>
-    <p id="release-status" class="status" role="status" aria-live="polite">Checking the latest published release…</p>
+  </header>
+  <div class="page-offset" aria-hidden="true"></div>
 
-    <section>
-      <h2>Choose your platform</h2>
-      <div class="grid">
-        <article class="platform">
-          <h2>Windows</h2>
-          <p>Windows installer (.exe). Use this for a standard installation.</p>
-          <a id="windows-download" class="button secondary" href="#" aria-disabled="true">Checking installer…</a>
-        </article>
-        <article class="platform">
-          <h2>macOS</h2>
-          <p>macOS disk image (.dmg) or archive (.zip), if available in the release.</p>
-          <a id="mac-download" class="button secondary" href="#" aria-disabled="true">Checking installer…</a>
-        </article>
-        <article class="platform">
-          <h2>Linux</h2>
-          <p>AppImage or Debian package (.deb), depending on the release assets.</p>
-          <a id="linux-download" class="button secondary" href="#" aria-disabled="true">Checking installer…</a>
-        </article>
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">A desktop AI assistant · Windows, macOS, Linux</p>
+          <h1 id="hero-title">AI that sees what <span class="accent">you see.</span></h1>
+          <p class="hero-lead">Slickly brings screen context, voice and chat into one desktop assistant — so you can ask a follow-up without starting from zero.</p>
+          <div class="hero-actions">
+            <a class="button button--lime" id="hero-download" href="#download">Get the desktop app <span class="arrow">↗</span></a>
+            <a class="button button--light" href="#product">See how it works <span class="arrow">↓</span></a>
+          </div>
+          <p class="release-line" id="hero-release"><span class="dot"></span>Checking the latest release…</p>
+        </div>
+        <div class="hero-art" aria-label="Illustration of the Slickly desktop assistant">
+          <div class="art-label"><span>01 / The workspace</span><span>Screen + conversation</span></div>
+          <div class="desktop-window">
+            <div class="window-bar"><span class="window-dots"><i></i><i></i><i></i></span><span class="window-title">Slickly · Assistant</span><span class="window-status">Ready</span></div>
+            <div class="app-body">
+              <aside class="app-rail" aria-hidden="true"><span class="rail-icon active">✳</span><span class="rail-icon">▣</span><span class="rail-icon">◉</span><span class="rail-icon">⌘</span></aside>
+              <div class="app-content">
+                <div class="app-topline"><strong>Let's work through it.</strong><span>SCREEN CONTEXT · ON</span></div>
+                <div class="screen-context">
+                  <div><div class="context-kicker">CURRENT SCREEN</div><div class="context-title">Problem statement</div><div class="context-copy">A function receives an array and a target value. Find the pair that adds up to the target.</div></div>
+                  <div class="context-thumb"><span>INPUT / OUTPUT</span><span class="thumb-lines"><i></i><i></i><i></i></span><span>array · target</span></div>
+                </div>
+                <div class="message message--user">Can you explain the approach before showing code?</div>
+                <div class="message message--ai"><span class="message-tag">Slickly response</span>Start with a hash map. As you scan the array, check whether the complement has already appeared. This keeps the lookup efficient and the explanation tied to the question on screen.</div>
+                <div class="composer"><span>Ask a follow-up about this screen…</span><span class="send">↑</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="art-caption"><span>One conversation, shared context</span><span>BUILT FOR DESKTOP</span></div>
+        </div>
       </div>
-      <p class="note">Only platforms with a published installer will have an active download button. If a button says unavailable, that installer has not been published yet.</p>
     </section>
 
-    <section>
-      <h2>Install and configure</h2>
-      <p>Open the downloaded installer or package and follow your operating system's prompts. Slickly AI can use its hosted AI service without asking you to enter a Gemini API key; service availability and usage limits apply. You can optionally configure your own Gemini key in the app.</p>
-      <p class="note">Hosted AI requests send the text, screen frames, or audio clips you choose to submit to the Slickly AI service and Google Gemini over HTTPS. Do not submit passwords or other sensitive information. Use the assistant in accordance with the rules of your school, assessment, interview, and workplace.</p>
+    <div class="ticker" aria-label="Product capabilities">
+      <div class="wrap ticker-inner"><b>Screen-aware chat</b><span class="asterisk">✳</span><b>Natural voice input</b><span class="asterisk">✳</span><b>Contextual follow-ups</b><span class="asterisk">✳</span><b>One desktop workspace</b></div>
+    </div>
+
+    <section class="section" id="product">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="section-index">02 / Product</p>
+          <div><h2>Stay with the problem. Not the setup.</h2><p class="section-intro">Move between what is on your screen and what you want to ask. Slickly keeps the interaction in one place.</p></div>
+        </div>
+        <div class="feature-grid">
+          <article class="feature"><div><span class="feature-no">01 — SCREEN CONTEXT</span><div class="feature-symbol" aria-hidden="true">▣</div><h3>Ask about what’s visible</h3><p>Capture the screen and ask about a question, diagram, page or piece of work in front of you.</p></div><span class="feature-no">SCREEN → CONTEXT</span></article>
+          <article class="feature"><div><span class="feature-no">02 — VOICE</span><div class="feature-symbol" aria-hidden="true">〰</div><h3>Speak naturally</h3><p>Use voice input when typing interrupts your flow. Review and continue the conversation in chat.</p></div><span class="feature-no">VOICE → TEXT</span></article>
+          <article class="feature"><div><span class="feature-no">03 — FOLLOW-UPS</span><div class="feature-symbol" aria-hidden="true">↗</div><h3>Keep the context</h3><p>Ask the next question about the screen you shared instead of repeating the entire prompt.</p></div><span class="feature-no">CONTEXT → CLARITY</span></article>
+        </div>
+      </div>
     </section>
 
-    <footer>Slickly AI · <a href="https://github.com/DangerZone8/OpenCluely1/blob/main/LICENSE">Apache 2.0 license</a> · <a href="https://github.com/DangerZone8/OpenCluely1/releases">All releases</a></footer>
+    <section class="section" id="workflow">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="section-index">03 / Workflow</p>
+          <div><h2>From screen to a useful answer.</h2><p class="section-intro">A simple flow for learning, exploring ideas and working through unfamiliar material.</p></div>
+        </div>
+        <div class="workflow">
+          <article class="step"><div class="step-number">STEP 01 / CAPTURE</div><h3>Share the context</h3><p>Point Slickly at the part of your screen you want help understanding, or start with a typed question.</p></article>
+          <article class="step"><div class="step-number">STEP 02 / ASK</div><h3>Choose how to ask</h3><p>Type a prompt or use voice. Add detail naturally as the conversation develops.</p></article>
+          <article class="step"><div class="step-number">STEP 03 / CONTINUE</div><h3>Build on the answer</h3><p>Ask a follow-up about the same screen context and keep moving through the task.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="download-section" id="download">
+      <div class="wrap">
+        <div class="download-head">
+          <div><p class="eyebrow">04 / Get started</p><h2>Bring Slickly to your desktop.</h2></div>
+          <p>Choose your operating system. Downloads come directly from the published Slickly release through this website.</p>
+        </div>
+        <div class="download-main">
+          <div class="download-recommend">
+            <div><p class="os-label" id="recommend-label">YOUR DESKTOP</p><h3 id="recommend-title">Find your download</h3><p id="recommend-detail">Checking the latest published release and available installers.</p></div>
+            <a class="button button--lime" id="recommended-download" href="#download">Checking release… <span class="arrow">↗</span></a>
+          </div>
+          <div class="download-platforms">
+            <a class="platform-link" id="windows-download" href="#download"><span class="platform-name">Windows</span><span class="platform-action">CHECKING · EXE ↗</span></a>
+            <div class="platform-link platform-link--mac"><span class="platform-name">macOS</span><div class="platform-actions"><a class="platform-action" id="mac-arm-download" href="#download">Apple silicon · checking ↗</a><a class="platform-action" id="mac-intel-download" href="#download">Intel · checking ↗</a></div></div>
+            <a class="platform-link" id="linux-download" href="#download"><span class="platform-name">Linux</span><span class="platform-action">CHECKING · APPIMAGE ↗</span></a>
+          </div>
+        </div>
+        <p class="download-status" id="release-status" role="status" aria-live="polite">Checking GitHub for the latest published release…</p>
+        <p class="trust-note">Slickly can use its hosted AI service without requiring you to add a Gemini API key. You may also configure your own key. When you submit text, screen frames or audio, that content is sent to the Slickly service and Google Gemini over HTTPS. Do not submit passwords or other sensitive information. Follow the rules that apply to your school, assessment, interview or workplace.</p>
+      </div>
+    </section>
+
+    <section class="section" id="faq">
+      <div class="wrap faq-layout">
+        <div><p class="section-index">05 / Questions</p><h2>Before you install.</h2></div>
+        <div class="faq-list">
+          <details><summary>Which operating systems are supported?</summary><p>Slickly publishes desktop builds for Windows, macOS and Linux. The download section lists the installers available in the latest release.</p></details>
+          <details><summary>Do I need to provide an API key?</summary><p>No key is required to try the hosted AI service. You can optionally configure your own Gemini API key in the app. Hosted service availability and usage limits apply.</p></details>
+          <details><summary>Can I ask follow-up questions about a screen?</summary><p>Yes. Screen context is intended to carry into follow-up questions, so you can ask for an explanation or a next step without restating everything visible.</p></details>
+          <details><summary>What happens to the content I submit?</summary><p>Text, screen frames and audio you choose to submit are sent to the Slickly service and Google Gemini over HTTPS when using hosted AI. Avoid sending passwords, private keys or other sensitive information.</p></details>
+          <details><summary>Where can I inspect the source?</summary><p>Slickly is open source. The repository, issue tracker and release history are available on GitHub.</p></details>
+        </div>
+      </div>
+    </section>
+
+    <footer class="closing">
+      <div class="wrap">
+        <div class="closing-row"><h2>Keep the context.<br>Keep moving.</h2><a class="button" href="#download">Get Slickly <span class="arrow">↗</span></a></div>
+        <div class="footer-row"><a class="brand" href="#top"><span class="brand-mark" aria-hidden="true"></span>Slickly</a><div class="footer-links"><a href="https://github.com/DangerZone8/OpenCluely1">GitHub</a><a href="https://github.com/DangerZone8/OpenCluely1/releases">Releases</a><a href="https://github.com/DangerZone8/OpenCluely1/blob/main/LICENSE">Apache 2.0</a><a href="https://github.com/DangerZone8/OpenCluely1/issues">Support</a></div><span>© <span id="year"></span> Slickly</span></div>
+      </div>
+    </footer>
   </main>
+
   <script>
     (function () {
-      const API = "https://api.github.com/repos/DangerZone8/OpenCluely1/releases/latest";
-      const links = {
-        windows: document.getElementById("windows-download"),
-        mac: document.getElementById("mac-download"),
-        linux: document.getElementById("linux-download")
+      "use strict";
+      var API = "https://api.github.com/repos/DangerZone8/OpenCluely1/releases/latest";
+      var fallback = "https://github.com/DangerZone8/OpenCluely1/releases/latest";
+      var byId = function (id) { return document.getElementById(id); };
+      var links = {
+        windows: byId("windows-download"),
+        linux: byId("linux-download")
       };
-      const recommended = document.getElementById("recommended-download");
-      const status = document.getElementById("release-status");
-      const version = document.getElementById("release-version");
+      var macArmLink = byId("mac-arm-download");
+      var macIntelLink = byId("mac-intel-download");
+      var recommended = byId("recommended-download");
+      var status = byId("release-status");
+      var version = byId("hero-release");
+      var heroDownload = byId("hero-download");
+      byId("year").textContent = new Date().getFullYear();
 
-      function downloadUrl(asset) {
-        return "/api/updates/" + encodeURIComponent(asset.name);
-      }
-
-      function activate(link, asset, label) {
+      function downloadUrl(asset) { return "/api/updates/" + encodeURIComponent(asset.name); }
+      function setLink(link, asset, label, extension) {
+        var action = link.querySelector(".platform-action") || (link.classList.contains("platform-action") ? link : null);
         if (!asset) {
-          link.href = "https://github.com/DangerZone8/OpenCluely1/releases/latest";
-          link.removeAttribute("aria-disabled");
-          link.textContent = label + " installer unavailable — view release";
+          link.href = fallback;
+          if (action) action.textContent = "VIEW RELEASE ↗";
+          else link.textContent = label + " unavailable";
           return;
         }
         link.href = downloadUrl(asset);
-        link.removeAttribute("aria-disabled");
-        link.textContent = "Download " + asset.name;
+        if (action) action.textContent = "DOWNLOAD " + extension + " ↗";
+        else link.textContent = "Download " + asset.name;
       }
-
+      function detectOS() {
+        var ua = navigator.userAgent || "";
+        if (/Windows/i.test(ua)) return "windows";
+        if (/Macintosh|Mac OS X/i.test(ua)) return "mac";
+        if (/Linux|X11/i.test(ua)) return "linux";
+        return "other";
+      }
+      function findAsset(assets, patterns) {
+        for (var i = 0; i < patterns.length; i++) {
+          var found = assets.find(function (asset) { return patterns[i].test(asset.name); });
+          if (found) return found;
+        }
+        return null;
+      }
+      function showFailure() {
+        status.textContent = "The latest release could not be loaded. You can still inspect all published builds on GitHub.";
+        version.textContent = "Release lookup unavailable";
+        recommended.href = fallback;
+        recommended.textContent = "View releases ↗";
+        heroDownload.href = fallback;
+        heroDownload.textContent = "View releases ↗";
+        Object.keys(links).forEach(function (key) { setLink(links[key], null, key, ""); });
+      }
       fetch(API, { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" })
         .then(function (response) {
-          if (!response.ok) throw new Error("GitHub release lookup failed (" + response.status + ")");
+          if (!response.ok) throw new Error("Release lookup failed: " + response.status);
           return response.json();
         })
         .then(function (release) {
-          const assets = Array.isArray(release.assets) ? release.assets : [];
-          const find = function (pattern) { return assets.find(function (asset) { return pattern.test(asset.name); }); };
-          const windows = find(/^Slickly-AI-Setup-.*\.exe$/i) || find(/\.exe$/i);
-          const macArm = find(/arm64.*\.dmg$/i) || find(/.*arm64.*\.zip$/i);
-          const macIntel = find(/^(?!.*arm64).*Slickly-AI.*\.dmg$/i) || find(/^(?!.*arm64).*\.zip$/i);
-          const linux = find(/\.AppImage$/i) || find(/_amd64\.deb$/i) || find(/\.deb$/i);
-          activate(links.windows, windows, "Windows");
-          const isAppleSilicon = /Macintosh|Mac OS X/i.test(navigator.userAgent || "") && /Apple/i.test(navigator.userAgent || "");
-          activate(links.mac, isAppleSilicon ? macArm : macIntel, "macOS");
-          activate(links.linux, linux, "Linux");
-
-          const ua = navigator.userAgent || "";
-          let selected = null;
-          if (/Windows/i.test(ua)) selected = windows;
-          else if (/Macintosh|Mac OS X/i.test(ua)) selected = isAppleSilicon ? macArm : macIntel;
-          else if (/Linux|X11/i.test(ua)) selected = linux;
+          var assets = Array.isArray(release.assets) ? release.assets : [];
+          var windows = findAsset(assets, [/^Slickly-AI-Setup-.*\.exe$/i, /\.exe$/i]);
+          var macArm = findAsset(assets, [/arm64.*\.dmg$/i, /arm64.*\.zip$/i]);
+          var macIntel = findAsset(assets, [/^Slickly\.AI-.*\.dmg$/i, /^(?!.*arm64).*\.zip$/i]);
+          var linux = findAsset(assets, [/\.AppImage$/i, /_amd64\.deb$/i, /\.deb$/i]);
+          setLink(links.windows, windows, "Windows", "EXE");
+          setLink(macArmLink, macArm, "macOS", "APPLE SILICON DMG");
+          setLink(macIntelLink, macIntel, "macOS", "INTEL DMG");
+          setLink(links.linux, linux, "Linux", linux && /\.deb$/i.test(linux.name) ? "DEB" : "APPIMAGE");
+          var os = detectOS();
+          var selected = os === "windows" ? windows : os === "mac" ? (macIntel || macArm) : os === "linux" ? linux : null;
           if (selected) {
             recommended.href = downloadUrl(selected);
-            recommended.removeAttribute("aria-disabled");
-            recommended.textContent = "Download latest for this device";
+            recommended.textContent = "Download for " + (os === "mac" ? "macOS" : os.charAt(0).toUpperCase() + os.slice(1)) + " ↗";
+            heroDownload.href = downloadUrl(selected);
+            heroDownload.innerHTML = "Download for " + (os === "mac" ? "macOS" : os.charAt(0).toUpperCase() + os.slice(1)) + ' <span class="arrow">↗</span>';
+            byId("recommend-label").textContent = "READY FOR YOUR DESKTOP";
+            byId("recommend-title").textContent = release.tag_name || "Latest release";
+            byId("recommend-detail").textContent = selected.name;
           } else {
-            recommended.href = release.html_url || "https://github.com/DangerZone8/OpenCluely1/releases/latest";
-            recommended.removeAttribute("aria-disabled");
-            recommended.textContent = "View latest release";
+            recommended.href = release.html_url || fallback;
+            recommended.textContent = "Choose a release ↗";
+            heroDownload.href = "#download";
+            heroDownload.innerHTML = 'Choose your platform <span class="arrow">↓</span>';
+            byId("recommend-label").textContent = "LATEST RELEASE";
+            byId("recommend-title").textContent = release.tag_name || "Slickly";
+            byId("recommend-detail").textContent = "Select your operating system to find its installer.";
           }
-          const publishedVersion = release.tag_name || release.name || "Latest release";
-          version.textContent = publishedVersion;
-          status.textContent = publishedVersion + " · " +
-            (assets.length ? assets.length + " published asset(s) found. Downloads are routed through the Slickly website." : "No installer assets were published.");
+          version.innerHTML = '<span class="dot"></span>' + (release.tag_name || "Latest release") + " · desktop builds";
+          status.textContent = (release.tag_name || "Latest release") + " · " + assets.length + " published release assets. Downloads are served through the Slickly website.";
         })
-        .catch(function (error) {
-          version.textContent = "Version lookup unavailable";
-          status.textContent = "Could not check the latest release automatically. Use the releases page to choose a published installer.";
-          recommended.href = "https://github.com/DangerZone8/OpenCluely1/releases/latest";
-          recommended.removeAttribute("aria-disabled");
-          recommended.textContent = "Open latest release";
-          Object.keys(links).forEach(function (platform) {
-            links[platform].href = "https://github.com/DangerZone8/OpenCluely1/releases/latest";
-            links[platform].removeAttribute("aria-disabled");
-            links[platform].textContent = "View available " + platform + " downloads";
-          });
-          console.error(error);
-        });
+        .catch(showFailure);
+
+      var toggle = byId("menu-toggle");
+      var nav = byId("site-nav");
+      toggle.addEventListener("click", function () {
+        var open = nav.classList.toggle("open");
+        toggle.setAttribute("aria-expanded", String(open));
+        toggle.setAttribute("aria-label", open ? "Close navigation" : "Open navigation");
+        toggle.textContent = open ? "×" : "☰";
+      });
+      nav.addEventListener("click", function (event) {
+        if (event.target.closest("a")) {
+          nav.classList.remove("open");
+          toggle.setAttribute("aria-expanded", "false");
+          toggle.setAttribute("aria-label", "Open navigation");
+          toggle.textContent = "☰";
+        }
+      });
     })();
   </script>
 </body>
