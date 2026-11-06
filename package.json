@@ -4,16 +4,16 @@
   "description": "Slickly AI Desktop Assistant",
   "main": "main.js",
   "scripts": {
-    "start": "node scripts/launch-electron.js",
-    "dev": "node scripts/launch-electron.js --no-sandbox --disable-gpu",
+    "start": "node scripts/generate-app-icons.js && node scripts/launch-electron.js",
+    "dev": "node scripts/generate-app-icons.js && node scripts/launch-electron.js --no-sandbox --disable-gpu",
     "test-speech": "node scripts/test-speech.js",
-    "check": "node scripts/test-provider-adapter.js && node scripts/test-screen-ai-ui-route.js && node scripts/check-syntax.js && node scripts/test-typed-chat-routing.js && node scripts/test-image-network-fallback.js && node scripts/test-gemini-fallback.js && node scripts/test-keyless-ai.js && node scripts/test-built-in-audio.js && node scripts/check-ipc-contract.js && node scripts/check-crash-handling.js && node scripts/test-update-env.js && node scripts/check-overlay-visibility.js && node scripts/test-capture-service.js && node scripts/test-chat-window-movable.js && node scripts/test-general-assistant-chat.js && node scripts/test-invalid-key-hosted-fallback.js && node scripts/test-chat-overlay-route.js && node scripts/test-vercel-update-feed.js && node scripts/test-update-manifest.js && node scripts/test-release-payload.js",
+    "check": "node scripts/test-provider-adapter.js && node scripts/test-screen-ai-ui-route.js && node scripts/check-syntax.js && node scripts/test-typed-chat-routing.js && node scripts/test-image-network-fallback.js && node scripts/test-gemini-fallback.js && node scripts/test-keyless-ai.js && node scripts/test-built-in-audio.js && node scripts/check-ipc-contract.js && node scripts/check-crash-handling.js && node scripts/test-update-env.js && node scripts/check-overlay-visibility.js && node scripts/test-capture-service.js && node scripts/test-chat-window-movable.js && node scripts/test-general-assistant-chat.js && node scripts/test-invalid-key-hosted-fallback.js && node scripts/test-chat-overlay-route.js && node scripts/test-vercel-update-feed.js && node scripts/test-update-manifest.js && node scripts/test-release-payload.js && node scripts/test-app-branding-tray.js && node scripts/test-chat-streaming.js",
     "test:gemini-live": "node scripts/test-gemini-live-chat.js",
-    "build": "electron-builder",
-    "build:mac": "electron-builder --mac",
-    "build:win": "electron-builder --win",
-    "build:linux": "electron-builder --linux",
-    "build:all": "electron-builder --mac --win --linux",
+    "build": "node scripts/generate-app-icons.js && electron-builder",
+    "build:mac": "node scripts/generate-app-icons.js && electron-builder --mac",
+    "build:win": "node scripts/generate-app-icons.js && electron-builder --win",
+    "build:linux": "node scripts/generate-app-icons.js && electron-builder --linux",
+    "build:all": "node scripts/generate-app-icons.js && electron-builder --mac --win --linux",
     "dist": "npm run build",
     "pack": "electron-builder --dir",
     "clean": "node scripts/clean.js",
@@ -98,7 +98,8 @@
         "NSMicrophoneUsageDescription": "Slickly AI uses the microphone to transcribe your speech locally with Whisper.",
         "NSCameraUsageDescription": "Slickly AI does not record video; this entitlement is only present for media-capture compatibility.",
         "NSScreenCaptureUsageDescription": "Slickly AI captures the screen to read on-screen content for AI assistance."
-      }
+      },
+      "icon": "build/icons/icon.icns"
     },
     "win": {
       "target": [
@@ -114,7 +115,8 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "icon": "build/icons/icon.ico"
     },
     "linux": {
       "target": [
@@ -131,7 +133,7 @@
           ]
         }
       ],
-      "icon": "assests/icons/app-icon.png",
+      "icon": "build/icons/icon.png",
       "category": "Utility"
     },
     "deb": {

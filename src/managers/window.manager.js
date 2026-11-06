@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, desktopCapturer, shell } = require('electron');
+const { app, BrowserWindow, screen, desktopCapturer, shell, nativeImage } = require('electron');
 const path = require('path');
 const logger = require('../core/logger').createServiceLogger('WINDOW');
 const config = require('../core/config');
@@ -7,6 +7,7 @@ class WindowManager {
   constructor() {
     this.windows = new Map();
     this.isQuitting = false;
+    this.trayAvailable = false;
     app.on('before-quit', () => {
       this.isQuitting = true;
     });
@@ -181,6 +182,7 @@ class WindowManager {
     // Show the main window using standard desktop behavior so it reliably
     // appears in the taskbar and can be focused by the user.
     try {
+      if (process.platform === 'darwin' && app.dock) app.dock.show();
       mainWindow.setSkipTaskbar(false);
       mainWindow.setAlwaysOnTop(false);
       mainWindow.setVisibleOnAllWorkspaces(false);
@@ -210,6 +212,21 @@ class WindowManager {
     }
     const window = await this.createWindow('main', false); // Don't show during creation
     this.windows.set('main', window);
+
+    // Windows supports a small native overlay badge on the taskbar button.
+    // Keep the normal taskbar entry visible; this is an additional brand mark.
+    if (process.platform === 'win32' && typeof window.setOverlayIcon === 'function') {
+      try {
+        const overlayPath = path.resolve(__dirname, '../../build/icons/taskbar-overlay.png');
+        if (require('fs').existsSync(overlayPath)) {
+          window.setOverlayIcon(nativeImage.createFromPath(overlayPath), 'Slickly AI');
+        } else {
+          logger.warn('Slickly taskbar overlay asset is missing', { overlayPath });
+        }
+      } catch (error) {
+        logger.warn('Could not apply Slickly taskbar overlay icon', { error: error.message });
+      }
+    }
 
     // Main application window behaves like a normal desktop app:
     // visible in the taskbar, movable, and not forced above other applications.
@@ -286,6 +303,7 @@ class WindowManager {
       },
       show: false, // Show only after the window has finished loading.
       title: windowConfig.title,
+      icon: path.resolve(__dirname, '../../build/icons/icon.png'),
       // Main app should be discoverable and accessible like a normal desktop app.
       skipTaskbar: type !== 'main',
       alwaysOnTop: type !== 'main',
@@ -894,10 +912,15 @@ class WindowManager {
         logger.debug('Window hidden', { type });
       });
 
+      // The main app minimizes/closes to the visible system tray icon.
+      // This removes its taskbar button while keeping an obvious restore/quit path.
+      if (type === 'main') {
+        // Keep normal Windows taskbar behavior: minimize minimizes, and close
+        // closes. The user can still explicitly choose Hide to Tray if desired.
       // Settings must behave like a normal desktop window: allow minimizing
       // and intercept close to hide it rather than destroying the reusable
       // window instance. Floating overlay windows retain their prior behavior.
-      if (type === 'settings') {
+      } else if (type === 'settings') {
         window.on('minimize', () => {
           // Minimizing Settings should be a deliberate return to the desktop,
           // not leave the user with no visible window because the overlay was

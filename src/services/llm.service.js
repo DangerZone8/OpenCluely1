@@ -86,7 +86,7 @@ class LLMService {
     return id;
   }
 
-  async executeRemoteRequest(geminiRequest, modelName = this.model) {
+  async executeRemoteRequest(geminiRequest, modelName = this.model, onDelta = null) {
     // One hard deadline for the whole request. Do not let a dead Vercel alias
     // multiply the normal timeout by every endpoint and transport fallback.
     // Gemini vision may legitimately take 10-15s; allow that once while still
@@ -100,8 +100,12 @@ class LLMService {
     // desktop client's old 22s endpoint budget aborted valid screen requests
     // before the server's own deadline; keep enough headroom for the handler
     // while retaining one global cap across endpoint failover.
-    const configuredTimeout = Math.max(config.get('llm.gemini.timeout') || 15000, containsImage ? 28000 : 27000);
-    const totalTimeout = Math.max(20000, Math.min(configuredTimeout + 2000, 30000));
+    const configuredTimeout = containsImage
+      ? Math.max(config.get('llm.gemini.timeout') || 15000, 28000)
+      : Math.min(Math.max(config.get('llm.gemini.timeout') || 12000, 10000), 15000);
+    const totalTimeout = containsImage
+      ? Math.max(20000, Math.min(configuredTimeout + 2000, 30000))
+      : Math.min(configuredTimeout + 1500, 16500);
     const deadline = Date.now() + totalTimeout;
     const payload = JSON.stringify({ model: modelName, request: geminiRequest });
     const headers = {
@@ -109,6 +113,7 @@ class LLMService {
       'Content-Length': Buffer.byteLength(payload),
       'x-opencluely-install-id': this.getRemoteInstallationId(),
       ...(containsImage ? { 'x-opencluely-feature': 'screen-vision' } : {}),
+      ...(typeof onDelta === 'function' && !containsImage ? { 'x-opencluely-stream': '1', 'Accept': 'text/event-stream, application/json' } : {}),
       // Used only by CI to access Vercel-protected preview deployments. Never
       // configure this secret in a packaged desktop release.
       ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
@@ -178,7 +183,7 @@ class LLMService {
         }).join(', '));
     }
 
-    const parseResponse = (status, rawBody) => {
+    const parseResponse = (status, rawBody, contentType = '') => {
       let result = {};
       try { result = JSON.parse(rawBody); } catch {}
       if (status < 200 || status >= 300) {
@@ -196,6 +201,23 @@ class LLMService {
         error.providerCode = typeof result.providerCode === 'string' ? result.providerCode : '';
         error.providerStatus = Number.isFinite(result.providerStatus) ? result.providerStatus : null;
         throw error;
+      }
+      if (String(contentType).toLowerCase().includes('text/event-stream')) {
+        const streamedText = String(rawBody || '').split(/\r?\n/)
+          .filter(line => line.trim().startsWith('data:'))
+          .map(line => {
+            const data = line.trim().slice(5).trim();
+            if (!data || data === '[DONE]') return '';
+            try {
+              const packet = JSON.parse(data);
+              if (packet.error) throw new Error(packet.error);
+              return typeof packet.text === 'string' ? packet.text : '';
+            } catch (error) {
+              if (error.message && !error.message.includes('Unexpected token')) throw error;
+              return '';
+            }
+          }).join('');
+        if (streamedText.trim()) return streamedText.trim();
       }
       if (typeof result.text !== 'string' || !result.text.trim()) {
         const error = new Error('Hosted Slickly AI AI returned an empty response.');
@@ -228,7 +250,7 @@ class LLMService {
           chunks.push(chunk);
         });
         res.on('end', () => {
-          try { resolve(parseResponse(res.statusCode || 0, Buffer.concat(chunks).toString('utf8'))); }
+          try { resolve(parseResponse(res.statusCode || 0, Buffer.concat(chunks).toString('utf8'), res.headers['content-type'] || '')); }
           catch (error) { reject(error); }
         });
         res.on('error', reject);
@@ -305,9 +327,49 @@ class LLMService {
           }
         }
 
+        const contentType = response.headers?.get?.('content-type') || '';
+        if (response.ok && contentType.toLowerCase().includes('text/event-stream') && response.body) {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          let fullText = '';
+          const emitLine = (line) => {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data:')) return;
+            const data = trimmed.slice(5).trim();
+            if (!data || data === '[DONE]') return;
+            let packet;
+            try { packet = JSON.parse(data); } catch { return; }
+            if (packet.error) throw new Error(packet.error);
+            if (typeof packet.text === 'string' && packet.text) {
+              fullText += packet.text;
+              if (typeof onDelta === 'function') onDelta(packet.text);
+            }
+          };
+          try {
+            while (true) {
+              const item = await reader.read();
+              if (item.done) break;
+              buffer += decoder.decode(item.value, { stream: true });
+              let newline;
+              while ((newline = buffer.indexOf('\n')) !== -1) {
+                const line = buffer.slice(0, newline);
+                buffer = buffer.slice(newline + 1);
+                emitLine(line);
+              }
+            }
+            buffer += decoder.decode();
+            if (buffer.trim()) emitLine(buffer);
+          } catch (error) {
+            try { await reader.cancel(); } catch (_) {}
+            throw error;
+          }
+          if (!fullText.trim()) throw new Error('Hosted Slickly AI AI returned an empty streamed response.');
+          return fullText.trim();
+        }
         const responseBody = await response.text();
         try {
-          return parseResponse(response.status, responseBody);
+          return parseResponse(response.status, responseBody, contentType);
         } catch (error) {
           // 5xx is a server/deployment problem: try the next alias. A 429 or
           // any other client error is authoritative and must not fan out.
@@ -701,7 +763,7 @@ class LLMService {
     const history = Array.isArray(sessionMemory) ? sessionMemory : [];
     const contents = history
       .filter((entry) => entry && ['user', 'model', 'assistant'].includes(entry.role) && typeof entry.content === 'string' && entry.content.trim() && (!entry.skill || entry.skill === 'general'))
-      .slice(-12)
+      .slice(-8)
       .map((entry) => ({
         role: entry.role === 'assistant' ? 'model' : entry.role,
         parts: [{ text: entry.content }]
@@ -714,7 +776,7 @@ class LLMService {
       systemInstruction: { parts: [{ text: "You are Slickly AI, the AI assistant. If asked your name directly or indirectly, identify yourself as Slickly AI and never as OpenCluely. Respond naturally to everyday conversation, writing, explanations, brainstorming, technology, and programming questions. Do not assume every message is a data-structures-and-algorithms problem. Only provide code when relevant. Respond conversationally to greetings and informal phrases. Use the conversation history to understand follow-up questions, avoid repeating questions already answered, and maintain context." + (this.lastScreenContext && Date.now() - this.lastScreenContext.timestamp < 30 * 60 * 1000 ? "\n\nRECENT SCREEN CONTEXT (observed by the user-authorized screen capture):\n" + this.lastScreenContext.summary + "\nUse this visual context to resolve follow-up references such as 'that question', 'the code', 'the error', or 'what I was looking at'. Answer the user's actual question using the observed details. Do not claim the screen is still live; this is the most recently captured snapshot." : '') }] },
       contents
     };
-    this.applyGenerationDefaults(request);
+    this.applyGenerationDefaults(request, { maxOutputTokens: 2048 });
     try {
       const response = await this.executeStreamingRequest(request, (delta) => {
         if (typeof onDelta === 'function' && delta) onDelta(delta);
@@ -1445,9 +1507,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
       return fullText;
     }
     if (this.remoteOnly) {
-      const fullText = await this.executeRemoteRequest(geminiRequest);
-      if (typeof onDelta === 'function') onDelta(fullText);
-      return fullText;
+      return this.executeRemoteRequest(geminiRequest, this.model, onDelta);
     }
     const maxRetries = config.get('llm.gemini.maxRetries');
     const timeout = config.get('llm.gemini.timeout') || 15000;
