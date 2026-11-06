@@ -327,7 +327,7 @@ class LLMService {
           }
         }
 
-        const contentType = response.headers.get('content-type') || '';
+        const contentType = response.headers?.get?.('content-type') || '';
         if (response.ok && contentType.toLowerCase().includes('text/event-stream') && response.body) {
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
