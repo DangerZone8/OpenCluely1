@@ -108,6 +108,7 @@ function writeIco(png, filename) {
 }
 
 writePng(1024, 'icon.png');
+writePng(64, 'taskbar-overlay.png');
 writeIco(renderPng(256), 'icon.ico');
 
 if (process.platform === 'darwin') {
