@@ -9,6 +9,8 @@
   <meta name="site-kind" content="software">
   <title>Slickly — AI that works with your screen</title>
   <link rel="canonical" href="https://slicklyai.vercel.app/">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <meta name="application-name" content="Slickly">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -32,10 +34,7 @@
     .topbar{height:var(--nav);position:fixed;z-index:20;inset:0 0 auto;background:rgba(243,242,236,.97);border-bottom:1px solid var(--line)}
     .nav{height:100%;display:flex;align-items:center;justify-content:space-between;gap:28px}
     .brand{display:inline-flex;align-items:center;gap:11px;text-decoration:none;font:700 21px var(--display);letter-spacing:-.06em}
-    .brand-mark{width:26px;height:26px;background:var(--ink);display:grid;place-items:center;border-radius:50%;position:relative}
-    .brand-mark:before,.brand-mark:after{content:"";position:absolute;background:var(--accent);border-radius:99px}
-    .brand-mark:before{width:13px;height:3px;transform:rotate(-42deg)}
-    .brand-mark:after{width:3px;height:13px;transform:rotate(-42deg)}
+    .brand-mark{width:30px;height:30px;display:inline-block;border-radius:50%;background:url("/favicon.svg") center/contain no-repeat;flex:0 0 auto}
     .navlinks{display:flex;align-items:center;gap:34px}
     .navlinks a{font-size:14px;font-weight:600;text-decoration:none;color:#42473f;transition:color .18s}
     .navlinks a:hover{color:#000}

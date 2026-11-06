@@ -8,9 +8,9 @@ const { execFileSync } = require('child_process');
 const root = path.resolve(__dirname, '..');
 const logoSvg = fs.readFileSync(path.join(root, 'webapp', 'favicon.svg'), 'utf8');
 if (!logoSvg.includes('viewBox="0 0 64 64"') ||
-    !logoSvg.includes('stroke="#ffffff"') ||
-    !logoSvg.includes('fill="#ffffff"')) {
-  throw new Error('The official Slickly favicon SVG changed; review the native icon geometry before building.');
+    !logoSvg.includes('fill="#171916"') ||
+    !logoSvg.includes('stroke="#d5f45b"')) {
+  throw new Error('The official Slickly lime-X mark changed; review native icon geometry before building.');
 }
 const output = path.join(root, 'build', 'icons');
 const iconset = path.join(output, 'Slickly.iconset');
@@ -35,59 +35,35 @@ function chunk(type, data) {
   crc.writeUInt32BE(crc32(body));
   return Buffer.concat([length, body, crc]);
 }
-function insideRoundedSquare(x, y, size) {
-  const radius = size * 15 / 64;
-  const cx = Math.max(radius, Math.min(size - radius, x));
-  const cy = Math.max(radius, Math.min(size - radius, y));
-  const dx = x - cx;
-  const dy = y - cy;
-  return dx * dx + dy * dy <= radius * radius;
+function distanceToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const lengthSquared = dx * dx + dy * dy;
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSquared));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
 }
 function renderPng(size) {
-  const supersample = 4;
-  const pixels = Buffer.alloc((size * 4 + 1) * size);
-  const scale = size / 64;
-  const outer = 19.5 * scale;
-  const inner = 14.5 * scale;
-  const dot = 5.5 * scale;
-  const center = size / 2;
-  for (let y = 0; y < size; y += 1) {
-    const row = y * (size * 4 + 1);
-    pixels[row] = 0;
-    for (let x = 0; x < size; x += 1) {
-      let black = 0;
-      let white = 0;
-      for (let sy = 0; sy < supersample; sy += 1) {
-        for (let sx = 0; sx < supersample; sx += 1) {
-          const px = x + (sx + 0.5) / supersample;
-          const py = y + (sy + 0.5) / supersample;
-          if (!insideRoundedSquare(px, py, size)) continue;
-          black += 1;
-          const dx = px - center;
-          const dy = py - center;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          if ((distance >= inner && distance <= outer) || distance <= dot) white += 1;
-        }
+  const supersample = 4, pixels = Buffer.alloc((size * 4 + 1) * size);
+  const scale = size / 64, center = size / 2, radius = 23.5 * scale, stroke = 6.3 * scale;
+  const arms = [[25.5*scale,25.5*scale,38.5*scale,38.5*scale],[38.5*scale,25.5*scale,25.5*scale,38.5*scale]];
+  for (let y=0;y<size;y+=1) {
+    const row=y*(size*4+1); pixels[row]=0;
+    for(let x=0;x<size;x+=1) {
+      let dark=0,lime=0;
+      for(let sy=0;sy<supersample;sy+=1) for(let sx=0;sx<supersample;sx+=1) {
+        const px=x+(sx+.5)/supersample, py=y+(sy+.5)/supersample;
+        if(Math.hypot(px-center,py-center)>radius) continue;
+        if(arms.some(([ax,ay,bx,by])=>distanceToSegment(px,py,ax,ay,bx,by)<=stroke/2)) lime+=1; else dark+=1;
       }
-      const samples = supersample * supersample;
-      const offset = row + 1 + x * 4;
-      pixels[offset] = white ? 255 : 0;
-      pixels[offset + 1] = white ? 255 : 0;
-      pixels[offset + 2] = white ? 255 : 0;
-      pixels[offset + 3] = Math.round((black / samples) * 255);
+      const total=dark+lime; if(!total) continue;
+      const o=row+1+x*4;
+      pixels[o]=Math.round((dark*23+lime*213)/total);
+      pixels[o+1]=Math.round((dark*25+lime*244)/total);
+      pixels[o+2]=Math.round((dark*22+lime*91)/total);
+      pixels[o+3]=Math.round(total/(supersample*supersample)*255);
     }
   }
-  const header = Buffer.alloc(13);
-  header.writeUInt32BE(size, 0);
-  header.writeUInt32BE(size, 4);
-  header[8] = 8;
-  header[9] = 6;
-  return Buffer.concat([
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    chunk('IHDR', header),
-    chunk('IDAT', zlib.deflateSync(pixels, { level: 9 })),
-    chunk('IEND', Buffer.alloc(0))
-  ]);
+  const header=Buffer.alloc(13); header.writeUInt32BE(size,0); header.writeUInt32BE(size,4); header[8]=8; header[9]=6;
+  return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',header),chunk('IDAT',zlib.deflateSync(pixels,{level:9})),chunk('IEND',Buffer.alloc(0))]);
 }
 function writePng(size, filename) {
   const file = path.join(output, filename);
@@ -107,9 +83,14 @@ function writeIco(png, filename) {
   fs.writeFileSync(path.join(output, filename), Buffer.concat([header, png]));
 }
 
+const appIcon = renderPng(1024);
 writePng(1024, 'icon.png');
 writePng(16, 'taskbar-overlay.png');
 writeIco(renderPng(256), 'icon.ico');
+const mobileAssets = path.join(root, 'mobile', 'assets');
+fs.mkdirSync(mobileAssets, { recursive: true });
+fs.writeFileSync(path.join(mobileAssets, 'icon.png'), appIcon);
+fs.writeFileSync(path.join(mobileAssets, 'adaptive-icon.png'), appIcon);
 
 if (process.platform === 'darwin') {
   const iconsetFiles = [

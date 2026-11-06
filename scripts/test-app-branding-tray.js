@@ -18,6 +18,8 @@ assert.strictEqual(pkg.build.win.icon, 'build/icons/icon.ico');
 assert.strictEqual(pkg.build.mac.icon, 'build/icons/icon.icns');
 assert.strictEqual(pkg.build.linux.icon, 'build/icons/icon.png');
 assert.match(favicon, /viewBox="0 0 64 64"/);
+assert.match(favicon, /fill="#171916"/);
+assert.match(favicon, /stroke="#d5f45b"/);
 assert.match(main, /new Tray\(iconPath\)/);
 assert.match(main, /Show Slickly AI/);
 assert.match(main, /Quit Slickly AI/);
