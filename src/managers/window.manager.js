@@ -52,10 +52,11 @@ class WindowManager {
         title: 'OpenCluely'
       },
       chat: {
-        width: 500,
+        // Wider workspace layout matches the Slickly desktop product UI.
+        width: 900,
         height: 700,
         file: 'chat.html',
-        title: 'Chat'
+        title: 'Slickly Assistant'
       },
       llmResponse: {
         width: 840,
