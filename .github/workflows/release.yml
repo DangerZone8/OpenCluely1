@@ -573,7 +573,8 @@ jobs:
           # electron-updater requires latest*.yml metadata for automatic updates.
           # The Windows portable EXE is intentionally omitted; NSIS is the
           # supported Windows auto-update target.
-          find artifacts -type f -name 'Slickly-AI-Setup-*.exe' \
+          # Use only the canonical matrix installer; the PR smoke-test artifact shares its filename.
+          find artifacts/slickly-ai-windows-latest -type f -name 'Slickly-AI-Setup-*.exe' \
             -exec cp -v {} release/ \;
           find artifacts -type f -name 'slickly-ai_*_amd64.deb' \
             -exec cp -v {} release/ \;
