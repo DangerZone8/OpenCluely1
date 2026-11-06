@@ -19,5 +19,8 @@
     "react-native": "0.81.5"
   },
   "devDependencies": {},
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  },
+  "type": "module"
 }
