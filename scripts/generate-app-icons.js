@@ -107,27 +107,26 @@ function writeIco(png, filename) {
   fs.writeFileSync(path.join(output, filename), Buffer.concat([header, png]));
 }
 
-const pngSizes = [16, 20, 24, 32, 40, 48, 64, 128, 256, 512, 1024];
-for (const size of pngSizes) writePng(size, 'icon-' + size + '.png');
 writePng(1024, 'icon.png');
 writeIco(renderPng(256), 'icon.ico');
 
-const iconsetFiles = [
-  ['icon_16x16.png', 16],
-  ['icon_16x16@2x.png', 32],
-  ['icon_32x32.png', 32],
-  ['icon_32x32@2x.png', 64],
-  ['icon_128x128.png', 128],
-  ['icon_128x128@2x.png', 256],
-  ['icon_256x256.png', 256],
-  ['icon_256x256@2x.png', 512],
-  ['icon_512x512.png', 512],
-  ['icon_512x512@2x.png', 1024]
-];
-for (const entry of iconsetFiles) {
-  fs.writeFileSync(path.join(iconset, entry[0]), renderPng(entry[1]));
-}
 if (process.platform === 'darwin') {
+  const iconsetFiles = [
+    ['icon_16x16.png', 16],
+    ['icon_16x16@2x.png', 32],
+    ['icon_32x32.png', 32],
+    ['icon_32x32@2x.png', 64],
+    ['icon_128x128.png', 128],
+    ['icon_128x128@2x.png', 256],
+    ['icon_256x256.png', 256],
+    ['icon_256x256@2x.png', 512],
+    ['icon_512x512.png', 512],
+    ['icon_512x512@2x.png', 1024]
+  ];
+  for (const entry of iconsetFiles) {
+    fs.writeFileSync(path.join(iconset, entry[0]), renderPng(entry[1]));
+  }
   execFileSync('iconutil', ['-c', 'icns', iconset, '-o', path.join(output, 'icon.icns')]);
+  fs.rmSync(iconset, { recursive: true, force: true });
 }
 console.log('Generated Slickly app icons in ' + output);
