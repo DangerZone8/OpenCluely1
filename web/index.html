@@ -229,6 +229,52 @@
     @media(max-width:700px){h1{font-size:clamp(54px,14vw,78px)}.hero:before{width:420px;height:420px;right:-250px;top:-140px}.hero-art{filter:drop-shadow(0 18px 24px rgba(20,26,15,.12))}.desktop-window{animation:none}}
     @media(prefers-reduced-motion:reduce){.hero:before,.desktop-window,.ticker-inner,.hero-copy>*{animation:none!important}.reveal{opacity:1;transform:none;transition:none}}
 
+  
+    /* High-impact cinematic pass: intentionally bold, not just subtle polish */
+    .hero{min-height:790px;padding:158px 0 112px;background:
+      radial-gradient(ellipse 42% 48% at 77% 43%,rgba(211,255,74,.34),transparent 72%),
+      radial-gradient(ellipse 38% 50% at 92% 75%,rgba(144,182,44,.18),transparent 70%),
+      linear-gradient(135deg,#f8f8f0 0%,#f0f1e7 48%,#e9edda 100%)}
+    .hero:before{width:900px;height:900px;right:-260px;top:-245px;border:1px solid rgba(105,133,36,.19);
+      box-shadow:0 0 0 42px rgba(105,133,36,.045),0 0 0 100px rgba(105,133,36,.035),0 0 0 170px rgba(105,133,36,.025),0 0 100px rgba(197,239,75,.18)}
+    .hero-grid{align-items:center;gap:clamp(38px,6vw,96px)}
+    .hero-copy{max-width:650px}
+    .eyebrow{letter-spacing:.19em}
+    h1{font-size:clamp(70px,9.2vw,132px);max-width:720px;letter-spacing:-.095em;line-height:.86}
+    h1 .accent{color:#536d12;text-shadow:0 12px 44px rgba(157,194,47,.25)}
+    h1 .accent:after{height:.14em;bottom:-.1em;box-shadow:0 5px 22px rgba(180,220,65,.55)}
+    .hero-lead{font-size:clamp(17px,1.45vw,20px);line-height:1.7;max-width:520px}
+    .hero-art{z-index:1;transform:perspective(1500px) rotateY(-12deg) rotateX(5deg) scale(1.04);filter:drop-shadow(0 48px 60px rgba(26,34,14,.22))}
+    .hero-art:hover{transform:perspective(1500px) rotateY(-4deg) rotateX(1deg) translateY(-12px) scale(1.055)}
+    .desktop-window{position:relative;border-radius:19px;overflow:hidden;border:1px solid rgba(255,255,255,.95);
+      box-shadow:0 40px 110px rgba(25,31,18,.25),0 0 0 1px rgba(23,25,22,.1),0 0 70px rgba(199,241,69,.2);
+      background:rgba(255,255,255,.91)}
+    .window-bar{height:54px}
+    .app-body{min-height:340px}
+    .screen-context{border-radius:12px}
+    .message{border-radius:12px}
+    .float-chip{position:absolute;z-index:4;padding:13px 17px;border-radius:12px;background:rgba(23,29,21,.92);color:#f6f8ed;
+      border:1px solid rgba(255,255,255,.22);box-shadow:0 18px 42px rgba(19,26,12,.2);backdrop-filter:blur(18px);
+      font:600 10px var(--mono);letter-spacing:.1em;white-space:nowrap;animation:chip-float 5.5s ease-in-out infinite}
+    .chip-context{top:21%;right:-8%;color:#e9ffc0}
+    .chip-voice{bottom:18%;left:-10%;animation-delay:-1.7s}
+    .chip-followup{bottom:-7%;right:5%;background:linear-gradient(110deg,#dfff76,#bfe94c);color:#1b2410;border-color:rgba(255,255,255,.8);animation-delay:-3.1s}
+    .chip-pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:#cfff54;margin-right:8px;box-shadow:0 0 0 5px rgba(207,255,84,.16),0 0 18px #cfff54}
+    .chip-wave{color:#dfff76;font-size:14px;letter-spacing:.15em;margin-right:7px}
+    .art-label{font-size:10px;letter-spacing:.15em}
+    .ticker{padding:23px 0;background:#161d15}
+    .ticker-inner{font-size:13px;letter-spacing:.14em}
+    .feature{border-radius:16px;padding:34px;background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(246,248,235,.68));box-shadow:0 18px 50px rgba(25,31,18,.07)}
+    .feature:hover{transform:translateY(-12px) scale(1.012);box-shadow:0 30px 75px rgba(25,31,18,.13)}
+    .feature-symbol{width:58px;height:58px;display:grid;place-items:center;border-radius:16px;background:linear-gradient(145deg,#f0facd,#d9f38b);box-shadow:inset 0 1px white,0 8px 24px rgba(156,192,50,.17)}
+    .download-section{background:radial-gradient(ellipse 48% 65% at 88% 18%,rgba(203,255,78,.22),transparent 72%),radial-gradient(ellipse at 8% 100%,rgba(105,145,42,.18),transparent 50%),linear-gradient(135deg,#101710,#202b20 60%,#101610)}
+    .download-recommend{border-radius:20px;background:linear-gradient(120deg,rgba(255,255,255,.14),rgba(255,255,255,.045));border:1px solid rgba(226,255,170,.3);box-shadow:0 28px 90px rgba(0,0,0,.34)}
+    .platform-link{border-radius:12px}
+    @keyframes chip-float{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-12px) rotate(-1deg)}}
+    @media(max-width:1000px){.hero{min-height:unset;padding:140px 0 90px}.hero-grid{gap:60px}.hero-art{transform:none}.hero-art:hover{transform:translateY(-5px)}.chip-context{right:-2%}.chip-voice{left:-2%}}
+    @media(max-width:700px){.hero{padding:125px 0 70px}h1{font-size:clamp(58px,15vw,88px)}.hero-art{transform:none}.float-chip{font-size:8px;padding:10px 11px}.chip-context{right:-2%;top:16%}.chip-voice{left:-2%;bottom:14%}.chip-followup{bottom:-10%}}
+    @media(prefers-reduced-motion:reduce){.float-chip{animation:none!important}}
+
   </style>
 </head>
 <body id="top">
@@ -259,6 +305,9 @@
         </div>
         <div class="hero-art" aria-label="Illustration of the Slickly desktop assistant">
           <div class="art-label"><span>01 / The workspace</span><span>Screen + conversation</span></div>
+          <div class="float-chip chip-context"><span class="chip-pulse"></span> SCREEN CONTEXT ACTIVE</div>
+          <div class="float-chip chip-voice"><span class="chip-wave">▂ ▅ ▃ ▇</span> VOICE READY</div>
+          <div class="float-chip chip-followup">✳ FOLLOW-UP UNDERSTOOD</div>
           <div class="desktop-window">
             <div class="window-bar"><span class="window-dots"><i></i><i></i><i></i></span><span class="window-title">Slickly · Assistant</span><span class="window-status">Ready</span></div>
             <div class="app-body">
