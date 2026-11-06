@@ -238,7 +238,7 @@ jobs:
 
   build:
     needs: [test]
-    if: needs.test.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+    if: needs.test.result == 'success' && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
@@ -439,7 +439,7 @@ jobs:
   release:
     name: Create GitHub Release
     needs: [test, preflight, build]
-    if: ${{ !cancelled() && needs.test.result == 'success' && needs.preflight.result == 'success' && needs.build.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) }}
+    if: ${{ !cancelled() && needs.test.result == 'success' && needs.preflight.result == 'success' && needs.build.result == 'success' && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (full history for changelog)
@@ -600,12 +600,12 @@ jobs:
           cat SHA256SUMS.txt
 
       - name: Dry-run report (do not publish)
-        if: github.event_name == 'workflow_dispatch' && inputs.dry_run == true
+        if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == true)
         run: |
           echo "DRY RUN PASSED: version v${{ inputs.version }} was validated, artifacts were built and assembled, and all required gates passed. No GitHub Release or tag will be created."
 
       - name: Create GitHub Release
-        if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
+        if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.changelog.outputs.tag }}
