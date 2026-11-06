@@ -43,6 +43,8 @@ const overlay = fs.readFileSync(path.join(icons, 'taskbar-overlay.png'));
 const ico = fs.readFileSync(path.join(icons, 'icon.ico'));
 assert.deepStrictEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
 assert.deepStrictEqual([...overlay.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+assert.strictEqual(overlay.readUInt32BE(16), 16, 'Windows taskbar overlay must be rendered at 16x16 pixels');
+assert.strictEqual(overlay.readUInt32BE(20), 16, 'Windows taskbar overlay must be rendered at 16x16 pixels');
 assert.strictEqual(ico.readUInt16LE(0), 0);
 assert.strictEqual(ico.readUInt16LE(2), 1);
 assert.strictEqual(ico.readUInt16LE(4), 1);
