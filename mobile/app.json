@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "Slickly",
+    "slug": "slickly",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "scheme": "slickly",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ai.slickly.mobile"
+    },
+    "android": {
+      "package": "ai.slickly.mobile",
+      "adaptiveIcon": { "backgroundColor": "#09090b" }
+    },
+    "plugins": ["expo-secure-store"]
+  }
+}
