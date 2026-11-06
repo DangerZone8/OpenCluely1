@@ -147,6 +147,58 @@
     .closing .button:hover{background:#fff;color:var(--ink);border-color:#fff}
     .footer-row{display:flex;justify-content:space-between;align-items:center;gap:20px;padding-top:20px;border-top:1px solid rgba(23,25,22,.25);font:11px var(--mono)}
     .footer-links{display:flex;gap:22px;flex-wrap:wrap}.footer-links a{text-decoration:none}.footer-links a:hover{text-decoration:underline}
+
+    /* Interactive capability demos */
+    .demo-section{padding:112px 0;background:#e9e9df;border-bottom:1px solid var(--line)}
+    .demo-shell{background:#171b18;color:#f5f6ed;border:1px solid #354034;border-radius:9px;overflow:hidden;box-shadow:0 28px 70px rgba(23,27,24,.14)}
+    .demo-tabs{display:flex;gap:0;border-bottom:1px solid #3a4439;background:#202720;overflow-x:auto}
+    .demo-tab{flex:1;min-width:150px;padding:18px 20px;background:transparent;border:0;border-right:1px solid #394238;color:#aab4a5;font:11px var(--mono);cursor:pointer;white-space:nowrap}
+    .demo-tab[aria-selected="true"]{background:#c8e879;color:#17200b}
+    .demo-panel{display:none;padding:clamp(20px,4vw,42px);min-height:390px}
+    .demo-panel.active{display:grid;grid-template-columns:1fr .9fr;gap:36px;align-items:center}
+    .demo-copy .demo-kicker{color:#c8e879;font:10px var(--mono);letter-spacing:.08em;margin-bottom:14px}
+    .demo-copy h3{font:600 clamp(27px,3vw,40px)/1.05 var(--display);letter-spacing:-.05em;margin:0 0 14px}
+    .demo-copy p{color:#b0b9ad;font-size:14px;line-height:1.7;max-width:430px}
+    .demo-controls{display:flex;flex-wrap:wrap;gap:9px;margin-top:20px}
+    .demo-btn{min-height:42px;padding:0 15px;border:1px solid #68745e;border-radius:4px;background:transparent;color:#f5f6ed;font:600 12px var(--body);cursor:pointer}
+    .demo-btn.primary{background:#c8e879;color:#17200b;border-color:#c8e879}
+    .demo-btn:focus-visible,.demo-tab:focus-visible{outline:2px solid #fff;outline-offset:3px}
+    .demo-stage{position:relative;min-height:260px;padding:20px;background:#222a23;border:1px solid #465244;border-radius:7px;overflow:hidden}
+    .demo-stage-label{font:9px var(--mono);color:#aeb9a6;letter-spacing:.06em;margin-bottom:15px}
+    .demo-screen{background:#e9ecdf;color:#242b22;border-radius:4px;padding:17px;min-height:150px}
+    .demo-screen small{font:9px var(--mono);color:#68745e}
+    .demo-screen h4{font:600 16px var(--display);margin:12px 0 8px}
+    .demo-screen p{font-size:11px;line-height:1.55;color:#51594d;margin:0}
+    .demo-answer{margin-top:12px;padding:13px;border:1px solid #506047;border-radius:4px;color:#e8eee1;font-size:11px;line-height:1.55;min-height:64px}
+    .demo-answer b{color:#c8e879}
+    .demo-input-row{display:flex;gap:8px;margin-top:12px}
+    .demo-input{min-width:0;flex:1;padding:11px 12px;background:#161c17;border:1px solid #52604e;border-radius:4px;color:#f5f6ed;font:11px var(--body)}
+    .demo-input::placeholder{color:#899485}
+    .overlay-stage{min-height:300px;background:linear-gradient(135deg,#dfe5d7,#aeb9a4);border-radius:5px;position:relative;overflow:hidden;color:#263024}
+    .overlay-desktop{position:absolute;inset:20px 20px 20px 20px;border:1px solid rgba(30,43,29,.25);border-radius:5px;background:rgba(250,251,244,.7);padding:18px}
+    .overlay-desktop strong{font:600 15px var(--display)}
+    .overlay-desktop p{max-width:230px;color:#5a6556;font-size:11px;line-height:1.6;margin-top:10px}
+    .floating-assistant{position:absolute;left:48%;top:43%;width:180px;background:#171d18;color:#f5f6ed;border:1px solid #647353;border-radius:7px;box-shadow:0 12px 32px #1c281e55;cursor:grab;touch-action:none;user-select:none}
+    .floating-assistant.dragging{cursor:grabbing}
+    .float-head{padding:9px 11px;border-bottom:1px solid #3b4639;display:flex;justify-content:space-between;align-items:center;font:10px var(--mono)}
+    .float-head span:last-child{color:#c8e879}
+    .float-body{padding:12px;font-size:10px;line-height:1.5;color:#c5cec0}
+    .float-body b{color:#c8e879}
+    .overlay-hint{position:absolute;bottom:9px;left:12px;color:#53604e;font:9px var(--mono)}
+    .audio-stage{min-height:270px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+    .audio-orb{width:82px;height:82px;border-radius:50%;display:grid;place-items:center;background:#c8e879;color:#17200b;font-size:28px;box-shadow:0 0 0 12px #c8e87920;margin-bottom:18px}
+    .audio-orb.recording{animation:audioPulse 1.2s ease-in-out infinite}
+    @keyframes audioPulse{50%{box-shadow:0 0 0 22px #c8e87912,0 0 38px #c8e87955}}
+    .waveform{height:38px;display:flex;align-items:center;justify-content:center;gap:4px;margin:8px 0 15px}
+    .waveform i{display:block;width:3px;height:8px;background:#c8e879;border-radius:4px;opacity:.55}
+    .waveform.live i{opacity:1;animation:wave .65s ease-in-out infinite alternate}
+    .waveform.live i:nth-child(3n){animation-delay:.18s}.waveform.live i:nth-child(2n){animation-delay:.32s}
+    @keyframes wave{to{height:32px}}
+    .audio-transcript{width:100%;max-width:360px;text-align:left;padding:13px;border:1px solid #4b5847;border-radius:4px;color:#c6d0c0;font-size:11px;line-height:1.6;min-height:58px}
+    .demo-disclaimer{margin:13px 0 0;color:#777f72;font:10px var(--mono)}
+    @media(max-width:760px){.demo-section{padding:78px 0}.demo-panel.active{grid-template-columns:1fr;gap:22px}.demo-stage{min-height:250px}.demo-tab{min-width:130px;padding:15px 13px}}
+    @media(prefers-reduced-motion:reduce){.audio-orb.recording,.waveform.live i{animation:none}}
+
     .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
     @media(max-width:1000px){
       :root{--wrap:min(100% - 64px,1280px)}
@@ -347,6 +399,36 @@
       </div>
     </section>
 
+
+    <section class="demo-section" id="try-it">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="section-index">03 / Try Slickly</p>
+          <div><h2>Don't just read about it. Try the interaction.</h2><p class="section-intro">Explore three small, hands-on demonstrations of how Slickly fits into a desktop workflow.</p></div>
+        </div>
+        <div class="demo-shell">
+          <div class="demo-tabs" role="tablist" aria-label="Interactive Slickly demonstrations">
+            <button class="demo-tab" id="tab-screen" role="tab" aria-selected="true" aria-controls="demo-screen-panel">01 / SCREEN AI</button>
+            <button class="demo-tab" id="tab-overlay" role="tab" aria-selected="false" aria-controls="demo-overlay-panel">02 / MOVABLE OVERLAY</button>
+            <button class="demo-tab" id="tab-audio" role="tab" aria-selected="false" aria-controls="demo-audio-panel">03 / LIVE AUDIO</button>
+          </div>
+          <div class="demo-panel active" id="demo-screen-panel" role="tabpanel" aria-labelledby="tab-screen">
+            <div class="demo-copy"><div class="demo-kicker">SCREEN CONTEXT → FOLLOW-UP</div><h3>Ask the next question. Keep the context.</h3><p>Try a follow-up about the sample screen. The demo keeps the page context in view and changes its response based on your question.</p><div class="demo-controls"><button class="demo-btn primary" id="screen-example">Try example question</button><button class="demo-btn" id="screen-reset">Reset demo</button></div></div>
+            <div class="demo-stage"><div class="demo-stage-label">SAMPLE SCREEN · PROJECT BRIEF</div><div class="demo-screen"><small>PRODUCT BRIEF / 01</small><h4>Reduce friction in team handoffs</h4><p>Teams lose time when decisions, owners and next steps are scattered across tools. A shared context layer could keep work moving.</p></div><div class="demo-answer" id="screen-answer" aria-live="polite"><b>SLICKLY:</b> I've got the sample brief in context. Ask what you'd like to understand or improve.</div><form class="demo-input-row" id="screen-form"><label class="sr-only" for="screen-question">Ask a follow-up about the sample screen</label><input class="demo-input" id="screen-question" placeholder="e.g. What problem is this solving?" autocomplete="off"><button class="demo-btn primary" type="submit">Ask ↗</button></form></div>
+          </div>
+          <div class="demo-panel" id="demo-overlay-panel" role="tabpanel" aria-labelledby="tab-overlay">
+            <div class="demo-copy"><div class="demo-kicker">YOUR DESKTOP · YOUR POSITION</div><h3>Put the assistant where it works for you.</h3><p>Drag the floating Slickly panel around the sample desktop. Use the controls to switch between compact and expanded views.</p><div class="demo-controls"><button class="demo-btn primary" id="overlay-toggle">Compact overlay</button><button class="demo-btn" id="overlay-center">Reset position</button></div></div>
+            <div class="demo-stage"><div class="demo-stage-label">INTERACTIVE DESKTOP MOCKUP · DRAG THE PANEL</div><div class="overlay-stage" id="overlay-stage"><div class="overlay-desktop"><strong>Project workspace</strong><p>Notes, browser content and your work stay on your desktop. Move the assistant to a convenient spot.</p></div><div class="floating-assistant" id="floating-assistant" role="group" aria-label="Movable Slickly demo panel"><div class="float-head"><span>✳ SLICKLY</span><span>READY</span></div><div class="float-body" id="overlay-body">Screen context is ready.<br><b>Ask a follow-up →</b></div></div><div class="overlay-hint">DRAG THE SLICKLY WINDOW</div></div></div>
+          </div>
+          <div class="demo-panel" id="demo-audio-panel" role="tabpanel" aria-labelledby="tab-audio">
+            <div class="demo-copy"><div class="demo-kicker">VOICE → TRANSCRIPT → CONTEXT</div><h3>See how a voice session flows.</h3><p>Start the sample session to animate the waveform and reveal a sample transcript. This is a website preview, not a microphone recording.</p><div class="demo-controls"><button class="demo-btn primary" id="audio-toggle">Start sample session</button><button class="demo-btn" id="audio-reset">Reset</button></div></div>
+            <div class="demo-stage audio-stage"><div class="audio-orb" id="audio-orb" aria-hidden="true">⌁</div><div class="demo-stage-label" id="audio-status">VOICE SESSION · STANDBY</div><div class="waveform" id="audio-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="audio-transcript" id="audio-transcript" aria-live="polite">Your sample transcript will appear here when you start the session.</div></div>
+          </div>
+        </div>
+        <p class="demo-disclaimer">INTERACTIVE WEBSITE PREVIEW · SAMPLE CONTENT ONLY · NO SCREEN CAPTURE OR MICROPHONE ACCESS</p>
+      </div>
+    </section>
+
     <section class="section" id="workflow">
       <div class="wrap">
         <div class="section-head">
@@ -496,6 +578,77 @@
           status.textContent = (release.tag_name || "Latest release") + " · " + assets.length + " published release assets. Downloads are served through the Slickly website.";
         })
         .catch(showFailure);
+
+
+      // Interactive website-only product demonstrations (sample data; no device capture).
+      var demoTabs = Array.prototype.slice.call(document.querySelectorAll(".demo-tab"));
+      var demoPanels = Array.prototype.slice.call(document.querySelectorAll(".demo-panel"));
+      demoTabs.forEach(function (tab) {
+        tab.addEventListener("click", function () {
+          demoTabs.forEach(function (item) { item.setAttribute("aria-selected", String(item === tab)); });
+          demoPanels.forEach(function (panel) { panel.classList.toggle("active", panel.id === tab.getAttribute("aria-controls")); });
+        });
+      });
+      var screenForm = byId("screen-form");
+      var screenAnswer = byId("screen-answer");
+      function answerSample(question) {
+        var q = question.toLowerCase();
+        var answer = q.includes("problem") ? "The brief is about fragmented handoffs: decisions, owners and next steps are spread across tools. The proposed opportunity is a shared context layer." :
+          q.includes("improve") || q.includes("solution") ? "Make the value concrete: show one handoff before and after, identify who owns the next step, and measure time saved or missed actions." :
+          q.includes("audience") || q.includes("who") ? "The likely audience is teams coordinating work across multiple tools. The brief should narrow this to a specific team type and workflow." :
+          "Based on the sample brief, focus on the handoff problem: scattered decisions, unclear ownership and missing next steps. A useful next step is to define one measurable workflow.";
+        screenAnswer.innerHTML = "<b>SLICKLY · SAMPLE RESPONSE:</b> " + answer;
+      }
+      screenForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        var question = byId("screen-question").value.trim();
+        if (!question) { screenAnswer.innerHTML = "<b>SLICKLY:</b> Type a question about the sample brief first."; return; }
+        answerSample(question);
+      });
+      byId("screen-example").addEventListener("click", function () {
+        byId("screen-question").value = "What problem is this solving?";
+        answerSample(byId("screen-question").value);
+      });
+      byId("screen-reset").addEventListener("click", function () {
+        byId("screen-question").value = "";
+        screenAnswer.innerHTML = "<b>SLICKLY:</b> I've got the sample brief in context. Ask what you'd like to understand or improve.";
+      });
+      var overlayStage = byId("overlay-stage"), floating = byId("floating-assistant"), dragging = false, dragOffset = {x:0,y:0};
+      floating.addEventListener("pointerdown", function (event) {
+        if (event.target.closest("button")) return;
+        dragging = true; floating.classList.add("dragging"); floating.setPointerCapture(event.pointerId);
+        var rect = floating.getBoundingClientRect(); var stageRect = overlayStage.getBoundingClientRect();
+        dragOffset.x = event.clientX - rect.left; dragOffset.y = event.clientY - rect.top;
+      });
+      floating.addEventListener("pointermove", function (event) {
+        if (!dragging) return;
+        var bounds = overlayStage.getBoundingClientRect();
+        var x = Math.max(0, Math.min(bounds.width - floating.offsetWidth, event.clientX - bounds.left - dragOffset.x));
+        var y = Math.max(0, Math.min(bounds.height - floating.offsetHeight, event.clientY - bounds.top - dragOffset.y));
+        floating.style.left = x + "px"; floating.style.top = y + "px";
+      });
+      function stopDrag() { dragging = false; floating.classList.remove("dragging"); }
+      floating.addEventListener("pointerup", stopDrag); floating.addEventListener("pointercancel", stopDrag);
+      byId("overlay-toggle").addEventListener("click", function () {
+        var compact = floating.classList.toggle("compact");
+        floating.style.width = compact ? "142px" : "180px";
+        byId("overlay-body").style.display = compact ? "none" : "block";
+        this.textContent = compact ? "Expand overlay" : "Compact overlay";
+      });
+      byId("overlay-center").addEventListener("click", function () {
+        floating.style.left = "48%"; floating.style.top = "43%";
+      });
+      var audioActive = false;
+      function setAudio(active) {
+        audioActive = active;
+        byId("audio-orb").classList.toggle("recording", active);
+        byId("audio-wave").classList.toggle("live", active);
+        byId("audio-status").textContent = active ? "SAMPLE SESSION · PROCESSING VOICE" : "VOICE SESSION · STANDBY";
+        byId("audio-toggle").textContent = active ? "Stop sample session" : "Start sample session";
+        byId("audio-transcript").textContent = active ? "“Let's make the handoff clearer. The key decisions are who owns the next step, what needs to happen, and when it's due.”" : "Your sample transcript will appear here when you start the session.";
+      }
+      byId("audio-toggle").addEventListener("click", function () { setAudio(!audioActive); });
+      byId("audio-reset").addEventListener("click", function () { setAudio(false); });
 
       var toggle = byId("menu-toggle");
       var nav = byId("site-nav");
