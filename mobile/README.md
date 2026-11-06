@@ -36,6 +36,15 @@ npx expo run:ios
 
 An iOS simulator build requires macOS with Xcode. Android builds require Android Studio/Android SDK.
 
+For cloud-built installable packages, configure an Expo Application Services project and its signing credentials, then use the profiles in `eas.json`:
+
+```bash
+npx eas-cli build --platform android --profile preview
+npx eas-cli build --platform ios --profile preview
+```
+
+The preview Android profile produces an APK for direct testing. The iOS preview profile uses Apple's internal distribution requirements. Production store builds use the `production` profile.
+
 ## Hosted API and privacy
 
 The app sends the current conversation's most recent 20 messages to:
