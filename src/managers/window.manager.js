@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, desktopCapturer, shell } = require('electron');
+const { app, BrowserWindow, screen, desktopCapturer, shell, nativeImage } = require('electron');
 const path = require('path');
 const logger = require('../core/logger').createServiceLogger('WINDOW');
 const config = require('../core/config');
@@ -212,6 +212,21 @@ class WindowManager {
     }
     const window = await this.createWindow('main', false); // Don't show during creation
     this.windows.set('main', window);
+
+    // Windows supports a small native overlay badge on the taskbar button.
+    // Keep the normal taskbar entry visible; this is an additional brand mark.
+    if (process.platform === 'win32' && typeof window.setOverlayIcon === 'function') {
+      try {
+        const overlayPath = path.resolve(__dirname, '../../build/icons/taskbar-overlay.png');
+        if (require('fs').existsSync(overlayPath)) {
+          window.setOverlayIcon(nativeImage.createFromPath(overlayPath), 'Slickly AI');
+        } else {
+          logger.warn('Slickly taskbar overlay asset is missing', { overlayPath });
+        }
+      } catch (error) {
+        logger.warn('Could not apply Slickly taskbar overlay icon', { error: error.message });
+      }
+    }
 
     // Main application window behaves like a normal desktop app:
     // visible in the taskbar, movable, and not forced above other applications.
@@ -900,23 +915,8 @@ class WindowManager {
       // The main app minimizes/closes to the visible system tray icon.
       // This removes its taskbar button while keeping an obvious restore/quit path.
       if (type === 'main') {
-        const hideToTray = () => {
-          if (window.isDestroyed()) return;
-          window.setSkipTaskbar(true);
-          window.hide();
-          if (process.platform === 'darwin' && app.dock) app.dock.hide();
-          logger.info('Main window hidden to the Slickly system tray');
-        };
-        window.on('minimize', (event) => {
-          if (!this.trayAvailable) return;
-          event.preventDefault();
-          hideToTray();
-        });
-        window.on('close', (event) => {
-          if (this.isQuitting || app.isQuitting || !this.trayAvailable) return;
-          event.preventDefault();
-          hideToTray();
-        });
+        // Keep normal Windows taskbar behavior: minimize minimizes, and close
+        // closes. The user can still explicitly choose Hide to Tray if desired.
       // Settings must behave like a normal desktop window: allow minimizing
       // and intercept close to hide it rather than destroying the reusable
       // window instance. Floating overlay windows retain their prior behavior.
