@@ -181,6 +181,7 @@ class WindowManager {
     // Show the main window using standard desktop behavior so it reliably
     // appears in the taskbar and can be focused by the user.
     try {
+      if (process.platform === 'darwin' && app.dock) app.dock.show();
       mainWindow.setSkipTaskbar(false);
       mainWindow.setAlwaysOnTop(false);
       mainWindow.setVisibleOnAllWorkspaces(false);
@@ -286,6 +287,7 @@ class WindowManager {
       },
       show: false, // Show only after the window has finished loading.
       title: windowConfig.title,
+      icon: path.resolve(__dirname, '../../build/icons/icon.png'),
       // Main app should be discoverable and accessible like a normal desktop app.
       skipTaskbar: type !== 'main',
       alwaysOnTop: type !== 'main',
@@ -894,10 +896,29 @@ class WindowManager {
         logger.debug('Window hidden', { type });
       });
 
+      // The main app minimizes/closes to the visible system tray icon.
+      // This removes its taskbar button while keeping an obvious restore/quit path.
+      if (type === 'main') {
+        const hideToTray = () => {
+          if (window.isDestroyed()) return;
+          window.setSkipTaskbar(true);
+          window.hide();
+          if (process.platform === 'darwin' && app.dock) app.dock.hide();
+          logger.info('Main window hidden to the Slickly system tray');
+        };
+        window.on('minimize', (event) => {
+          event.preventDefault();
+          hideToTray();
+        });
+        window.on('close', (event) => {
+          if (this.isQuitting || app.isQuitting) return;
+          event.preventDefault();
+          hideToTray();
+        });
       // Settings must behave like a normal desktop window: allow minimizing
       // and intercept close to hide it rather than destroying the reusable
       // window instance. Floating overlay windows retain their prior behavior.
-      if (type === 'settings') {
+      } else if (type === 'settings') {
         window.on('minimize', () => {
           // Minimizing Settings should be a deliberate return to the desktop,
           // not leave the user with no visible window because the overlay was
