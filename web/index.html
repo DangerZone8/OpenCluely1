@@ -319,7 +319,7 @@
       var heroDownload = byId("hero-download");
       byId("year").textContent = new Date().getFullYear();
 
-      function assetUrl(asset) { return "/api/updates/" + encodeURIComponent(asset.name); }
+      function downloadUrl(asset) { return "/api/updates/" + encodeURIComponent(asset.name); }
       function setLink(link, asset, label, extension) {
         var action = link.querySelector(".platform-action");
         if (!asset) {
@@ -328,7 +328,7 @@
           else link.textContent = label + " unavailable";
           return;
         }
-        link.href = assetUrl(asset);
+        link.href = downloadUrl(asset);
         if (action) action.textContent = "DOWNLOAD " + extension + " ↗";
         else link.textContent = "Download " + asset.name;
       }
@@ -372,9 +372,9 @@
           var os = detectOS();
           var selected = os === "windows" ? windows : os === "mac" ? (macArm || macIntel) : os === "linux" ? linux : null;
           if (selected) {
-            recommended.href = assetUrl(selected);
+            recommended.href = downloadUrl(selected);
             recommended.textContent = "Download for " + (os === "mac" ? "macOS" : os.charAt(0).toUpperCase() + os.slice(1)) + " ↗";
-            heroDownload.href = assetUrl(selected);
+            heroDownload.href = downloadUrl(selected);
             heroDownload.innerHTML = "Download for " + (os === "mac" ? "macOS" : os.charAt(0).toUpperCase() + os.slice(1)) + ' <span class="arrow">↗</span>';
             byId("recommend-label").textContent = "READY FOR YOUR DESKTOP";
             byId("recommend-title").textContent = release.tag_name || "Latest release";
