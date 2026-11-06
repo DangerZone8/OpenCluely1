@@ -1795,6 +1795,7 @@ class ApplicationController {
         throw new Error("Branded tray icon is missing. Run scripts/generate-app-icons.js before starting Slickly.");
       }
       this.tray = new Tray(iconPath);
+      windowManager.trayAvailable = true;
       this.tray.setToolTip("Slickly AI");
       this.tray.setContextMenu(Menu.buildFromTemplate([
         { label: "Show Slickly AI", click: () => this.restoreFromTray() },
@@ -1807,6 +1808,7 @@ class ApplicationController {
       logger.info("Slickly system tray initialized");
     } catch (error) {
       logger.error("Could not initialize Slickly system tray", { error: error.message });
+      windowManager.trayAvailable = false;
       this.tray = null;
     }
   }
@@ -1857,6 +1859,7 @@ class ApplicationController {
       try { this.tray.destroy(); } catch (_) {}
       this.tray = null;
     }
+    windowManager.trayAvailable = false;
     globalShortcut.unregisterAll();
     speechService.shutdown();
     windowManager.destroyAllWindows();
