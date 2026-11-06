@@ -23,7 +23,7 @@ assert.match(main, /Show Slickly AI/);
 assert.match(main, /Quit Slickly AI/);
 assert.match(main, /this\.setupTray\(\)/);
 assert.match(windows, /const hideToTray = \(\) => \{[\s\S]*?setSkipTaskbar\(true\)/);
-assert.match(windows, /window\.on\('minimize', \(event\) => \{\s*event\.preventDefault\(\);\s*hideToTray\(\);/);
+assert.match(windows, /window\.on\('minimize', \(event\) => \{\s*if \(!this\.trayAvailable\) return;\s*event\.preventDefault\(\);\s*hideToTray\(\);/);
 assert.match(windows, /window\.on\('close', \(event\) => \{\s*if \(this\.isQuitting[^\n]*!this\.trayAvailable/);
 assert.match(windows, /if \(!this\.trayAvailable\) return;/);
 assert.match(main, /windowManager\.trayAvailable = true/);
