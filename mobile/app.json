@@ -8,12 +8,19 @@
     "scheme": "slickly",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "ai.slickly.mobile"
+      "bundleIdentifier": "ai.slickly.mobile",
+      "icon": "./assets/icon.png"
     },
     "android": {
       "package": "ai.slickly.mobile",
-      "adaptiveIcon": { "backgroundColor": "#09090b" }
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#09090b"
+      }
     },
-    "plugins": ["expo-secure-store"]
+    "plugins": [
+      "expo-secure-store"
+    ],
+    "icon": "./assets/icon.png"
   }
 }

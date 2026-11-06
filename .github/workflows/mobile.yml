@@ -42,6 +42,9 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Generate the official Slickly brand assets
+        run: node ../scripts/generate-app-icons.js
+
       - name: Run mobile API tests
         run: npm test
 

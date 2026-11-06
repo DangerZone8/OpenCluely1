@@ -100,9 +100,12 @@ export default function App() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
         <View style={styles.header}>
-          <View>
-            <Text style={styles.brand}>SLICKLY</Text>
-            <Text style={styles.subtitle}>AI assistant · Mobile</Text>
+          <View style={styles.brandLockup}>
+            <Image source={require('./assets/icon.png')} style={styles.brandIcon} accessibilityLabel="Slickly logo" />
+            <View>
+              <Text style={styles.brand}>SLICKLY</Text>
+              <Text style={styles.subtitle}>AI assistant · Mobile</Text>
+            </View>
           </View>
           <Pressable
             accessibilityRole="button"
@@ -124,7 +127,7 @@ export default function App() {
           <>
             {messages.length === 0 ? (
               <View style={styles.emptyState}>
-                <View style={styles.sparkle}><Text style={styles.sparkleText}>✦</Text></View>
+                <Image source={require('./assets/icon.png')} style={styles.welcomeLogo} accessibilityLabel="Slickly logo" />
                 <Text style={styles.welcomeTitle}>What can I help with?</Text>
                 <Text style={styles.welcomeBody}>Ask a question, explore an idea, or work through a problem. Your conversation stays available in this session.</Text>
                 <View style={styles.suggestion}>
@@ -193,13 +196,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#27272a',
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'
   },
+  brandLockup: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  brandIcon: { width: 38, height: 38 },
+  welcomeLogo: { width: 64, height: 64, marginBottom: 20 },
   brand: { color: '#fafafa', fontSize: 17, fontWeight: '800', letterSpacing: 2.4 },
   subtitle: { color: '#a1a1aa', fontSize: 12, marginTop: 3 },
   clearButton: { paddingHorizontal: 13, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: '#3f3f46' },
   clearText: { color: '#d4d4d8', fontSize: 12, fontWeight: '600' },
   emptyState: { flex: 1, justifyContent: 'center', paddingHorizontal: 26, paddingBottom: 28 },
-  sparkle: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#272044', alignItems: 'center', justifyContent: 'center', marginBottom: 22 },
-  sparkleText: { color: '#c4b5fd', fontSize: 27 },
   welcomeTitle: { color: '#fafafa', fontSize: 28, lineHeight: 34, fontWeight: '700', marginBottom: 10 },
   welcomeBody: { color: '#a1a1aa', fontSize: 15, lineHeight: 23, marginBottom: 26 },
   suggestion: { borderWidth: 1, borderColor: '#27272a', borderRadius: 13, padding: 14, marginTop: 9, backgroundColor: '#111114' },
