@@ -677,14 +677,128 @@
           transform: translateY(0);
         }
       }
-    </style>
+    
+      /* Slickly desktop visual system — aligned with the website product preview. */
+      :root {
+        color-scheme: dark;
+        --slickly-bg: #171b18;
+        --slickly-panel: #202720;
+        --slickly-panel-2: #252d26;
+        --slickly-line: #3b463b;
+        --slickly-muted: #aab5a7;
+        --slickly-text: #f4f6ee;
+        --slickly-lime: #c8e879;
+      }
+      body { background: #101410 !important; color: var(--slickly-text); font-family: "DM Sans", "Segoe UI", sans-serif; }
+      .chat-container {
+        background: var(--slickly-bg);
+        border: 1px solid #3a4439;
+        border-radius: 12px;
+        box-shadow: 0 24px 64px rgba(0,0,0,.34);
+        overflow: hidden;
+      }
+      .chat-header {
+        min-height: 62px;
+        padding: 13px 17px;
+        background: var(--slickly-panel);
+        border-bottom: 1px solid var(--slickly-line);
+      }
+      .header-title {
+        color: var(--slickly-text);
+        font-size: 14px;
+        letter-spacing: -.025em;
+      }
+      .header-title > i { color: var(--slickly-lime); }
+      .header-actions { gap: 7px; }
+      .icon-button {
+        width: 34px; height: 34px; padding: 0;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: #293229; border: 1px solid #465245;
+        color: #dce5d7; border-radius: 6px;
+      }
+      .icon-button:hover, .icon-button:focus-visible {
+        background: #34412f; border-color: var(--slickly-lime); color: var(--slickly-lime);
+      }
+      .chat-workspace {
+        display: grid; grid-template-columns: 54px minmax(0,1fr);
+        flex: 1; min-height: 0;
+      }
+      .app-rail {
+        display: flex; flex-direction: column; align-items: center; gap: 13px;
+        padding: 16px 0; background: #1b211c; border-right: 1px solid var(--slickly-line);
+      }
+      .app-rail-mark, .app-rail-item {
+        width: 30px; height: 30px; display: grid; place-items: center;
+        border: 1px solid #465245; border-radius: 6px; color: #aab5a7;
+        font-size: 13px;
+      }
+      .app-rail-mark { background: var(--slickly-lime); border-color: var(--slickly-lime); color: #17200b; font-weight: 800; }
+      .app-rail-item.active { background: #303c2d; border-color: #71864b; color: var(--slickly-lime); }
+      .chat-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: #171b18; }
+      .screen-context-bar {
+        min-height: 42px; display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; padding: 0 18px; background: #202720; border-bottom: 1px solid var(--slickly-line);
+        color: #b9c4b3; font: 9px "DM Mono", Consolas, monospace; letter-spacing: .06em;
+      }
+      .screen-context-bar strong { color: var(--slickly-lime); font-weight: 500; }
+      .chat-messages {
+        background: #171b18; padding: 20px clamp(14px,3vw,26px);
+        scrollbar-color: #52614b #202720;
+      }
+      .message {
+        max-width: 92%; margin-bottom: 13px; padding: 13px 15px;
+        background: #252d26; border: 1px solid #3c483c; border-left: 2px solid #596953;
+        border-radius: 7px; box-shadow: none; backdrop-filter: none;
+      }
+      .message.user {
+        margin-left: auto; background: #303b30; border-color: #4b5948; border-left-color: var(--slickly-lime);
+      }
+      .message.assistant {
+        background: #222a23; border: 1px solid #465244; border-left: 2px solid var(--slickly-lime);
+      }
+      .message.system { background: #202a2c; border-color: #3e5654; border-left-color: #80b9a9; }
+      .message.error { background: #302321; border-color: #62433d; border-left-color: #d88776; }
+      .message-time { color: #899587; font: 9px "DM Mono", Consolas, monospace; }
+      .message-text { color: #e5ebe0; font-size: 13px; line-height: 1.65; text-shadow: none; }
+      .message.assistant strong { color: #fff; }
+      .message.assistant code { color: var(--slickly-lime); background: #151a15; }
+      .message.assistant pre { color: #dce8d3; background: #121712; border: 1px solid #3a4439; }
+      .chat-input {
+        padding: 13px 16px 16px; background: #202720; border-top: 1px solid var(--slickly-line);
+      }
+      .input-container {
+        background: #171d18; border: 1px solid #4b5847; border-radius: 7px;
+        padding: 9px 10px 9px 13px; gap: 9px;
+      }
+      .input-container:focus-within { border-color: #9dbd61; box-shadow: 0 0 0 2px rgba(200,232,121,.1); }
+      .input-field { color: #f4f6ee; text-shadow: none; font-size: 13px; }
+      .input-field::placeholder { color: #859080; }
+      .send-button, .mic-button {
+        width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+        border: 1px solid #526149; border-radius: 6px; background: #303b2c; color: var(--slickly-lime);
+      }
+      .send-button:hover, .mic-button:hover { background: var(--slickly-lime); color: #17200b; }
+      .mic-button.recording, .send-button.recording { background: #713b37; border-color: #a65e55; color: #fff; }
+      .interim-overlay { color: var(--slickly-lime); }
+      @media (max-width: 560px) {
+        .chat-header { padding: 10px 11px; }
+        .header-title { font-size: 12px; }
+        .header-actions { gap: 4px; }
+        .icon-button { width: 30px; height: 30px; }
+        .chat-workspace { grid-template-columns: 42px minmax(0,1fr); }
+        .screen-context-bar { padding: 0 10px; font-size: 8px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .recording-indicator, .thinking-dots .dot { animation: none !important; }
+      }
+</style>
   </head>
   <body>
     <div class="chat-container" id="chatContainer">
       <div class="chat-header">
         <div class="header-title">
-          <i class="fas fa-microphone"></i>
-          Live Transcription & Chat
+          <i class="fas fa-asterisk"></i>
+          Slickly <span style="color:#aab5a7;font-weight:400;">· Assistant</span>
           <div class="recording-indicator" id="recordingIndicator"></div>
         </div>
         <div class="header-actions">
@@ -706,12 +820,19 @@
         </div>
       </div>
 
-      <!-- Interim Text Overlay -->
-      <div class="interim-overlay" id="interimOverlay"></div>
-
-      <div class="chat-messages" id="chatMessages"></div>
-
-      <div class="chat-input">
+      <div class="chat-workspace">
+        <aside class="app-rail" aria-label="Slickly workspace">
+          <span class="app-rail-mark" title="Slickly">✳</span>
+          <span class="app-rail-item active" title="Assistant">▣</span>
+          <span class="app-rail-item" title="Screen context">◉</span>
+          <span class="app-rail-item" title="Voice">〰</span>
+        </aside>
+        <div class="chat-main">
+          <div class="screen-context-bar"><span>WORKSPACE / ASSISTANT</span><strong>SCREEN CONTEXT · CAPTURE WHEN READY</strong></div>
+          <!-- Interim Text Overlay -->
+          <div class="interim-overlay" id="interimOverlay"></div>
+          <div class="chat-messages" id="chatMessages"></div>
+          <div class="chat-input">
         <div class="input-container">
           <textarea
             class="input-field"
@@ -725,6 +846,8 @@
           <button class="send-button" id="sendButton">
             <i class="fas fa-paper-plane"></i>
           </button>
+        </div>
+          </div>
         </div>
       </div>
     </div>
