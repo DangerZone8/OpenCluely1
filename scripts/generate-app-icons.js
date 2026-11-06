@@ -6,6 +6,12 @@ const zlib = require('zlib');
 const { execFileSync } = require('child_process');
 
 const root = path.resolve(__dirname, '..');
+const logoSvg = fs.readFileSync(path.join(root, 'webapp', 'favicon.svg'), 'utf8');
+if (!logoSvg.includes('viewBox="0 0 64 64"') ||
+    !logoSvg.includes('stroke="#ffffff"') ||
+    !logoSvg.includes('fill="#ffffff"')) {
+  throw new Error('The official Slickly favicon SVG changed; review the native icon geometry before building.');
+}
 const output = path.join(root, 'build', 'icons');
 const iconset = path.join(output, 'Slickly.iconset');
 fs.mkdirSync(iconset, { recursive: true });
