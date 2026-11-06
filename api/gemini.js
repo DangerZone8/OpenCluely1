@@ -205,7 +205,6 @@ module.exports = async function handler(req, res) {
           res.statusCode = 200;
           res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
           res.setHeader('Cache-Control', 'no-cache, no-transform');
-          res.setHeader('Connection', 'keep-alive');
           res.setHeader('X-Accel-Buffering', 'no');
           res.setHeader('X-Content-Type-Options', 'nosniff');
           res.setHeader('X-OpenCluely-API-Revision', 'v176-streaming-chat-2026-11-06-a');
