@@ -1,7 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const { fileURLToPath } = require("url");
-const { app, BrowserWindow, globalShortcut, session, ipcMain, dialog, desktopCapturer } = require("electron");
+const { app, BrowserWindow, globalShortcut, session, ipcMain, dialog, desktopCapturer, Tray, Menu } = require("electron");
 const { autoUpdater } = require("electron-updater");
 
 // ── Resolve a stable .env location ──
@@ -132,6 +132,7 @@ const sessionManager = require("./src/managers/session.manager");
 class ApplicationController {
   constructor() {
     this.isReady = false;
+    this.tray = null;
     this.starting = false;
     this.activeSkill = "dsa";
   // Default to C++ so language is enforced from first run
@@ -304,6 +305,8 @@ class ApplicationController {
       // Always show the main app window, including on first launch.
       // Onboarding is secondary and must not leave the app with no visible UI.
       await windowManager.initializeWindows({ showMainWindow: true });
+      this.setupTray();
+      this.updateAppIcon("slickly");
       this.setupGlobalShortcuts();
 
       // Keep the packaged Slickly AI identity and icon; do not disguise it.
@@ -1784,6 +1787,44 @@ class ApplicationController {
     this.sendToVoiceResponseWindows("transcription-llm-response", data);
   }
 
+  setupTray() {
+    if (this.tray) return;
+    try {
+      const iconPath = path.join(__dirname, "build", "icons", "icon.png");
+      if (!fs.existsSync(iconPath)) {
+        throw new Error("Branded tray icon is missing. Run scripts/generate-app-icons.js before starting Slickly.");
+      }
+      this.tray = new Tray(iconPath);
+      this.tray.setToolTip("Slickly AI");
+      this.tray.setContextMenu(Menu.buildFromTemplate([
+        { label: "Show Slickly AI", click: () => this.restoreFromTray() },
+        { label: "Hide to Tray", click: () => this.hideToTray() },
+        { type: "separator" },
+        { label: "Quit Slickly AI", click: () => app.quit() }
+      ]));
+      this.tray.on("click", () => this.restoreFromTray());
+      this.tray.on("double-click", () => this.restoreFromTray());
+      logger.info("Slickly system tray initialized");
+    } catch (error) {
+      logger.error("Could not initialize Slickly system tray", { error: error.message });
+      this.tray = null;
+    }
+  }
+
+  hideToTray() {
+    const mainWindow = windowManager.getWindow("main");
+    if (!mainWindow || mainWindow.isDestroyed()) return false;
+    mainWindow.setSkipTaskbar(true);
+    mainWindow.hide();
+    if (process.platform === "darwin" && app.dock) app.dock.hide();
+    return true;
+  }
+
+  restoreFromTray() {
+    if (process.platform === "darwin" && app.dock) app.dock.show();
+    windowManager.showMainWindow();
+  }
+
   onWindowAllClosed() {
     if (process.platform !== "darwin") {
       app.quit();
@@ -1812,6 +1853,10 @@ class ApplicationController {
   }
 
   onWillQuit() {
+    if (this.tray) {
+      try { this.tray.destroy(); } catch (_) {}
+      this.tray = null;
+    }
     globalShortcut.unregisterAll();
     speechService.shutdown();
     windowManager.destroyAllWindows();
@@ -2108,84 +2153,28 @@ class ApplicationController {
     return Array.from(updated);
   }
 
-  updateAppIcon(iconKey) {
+  updateAppIcon() {
     try {
-      const { app } = require("electron");
-      const path = require("path");
-      const fs = require("fs");
-
-      // Icon mapping for available icons in assests/icons folder
-      const iconPaths = {
-        terminal: "assests/icons/terminal.png",
-        activity: "assests/icons/activity.png",
-        settings: "assests/icons/settings.png",
-      };
-
-      // App name mapping for stealth mode
-      const appNames = {
-        terminal: "Terminal ",
-        activity: "Activity Monitor ",
-        settings: "System Settings ",
-      };
-
-      const iconPath = iconPaths[iconKey];
-      const appName = appNames[iconKey];
-
-      if (!iconPath) {
-        logger.error("Invalid icon key", { iconKey });
-        return { success: false, error: "Invalid icon key" };
+      const iconPath = path.join(__dirname, "build", "icons", "icon.png");
+      if (!fs.existsSync(iconPath)) {
+        return { success: false, error: "Branded Slickly icon has not been generated." };
       }
-
-      const fullIconPath = path.resolve(__dirname, iconPath);
-
-      if (!fs.existsSync(fullIconPath)) {
-        logger.error("Icon file not found", {
-          iconKey,
-          iconPath: fullIconPath,
-        });
-        return { success: false, error: "Icon file not found" };
+      if (process.platform === "darwin" && app.dock) {
+        app.dock.setIcon(iconPath);
       }
-
-      // Set app icon for dock/taskbar
-      if (process.platform === "darwin") {
-        // macOS - update dock icon (only if dock is available)
-        if (app.dock) {
-          app.dock.setIcon(fullIconPath);
-
-          // Force dock refresh with multiple attempts
-          const retryDockIcon = () => {
-            try { app.dock.setIcon(fullIconPath); } catch (_) { /* dock may not exist */ }
-          };
-          setTimeout(retryDockIcon, 100);
-          setTimeout(retryDockIcon, 500);
-        }
-      } else {
-        // Windows/Linux - update window icons
-        windowManager.windows.forEach((window, type) => {
-          if (window && !window.isDestroyed()) {
-            window.setIcon(fullIconPath);
-          }
-        });
-      }
-
-      // Update app name for stealth mode
-      this.updateAppName(appName, iconKey);
-
-      logger.info("App icon and name updated successfully", {
-        iconKey,
-        appName,
-        iconPath: fullIconPath,
-        platform: process.platform,
-        fileExists: fs.existsSync(fullIconPath),
+      windowManager.windows.forEach((window) => {
+        if (window && !window.isDestroyed()) window.setIcon(iconPath);
       });
-
-      this.appIcon = iconKey;
-      return { success: true };
+      app.setName("Slickly AI");
+      if (process.platform === "win32" && typeof app.setAppUserModelId === "function") {
+        app.setAppUserModelId("com.opencluely.app");
+      }
+      process.title = "Slickly AI";
+      this.appIcon = "slickly";
+      logger.info("Applied the official Slickly AI application icon", { iconPath, platform: process.platform });
+      return { success: true, icon: "slickly" };
     } catch (error) {
-      logger.error("Failed to update app icon", {
-        error: error.message,
-        stack: error.stack,
-      });
+      logger.error("Failed to apply Slickly AI application icon", { error: error.message });
       return { success: false, error: error.message };
     }
   }
