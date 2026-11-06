@@ -149,6 +149,9 @@ jobs:
       - name: Install project dependencies
         run: npm ci
 
+      - name: Generate branded desktop icons
+        run: node scripts/generate-app-icons.js
+
       - name: Build Debian installer for smoke test
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
