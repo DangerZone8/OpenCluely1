@@ -135,6 +135,147 @@ module.exports = async function handler(req, res) {
   const isVisionRequest = request.contents.some(item =>
     Array.isArray(item?.parts) && item.parts.some(part => part && (part.inlineData || part.fileData))
   );
+  // Typed chat requests opt into SSE so the desktop can render the first
+  // generated tokens immediately instead of waiting for the entire answer.
+  // Screen vision keeps its existing JSON response contract.
+  if (req.headers['x-opencluely-stream'] === '1' && !isVisionRequest) {
+    const streamDeadline = Date.now() + 14500;
+    let streamFailure = null;
+    for (let keyIndex = 0; keyIndex < keys.length; keyIndex += 1) {
+      const keySource = keyEntries[keyIndex].source;
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        const remainingMs = streamDeadline - Date.now();
+        if (remainingMs <= 0) break;
+        try {
+          const upstream = await fetch(
+            'https://generativelanguage.googleapis.com/v1beta/models/' +
+              encodeURIComponent(model) + ':streamGenerateContent?alt=sse',
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-goog-api-key': keys[keyIndex] },
+              body: JSON.stringify({
+                contents: request.contents,
+                generationConfig: request.generationConfig || {},
+                ...(request.systemInstruction ? { systemInstruction: request.systemInstruction } : {})
+              }),
+              signal: AbortSignal.timeout(Math.min(10000, remainingMs))
+            }
+          );
+          if (!upstream.ok) {
+            const providerResult = await upstream.json().catch(() => ({}));
+            const providerCode = typeof providerResult.error?.status === 'string'
+              ? providerResult.error.status : '';
+            const providerMessage = typeof providerResult.error?.message === 'string'
+              ? providerResult.error.message.slice(0, 180) : '';
+            streamFailure = { status: upstream.status, code: providerCode, message: providerMessage };
+            if ((providerCode === 'RESOURCE_EXHAUSTED' || providerCode === 'API_KEY_INVALID') &&
+                keyIndex + 1 < keys.length) break;
+            const transient = [500, 502, 503, 504].includes(upstream.status) ||
+              ['UNAVAILABLE', 'INTERNAL', 'DEADLINE_EXCEEDED'].includes(providerCode);
+            if (transient && attempt < 2 && Date.now() + 250 < streamDeadline) {
+              await new Promise(resolve => setTimeout(resolve, 250));
+              continue;
+            }
+            if (upstream.status === 429 || providerCode === 'RESOURCE_EXHAUSTED') {
+              res.setHeader('Retry-After', '60');
+              return respond(res, 429, {
+                error: 'Gemini rate limit reached. Please wait before retrying.',
+                providerStatus: upstream.status,
+                providerCode: providerCode || 'RATE_LIMITED'
+              });
+            }
+            if (providerCode === 'API_KEY_INVALID') {
+              return respond(res, 503, {
+                error: 'The Gemini API key configured for this deployment was rejected by Google.',
+                providerStatus: upstream.status,
+                providerCode
+              });
+            }
+            if (!transient || attempt === 2) {
+              return respond(res, 502, {
+                error: 'The AI service could not complete this request.',
+                providerStatus: upstream.status,
+                providerCode: providerCode || undefined,
+                providerMessage
+              });
+            }
+            continue;
+          }
+
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+          res.setHeader('Cache-Control', 'no-cache, no-transform');
+          res.setHeader('Connection', 'keep-alive');
+          res.setHeader('X-Accel-Buffering', 'no');
+          res.setHeader('X-Content-Type-Options', 'nosniff');
+          res.setHeader('X-OpenCluely-API-Revision', 'v176-streaming-chat-2026-11-06-a');
+          const decoder = new TextDecoder();
+          let buffer = '';
+          let streamedCharacters = 0;
+          const emitLine = (line) => {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data:')) return;
+            const payload = trimmed.slice(5).trim();
+            if (!payload || payload === '[DONE]') return;
+            let packet;
+            try { packet = JSON.parse(payload); } catch { return; }
+            const piece = (packet.candidates || [])
+              .flatMap(candidate => candidate.content && Array.isArray(candidate.content.parts)
+                ? candidate.content.parts : [])
+              .map(part => typeof part.text === 'string' ? part.text : '')
+              .filter(Boolean)
+              .join('');
+            if (!piece || res.destroyed) return;
+            streamedCharacters += piece.length;
+            res.write('data: ' + JSON.stringify({ text: piece }) + '\n\n');
+          };
+          try {
+            for await (const chunk of upstream.body) {
+              buffer += decoder.decode(chunk, { stream: true });
+              let newline;
+              while ((newline = buffer.indexOf('\n')) !== -1) {
+                const line = buffer.slice(0, newline);
+                buffer = buffer.slice(newline + 1);
+                emitLine(line);
+              }
+              if (res.destroyed) return;
+            }
+            buffer += decoder.decode();
+            if (buffer.trim()) emitLine(buffer);
+            if (!res.destroyed) {
+              res.write('data: [DONE]\n\n');
+              res.end();
+            }
+            console.info('[Slickly Gemini stream completed]', JSON.stringify({
+              model, keySource, streamedCharacters
+            }));
+            return;
+          } catch (error) {
+            console.error('[Slickly Gemini stream interrupted]', JSON.stringify({
+              model, keySource, message: String(error.message || error).slice(0, 160)
+            }));
+            if (!res.destroyed && !res.writableEnded) {
+              res.write('data: ' + JSON.stringify({ error: 'The AI response stream was interrupted.' }) + '\n\n');
+              res.end();
+            }
+            return;
+          }
+        } catch (error) {
+          streamFailure = { status: 0, code: 'NETWORK_OR_TIMEOUT', message: String(error.message || error).slice(0, 160) };
+          if (attempt < 2 && Date.now() + 250 < streamDeadline) {
+            await new Promise(resolve => setTimeout(resolve, 250));
+            continue;
+          }
+        }
+      }
+    }
+    return respond(res, 502, {
+      error: 'The AI service is temporarily unavailable. Please try again shortly.',
+      providerStatus: streamFailure?.status || 503,
+      providerCode: streamFailure?.code || 'NETWORK_OR_TIMEOUT'
+    });
+  }
+
   // Strict single-model policy: only Gemini 3.1 Flash Lite is allowed.
   // Retry the same model with the next independently quota-managed key when
   // Google explicitly reports RESOURCE_EXHAUSTED. This must be a key loop,
