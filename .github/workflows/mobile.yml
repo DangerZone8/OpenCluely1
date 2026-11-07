@@ -94,6 +94,8 @@ jobs:
       - name: Set up Android SDK
         if: matrix.platform == 'android'
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Install Android SDK platform
         if: matrix.platform == 'android'
