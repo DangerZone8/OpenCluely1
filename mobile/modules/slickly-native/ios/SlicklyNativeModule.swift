@@ -41,13 +41,14 @@ public class SlicklyNativeModule: Module {
     }
 
     AsyncFunction("readLatestScreenContext") { () -> [String: String]? in
-      guard let defaults = UserDefaults(suiteName: slicklyAppGroup),
-            let text = defaults.string(forKey: "latest_screen_ai_context"),
+      guard let defaults = UserDefaults(suiteName: slicklyAppGroup) else { return nil }
+      let status = defaults.string(forKey: "latest_screen_ai_status") ?? ""
+      guard let text = defaults.string(forKey: "latest_screen_ai_context"),
             !text.isEmpty,
             let capturedAt = defaults.string(forKey: "latest_screen_ai_captured_at") else {
-        return nil
+        return ["status": status]
       }
-      return ["text": text, "capturedAt": capturedAt, "status": defaults.string(forKey: "latest_screen_ai_status") ?? ""]
+      return ["text": text, "capturedAt": capturedAt, "status": status]
     }
   }
 }
