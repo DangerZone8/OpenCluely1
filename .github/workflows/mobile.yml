@@ -53,3 +53,82 @@ jobs:
 
       - name: Export ${{ matrix.platform }} JavaScript bundle
         run: npx expo export --platform ${{ matrix.platform }} --output-dir dist/${{ matrix.platform }}
+
+  native-build:
+    name: Native build (${{ matrix.platform }})
+    needs: test-and-export
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: android
+            runner: ubuntu-latest
+          - platform: ios
+            runner: macos-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Generate the official Slickly brand assets
+        run: node ../scripts/generate-app-icons.js
+
+      - name: Set up Java
+        if: matrix.platform == 'android'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        if: matrix.platform == 'android'
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK platform
+        if: matrix.platform == 'android'
+        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Generate native project
+        run: npx expo prebuild --platform ${{ matrix.platform }} --no-install --clean
+
+      - name: Compile Android debug APK
+        if: matrix.platform == 'android'
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug
+
+      - name: Install iOS CocoaPods
+        if: matrix.platform == 'ios'
+        run: pod install --project-directory=ios
+
+      - name: Compile iOS simulator app and ReplayKit extension
+        if: matrix.platform == 'ios'
+        run: xcodebuild -workspace ios/slickly.xcworkspace -scheme slickly -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO build
+
+      - name: Upload Android debug APK
+        if: success() && matrix.platform == 'android'
+        uses: actions/upload-artifact@v4
+        with:
+          name: slickly-android-debug-apk
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload iOS simulator app
+        if: success() && matrix.platform == 'ios'
+        uses: actions/upload-artifact@v4
+        with:
+          name: slickly-ios-simulator-app
+          path: mobile/ios/build/Build/Products/Debug-iphonesimulator/slickly.app
+          if-no-files-found: error
