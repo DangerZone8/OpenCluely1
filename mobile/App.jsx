@@ -70,8 +70,18 @@ export default function App() {
     }
   }
 
-  async function refreshBroadcastScreenContext() {
-    if (Platform.OS !== 'ios') return;
+  async function startAndroidScreenAI() {
+    if (Platform.OS !== 'android') return;
+    try {
+      await SlicklyNative.startScreenCapture();
+      setPlatformHint('Android will ask you to share your screen. Approve it, then switch to the app you want analyzed within five seconds.');
+    } catch (nativeError) {
+      setError(nativeError?.message || 'Could not start Android Screen AI capture.');
+    }
+  }
+
+  async function refreshLatestScreenContext() {
+    if (Platform.OS !== 'ios' && Platform.OS !== 'android') return;
     try {
       const latest = await SlicklyNative.readLatestScreenContext();
       if (latest?.text && latest.capturedAt && lastBroadcastCapture.current !== latest.capturedAt) {
@@ -82,12 +92,12 @@ export default function App() {
           text: 'SCREEN AI — broadcast screen analyzed\n' + latest.text + '\n\nAsk a follow-up question about this captured screen.'
         }]);
         setScreenReady(true);
-        setPlatformHint('Latest ReplayKit screen capture loaded. Follow-up questions can use this context.');
+        setPlatformHint('Latest screen capture loaded. Follow-up questions can use this context.');
         requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
       } else if (latest?.status) {
         setPlatformHint(latest.status);
       } else {
-        setPlatformHint('Start the broadcast, switch to the app you want analyzed within five seconds, stop sharing, then return and load the result.');
+        setPlatformHint(Platform.OS === 'ios' ? 'Start the ReplayKit broadcast, switch to the app you want analyzed within five seconds, stop sharing, then return and load the result.' : 'Start screen sharing, switch to the app you want analyzed within five seconds, then return here after capture completes.');
       }
     } catch (nativeError) {
       setError(nativeError?.message || 'Could not load the latest screen broadcast.');
@@ -95,9 +105,9 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (Platform.OS !== 'ios') return undefined;
+    if (Platform.OS !== 'ios' && Platform.OS !== 'android') return undefined;
     const subscription = AppState.addEventListener('change', state => {
-      if (state === 'active') refreshBroadcastScreenContext();
+      if (state === 'active') refreshLatestScreenContext();
     });
     return () => subscription.remove();
   }, []);
@@ -231,18 +241,28 @@ export default function App() {
           <Text style={styles.actionHint}>Choose a screenshot for instant Screen AI analysis</Text>
         </View>
         {Platform.OS === 'android' ? (
-          <View style={styles.platformActionRow}>
-            <Pressable accessibilityRole="button" onPress={enableFloatingOverlay} disabled={initializing || !installId} style={styles.platformButton}>
-              <Text style={styles.platformButtonText}>Enable floating assistant</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" onPress={stopFloatingOverlay} style={styles.platformButtonSecondary}>
-              <Text style={styles.platformButtonText}>Stop</Text>
-            </Pressable>
-          </View>
+          <>
+            <View style={styles.platformActionRow}>
+              <Pressable accessibilityRole="button" onPress={startAndroidScreenAI} disabled={initializing || sending} style={styles.platformButton}>
+                <Text style={styles.platformButtonText}>Capture current screen</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={refreshLatestScreenContext} style={styles.platformButtonSecondary}>
+                <Text style={styles.platformButtonText}>Load result</Text>
+              </Pressable>
+            </View>
+            <View style={styles.platformActionRow}>
+              <Pressable accessibilityRole="button" onPress={enableFloatingOverlay} disabled={initializing || !installId} style={styles.platformButton}>
+                <Text style={styles.platformButtonText}>Enable floating assistant</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={stopFloatingOverlay} style={styles.platformButtonSecondary}>
+                <Text style={styles.platformButtonText}>Stop</Text>
+              </Pressable>
+            </View>
+          </>
         ) : (
           <View style={styles.platformActionRow}>
             <SlicklyBroadcastPicker preferredExtension="ai.slickly.mobile.SlicklyScreenBroadcast" style={styles.broadcastPicker} />
-            <Pressable accessibilityRole="button" onPress={refreshBroadcastScreenContext} style={styles.platformButton}>
+            <Pressable accessibilityRole="button" onPress={refreshLatestScreenContext} style={styles.platformButton}>
               <Text style={styles.platformButtonText}>Load screen result</Text>
             </Pressable>
           </View>
