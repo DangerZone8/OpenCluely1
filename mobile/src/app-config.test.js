@@ -45,6 +45,7 @@ test('registers a native Android floating overlay with explicit user permission'
   assert.ok(nativeConfig.platforms.includes('android'));
   assert.match(manifest, /SYSTEM_ALERT_WINDOW/);
   assert.match(manifest, /FOREGROUND_SERVICE_SPECIAL_USE/);
+  assert.match(manifest, /FOREGROUND_SERVICE_MEDIA_PROJECTION/);
   assert.match(manifest, /SlicklyOverlayService/);
   assert.match(module, /ACTION_MANAGE_OVERLAY_PERMISSION/);
   assert.match(module, /Settings\.canDrawOverlays/);
@@ -73,6 +74,7 @@ test('registers iOS ReplayKit broadcast target and app-group context bridge', ()
 
 test('exposes platform controls in the phone UI without claiming an iOS system overlay', () => {
   assert.match(appSource, /enableFloatingOverlay/);
+  assert.match(appSource, /startAndroidScreenAI/);
   assert.match(appSource, /SlicklyBroadcastPicker/);
   assert.match(appSource, /refreshBroadcastScreenContext/);
   assert.match(appSource, /Platform\.OS === 'android'/);
