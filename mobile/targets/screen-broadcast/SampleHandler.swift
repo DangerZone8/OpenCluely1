@@ -8,10 +8,12 @@ private let endpoint = URL(string: "https://slicklyai.vercel.app/api/gemini")!
 
 final class SampleHandler: RPBroadcastSampleHandler {
   private var didSubmitFrame = false
+  private var captureNotBefore = Date.distantFuture
   private let imageContext = CIContext(options: [.cacheIntermediates: false])
 
   override func broadcastStarted(withSetupInfo setupInfo: [String : NSObject]?) {
     didSubmitFrame = false
+    captureNotBefore = Date().addingTimeInterval(5)
     UserDefaults(suiteName: appGroup)?.set("Broadcast started. Waiting for the first screen frame…", forKey: "latest_screen_ai_status")
   }
 
@@ -24,7 +26,7 @@ final class SampleHandler: RPBroadcastSampleHandler {
   }
 
   override func processSampleBuffer(_ sampleBuffer: CMSampleBuffer, with sampleBufferType: RPSampleBufferType) {
-    guard sampleBufferType == .video, !didSubmitFrame else { return }
+    guard sampleBufferType == .video, !didSubmitFrame, Date() >= captureNotBefore else { return }
     guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
     didSubmitFrame = true
     submitFirstFrame(pixelBuffer)
