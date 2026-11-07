@@ -1,0 +1,12 @@
+apply plugin: 'com.android.library'
+apply plugin: 'expo-module-gradle-plugin'
+
+group = 'ai.slickly.mobile'
+version = '1.0.0'
+
+android {
+  namespace "ai.slickly.mobile"
+  defaultConfig {
+    minSdkVersion 24
+  }
+}
