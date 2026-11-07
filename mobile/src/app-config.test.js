@@ -76,6 +76,6 @@ test('exposes platform controls in the phone UI without claiming an iOS system o
   assert.match(appSource, /enableFloatingOverlay/);
   assert.match(appSource, /startAndroidScreenAI/);
   assert.match(appSource, /SlicklyBroadcastPicker/);
-  assert.match(appSource, /refreshBroadcastScreenContext/);
+  assert.match(appSource, /refreshLatestScreenContext/);
   assert.match(appSource, /Platform\.OS === 'android'/);
 });
