@@ -6,8 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const mobileRoot = path.resolve(here, '..');
-const appConfig = JSON.parse(fs.readFileSync(path.join(mobileRoot, 'app.json'), 'utf8')).expo;
-const appSource = fs.readFileSync(path.join(mobileRoot, 'App.jsx'), 'utf8');
+const read = relative => fs.readFileSync(path.join(mobileRoot, relative), 'utf8');
+const appConfig = JSON.parse(read('app.json')).expo;
+const appSource = read('App.jsx');
 
 test('declares distinct native Android and iOS application identifiers', () => {
   assert.equal(appConfig.android.package, 'ai.slickly.mobile');
@@ -34,4 +35,45 @@ test('configures screenshot selection permissions for native Screen AI', () => {
   assert.match(picker[1].photosPermission, /screenshots/i);
   assert.match(appSource, /requestScreenAnalysis/);
   assert.match(appSource, /screen-vision|Screen AI/);
+});
+
+test('registers a native Android floating overlay with explicit user permission', () => {
+  const manifest = read('modules/slickly-native/android/src/main/AndroidManifest.xml');
+  const module = read('modules/slickly-native/android/src/main/java/ai/slickly/mobile/SlicklyNativeModule.kt');
+  const service = read('modules/slickly-native/android/src/main/java/ai/slickly/mobile/SlicklyOverlayService.kt');
+  const nativeConfig = JSON.parse(read('modules/slickly-native/expo-module.config.json'));
+  assert.ok(nativeConfig.platforms.includes('android'));
+  assert.match(manifest, /SYSTEM_ALERT_WINDOW/);
+  assert.match(manifest, /FOREGROUND_SERVICE_SPECIAL_USE/);
+  assert.match(manifest, /SlicklyOverlayService/);
+  assert.match(module, /ACTION_MANAGE_OVERLAY_PERMISSION/);
+  assert.match(module, /Settings\.canDrawOverlays/);
+  assert.match(service, /TYPE_APPLICATION_OVERLAY/);
+  assert.match(service, /startForeground/);
+  assert.match(service, /slicklyai\.vercel\.app\/api\/gemini/);
+});
+
+test('registers iOS ReplayKit broadcast target and app-group context bridge', () => {
+  const pickerPlugin = appConfig.plugins.includes('@bacons/apple-targets');
+  const appGroups = appConfig.ios.entitlements['com.apple.security.application-groups'];
+  const target = JSON.parse(read('targets/screen-broadcast/expo-target.config.json'));
+  const handler = read('targets/screen-broadcast/SampleHandler.swift');
+  const nativeModule = read('modules/slickly-native/ios/SlicklyNativeModule.swift');
+  assert.ok(pickerPlugin, 'Apple target plugin is required for the broadcast extension');
+  assert.ok(appGroups.includes('group.ai.slickly.mobile'));
+  assert.equal(target.type, 'broadcast-upload');
+  assert.equal(target.bundleIdentifier, 'ai.slickly.mobile.SlicklyScreenBroadcast');
+  assert.match(handler, /RPBroadcastSampleHandler/);
+  assert.match(handler, /processSampleBuffer/);
+  assert.match(handler, /latest_screen_ai_context/);
+  assert.match(handler, /screen-vision/);
+  assert.match(nativeModule, /RPSystemBroadcastPickerView/);
+  assert.match(nativeModule, /readLatestScreenContext/);
+});
+
+test('exposes platform controls in the phone UI without claiming an iOS system overlay', () => {
+  assert.match(appSource, /enableFloatingOverlay/);
+  assert.match(appSource, /SlicklyBroadcastPicker/);
+  assert.match(appSource, /refreshBroadcastScreenContext/);
+  assert.match(appSource, /Platform\.OS === 'android'/);
 });
