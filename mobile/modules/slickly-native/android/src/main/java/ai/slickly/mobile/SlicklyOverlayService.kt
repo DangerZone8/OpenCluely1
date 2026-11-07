@@ -354,7 +354,7 @@ class SlicklyOverlayService : Service() {
         .put("generationConfig", JSONObject().put("temperature", 0.4).put("maxOutputTokens", 2048)))
       val answer = postRequest(request, installId(), "screen-vision")
       val prefs = getSharedPreferences("slickly_native", Context.MODE_PRIVATE)
-      if (answer.startsWith("Slickly could not") || answer.startsWith("Couldn't reach")) {
+      if (answer.startsWith("Slickly could not") || answer.startsWith("Couldn't reach") || answer.startsWith("The shared AI service") || answer.startsWith("The hosted AI service") || answer.startsWith("Slickly returned an empty")) {
         prefs.edit().putString("latest_screen_ai_status", answer).apply()
       } else {
         val timestamp = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US).format(Date())
