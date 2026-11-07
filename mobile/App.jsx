@@ -215,7 +215,7 @@ export default function App() {
               <View style={styles.emptyState}>
                 <Image source={require('./assets/icon.png')} style={styles.welcomeLogo} accessibilityLabel="Slickly logo" />
                 <Text style={styles.welcomeTitle}>Your AI, wherever you work.</Text>
-                <Text style={styles.welcomeBody}>Chat with Slickly or share a screenshot to let Screen AI understand what you’re looking at.</Text>
+                <Text style={styles.welcomeBody}>Chat with Slickly, choose a screenshot, or start an authorized screen share so Screen AI can understand what you’re looking at.</Text>
                 <Pressable accessibilityRole="button" onPress={startScreenAI} style={styles.screenCard}>
                   <Text style={styles.screenCardIcon}>▣</Text>
                   <View style={{flex: 1}}><Text style={styles.screenCardTitle}>Open Screen AI</Text><Text style={styles.screenCardBody}>Choose a screenshot · Ask follow-up questions</Text></View>
@@ -273,7 +273,7 @@ export default function App() {
             <Text style={styles.sendText}>↑</Text>
           </Pressable>
         </View>
-        <Text style={styles.disclaimer}>Screen AI only analyzes screenshots you choose. It does not silently record your screen. Avoid sharing passwords or sensitive information.</Text>
+        <Text style={styles.disclaimer}>Screen AI captures only after you choose a screenshot or explicitly start system screen sharing. It analyzes one frame per capture session. Stop sharing when finished; avoid passwords or sensitive information.</Text>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
