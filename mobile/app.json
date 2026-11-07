@@ -19,7 +19,12 @@
       }
     },
     "plugins": [
-      "expo-secure-store"
+      ["expo-secure-store"],
+      ["expo-image-picker", {
+        "photosPermission": "Slickly uses your selected screenshots so Screen AI can understand and answer questions about them.",
+        "cameraPermission": "Slickly can use your camera only when you choose to capture an image for Screen AI.",
+        "microphonePermission": false
+      }]
     ],
     "icon": "./assets/icon.png"
   }
