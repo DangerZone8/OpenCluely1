@@ -54,9 +54,11 @@ class SlicklyOverlayService : Service() {
 
   override fun onBind(intent: Intent?): IBinder? = null
 
-  private fun overlayType(): Int =
-    if (Build.VERSION.SDK_INT >= 26) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-    else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
+  @Suppress("DEPRECATION")
+  private fun overlayType(): Int {
+    return if (Build.VERSION.SDK_INT >= 26) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+    else WindowManager.LayoutParams.TYPE_PHONE
+  }
 
   private fun params(width: Int, height: Int, flags: Int): WindowManager.LayoutParams =
     WindowManager.LayoutParams(width, height, overlayType(), flags, PixelFormat.TRANSLUCENT).apply {
