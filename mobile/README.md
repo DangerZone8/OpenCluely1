@@ -13,14 +13,14 @@ Native Expo / React Native app for Android and iOS.
 
 ## Screen AI behavior and privacy
 
-- Android's current Screen AI path analyzes a screenshot explicitly selected by the user from the photo library. It does not silently capture other apps.
-- iOS ReplayKit requires the user to start the system broadcast. The extension submits one frame per broadcast session to Screen AI, not a continuous stream; stop and restart the broadcast to capture a new frame.
+- Android Screen AI supports a system MediaProjection capture started by the user from Slickly. Android shows its screen-sharing consent prompt; after approval, Slickly waits five seconds for the user to switch to the target app, captures one frame, sends it for analysis, and stops capture. The photo-library screenshot picker remains available as an alternative.
+- iOS ReplayKit requires the user to start the system broadcast. The extension waits five seconds for the user to switch apps, then submits one frame per broadcast session to Screen AI, not a continuous stream; stop and restart the broadcast to capture a new frame.
 - The user should stop screen broadcast after the capture. Screen content is sent over HTTPS to Slickly's hosted Gemini endpoint for analysis. Do not share passwords, private messages, or sensitive information.
 - The broadcast extension and app share capture results through `group.ai.slickly.mobile`.
 
 ## Native build requirements
 
-- Android overlay uses `SYSTEM_ALERT_WINDOW` plus a foreground service with the Android `specialUse` foreground-service type. The user must explicitly grant display-over-other-apps permission in Android Settings.
+- Android overlay uses `SYSTEM_ALERT_WINDOW` plus a foreground service with the Android `specialUse` foreground-service type. The user must explicitly grant display-over-other-apps permission in Android Settings. Screen AI uses Android's separate MediaProjection permission prompt and a `mediaProjection` foreground-service type.
 - iOS ReplayKit requires an Apple Developer team, provisioning profiles, and the App Group entitlement `group.ai.slickly.mobile`. Register that App Group for the app and extension bundle identifiers before creating signed device builds.
 - Android preview builds produce APKs through EAS. iOS distribution uses TestFlight/App Store or properly provisioned internal distribution; an IPA is not generally installable like an Android APK.
 
