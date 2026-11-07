@@ -23,6 +23,23 @@ class SlicklyNativeModule : Module() {
       true
     }
 
+    AsyncFunction("startScreenCapture") {
+      val context = appContext.reactContext ?: throw IllegalStateException("Android context is unavailable")
+      val intent = Intent(context, SlicklyScreenCaptureActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      context.startActivity(intent)
+      true
+    }
+
+    AsyncFunction("readLatestScreenContext") {
+      val context = appContext.reactContext ?: return@AsyncFunction null
+      val prefs = context.getSharedPreferences("slickly_native", 0)
+      val result = mutableMapOf<String, String>()
+      prefs.getString("latest_screen_ai_context", null)?.let { result["text"] = it }
+      prefs.getString("latest_screen_ai_captured_at", null)?.let { result["capturedAt"] = it }
+      result["status"] = prefs.getString("latest_screen_ai_status", "") ?: ""
+      result
+    }
+
     AsyncFunction("startOverlay") {
       val context = appContext.reactContext ?: throw IllegalStateException("Android context is unavailable")
       if (!Settings.canDrawOverlays(context)) {
