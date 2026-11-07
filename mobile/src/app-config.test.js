@@ -27,3 +27,11 @@ test('provides generated app and adaptive icons before Expo export', () => {
 test('imports the React Native Image component used by the branded app header', () => {
   assert.match(appSource, /import\s*\{[\s\S]*?\bImage\b[\s\S]*?\}\s*from\s*['"]react-native['"]/);
 });
+
+test('configures screenshot selection permissions for native Screen AI', () => {
+  const picker = appConfig.plugins.find(plugin => Array.isArray(plugin) && plugin[0] === 'expo-image-picker');
+  assert.ok(picker, 'expo-image-picker config plugin is required');
+  assert.match(picker[1].photosPermission, /screenshots/i);
+  assert.match(appSource, /requestScreenAnalysis/);
+  assert.match(appSource, /screen-vision|Screen AI/);
+});
