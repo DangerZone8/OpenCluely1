@@ -2,12 +2,18 @@
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
   <application>
+    <activity
+      android:name="ai.slickly.mobile.SlicklyScreenCaptureActivity"
+      android:exported="false"
+      android:excludeFromRecents="true"
+      android:theme="@android:style/Theme.Translucent.NoTitleBar" />
     <service
       android:name="ai.slickly.mobile.SlicklyOverlayService"
       android:exported="false"
       android:stopWithTask="false"
-      android:foregroundServiceType="specialUse">
+      android:foregroundServiceType="specialUse|mediaProjection">
       <property
         android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
         android:value="User-enabled floating AI assistant overlay" />
