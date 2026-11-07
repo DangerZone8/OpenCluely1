@@ -87,7 +87,7 @@ export default function App() {
       } else if (latest?.status) {
         setPlatformHint(latest.status);
       } else {
-        setPlatformHint('Start the screen broadcast, switch to the app you want Slickly to inspect, stop the broadcast, then return here and load the result.');
+        setPlatformHint('Start the broadcast, switch to the app you want analyzed within five seconds, stop sharing, then return and load the result.');
       }
     } catch (nativeError) {
       setError(nativeError?.message || 'Could not load the latest screen broadcast.');
