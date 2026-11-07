@@ -104,8 +104,8 @@ class SlicklyOverlayService : Service() {
           true
         }
         MotionEvent.ACTION_MOVE -> {
-          lp.x = (startX - (event.rawX - touchX).toInt()).coerceAtLeast(0)
-          lp.y = (startY + (event.rawY - touchY).toInt()).coerceAtLeast(0)
+          lp.x = (startX - (event.rawX - touchX).toInt()).coerceIn(0, (resources.displayMetrics.widthPixels - dp(54)).coerceAtLeast(0))
+          lp.y = (startY + (event.rawY - touchY).toInt()).coerceIn(0, (resources.displayMetrics.heightPixels - dp(54)).coerceAtLeast(0))
           windowManager.updateViewLayout(view, lp)
           true
         }
