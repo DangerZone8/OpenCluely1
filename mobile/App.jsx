@@ -79,7 +79,7 @@ export default function App() {
         setMessages(current => [...current, {
           id: Crypto.randomUUID(),
           role: 'assistant',
-          text: 'SCREEN AI — broadcast screen analyzed\\n' + latest.text + '\\n\\nAsk a follow-up question about this captured screen.'
+          text: 'SCREEN AI — broadcast screen analyzed\n' + latest.text + '\n\nAsk a follow-up question about this captured screen.'
         }]);
         setScreenReady(true);
         setPlatformHint('Latest ReplayKit screen capture loaded. Follow-up questions can use this context.');
