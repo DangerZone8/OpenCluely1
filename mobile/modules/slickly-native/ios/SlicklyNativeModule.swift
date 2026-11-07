@@ -7,6 +7,10 @@ private let slicklyAppGroup = "group.ai.slickly.mobile"
 final class SlicklyBroadcastPickerView: ExpoView {
   private let picker = RPSystemBroadcastPickerView(frame: .zero)
 
+  func setPreferredExtension(_ value: String) {
+    picker.preferredExtension = value
+  }
+
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
     picker.preferredExtension = "ai.slickly.mobile.SlicklyScreenBroadcast"
@@ -27,7 +31,7 @@ public class SlicklyNativeModule: Module {
 
     View(SlicklyBroadcastPickerView.self) {
       Prop("preferredExtension") { (view: SlicklyBroadcastPickerView, value: String) in
-        view.pickerPreferredExtension = value
+        view.setPreferredExtension(value)
       }
     }
 
@@ -43,14 +47,8 @@ public class SlicklyNativeModule: Module {
             let capturedAt = defaults.string(forKey: "latest_screen_ai_captured_at") else {
         return nil
       }
-      return ["text": text, "capturedAt": capturedAt]
+      return ["text": text, "capturedAt": capturedAt, "status": defaults.string(forKey: "latest_screen_ai_status") ?? ""]
     }
   }
 }
 
-private extension SlicklyBroadcastPickerView {
-  var pickerPreferredExtension: String {
-    get { picker.preferredExtension ?? "" }
-    set { picker.preferredExtension = newValue }
-  }
-}
