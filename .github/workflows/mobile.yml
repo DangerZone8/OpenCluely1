@@ -45,8 +45,11 @@ jobs:
       - name: Generate the official Slickly brand assets
         run: node ../scripts/generate-app-icons.js
 
-      - name: Run mobile API tests
+      - name: Run mobile and native integration tests
         run: npm test
+
+      - name: Generate native project and validate platform config
+        run: npx expo prebuild --platform ${{ matrix.platform }} --no-install --clean
 
       - name: Export ${{ matrix.platform }} JavaScript bundle
         run: npx expo export --platform ${{ matrix.platform }} --output-dir dist/${{ matrix.platform }}
