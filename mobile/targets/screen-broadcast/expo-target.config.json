@@ -1,0 +1,11 @@
+{
+  "type": "broadcast-upload",
+  "name": "SlicklyScreenBroadcast",
+  "bundleIdentifier": "ai.slickly.mobile.SlicklyScreenBroadcast",
+  "deploymentTarget": "15.1",
+  "entitlements": {
+    "com.apple.security.application-groups": [
+      "group.ai.slickly.mobile"
+    ]
+  }
+}
