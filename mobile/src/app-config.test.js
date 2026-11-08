@@ -8,6 +8,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const mobileRoot = path.resolve(here, '..');
 const read = relative => fs.readFileSync(path.join(mobileRoot, relative), 'utf8');
 const appConfig = JSON.parse(read('app.json')).expo;
+const packageConfig = JSON.parse(read('package.json'));
 const appSource = read('App.jsx');
 
 test('declares distinct native Android and iOS application identifiers', () => {
@@ -37,12 +38,22 @@ test('configures screenshot selection permissions for native Screen AI', () => {
   assert.match(appSource, /screen-vision|Screen AI/);
 });
 
+test('configures Expo to discover the local Slickly native module', () => {
+  assert.equal(packageConfig.expo.autolinking.nativeModulesDir, './modules');
+  const nativePackage = JSON.parse(read('modules/slickly-native/package.json'));
+  const nativeConfig = JSON.parse(read('modules/slickly-native/expo-module.config.json'));
+  assert.equal(nativePackage.name, 'slickly-native');
+  assert.deepEqual(nativeConfig.platforms, ['android', 'apple']);
+});
+
 test('registers a native Android floating overlay with explicit user permission', () => {
   const manifest = read('modules/slickly-native/android/src/main/AndroidManifest.xml');
   const module = read('modules/slickly-native/android/src/main/java/ai/slickly/mobile/SlicklyNativeModule.kt');
   const service = read('modules/slickly-native/android/src/main/java/ai/slickly/mobile/SlicklyOverlayService.kt');
   const nativeConfig = JSON.parse(read('modules/slickly-native/expo-module.config.json'));
+  const gradle = read('modules/slickly-native/android/build.gradle');
   assert.ok(nativeConfig.platforms.includes('android'));
+  assert.match(gradle, /versionName\s+["']1\.0\.0["']/);
   assert.match(manifest, /SYSTEM_ALERT_WINDOW/);
   assert.match(manifest, /FOREGROUND_SERVICE_SPECIAL_USE/);
   assert.match(manifest, /FOREGROUND_SERVICE_MEDIA_PROJECTION/);
