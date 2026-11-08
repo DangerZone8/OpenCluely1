@@ -1,0 +1,6 @@
+{
+  "name": "slickly-native",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Native Android overlay and iOS ReplayKit bridge for Slickly"
+}

@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Platform,
+  ActivityIndicator, AppState, FlatList, Image, KeyboardAvoidingView, Platform,
   Pressable, SafeAreaView, StatusBar, StyleSheet, Text, TextInput, View
 } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import * as ImagePicker from 'expo-image-picker';
 import { requestAssistantReply, requestScreenAnalysis } from './src/chat-api';
+import { SlicklyNative, SlicklyBroadcastPicker } from './src/native';
 
 const INSTALL_ID_KEY = 'slickly.mobile.install-id';
 
@@ -18,7 +19,9 @@ export default function App() {
   const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState('');
   const [screenReady, setScreenReady] = useState(false);
+  const [platformHint, setPlatformHint] = useState('');
   const listRef = useRef(null);
+  const lastBroadcastCapture = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -29,6 +32,7 @@ export default function App() {
           id = Crypto.randomUUID();
           await SecureStore.setItemAsync(INSTALL_ID_KEY, id);
         }
+        await SlicklyNative.setInstallId(id).catch(() => {});
         if (active) setInstallId(id);
       } catch {
         if (active) setError('Secure app setup failed. Check device storage permissions and restart Slickly.');
@@ -38,6 +42,74 @@ export default function App() {
     }
     initialize();
     return () => { active = false; };
+  }, []);
+
+  async function enableFloatingOverlay() {
+    if (Platform.OS !== 'android' || !installId) return;
+    try {
+      const permitted = await SlicklyNative.hasOverlayPermission();
+      if (!permitted) {
+        await SlicklyNative.requestOverlayPermission();
+        setPlatformHint('Allow Slickly to display over other apps in Android Settings, then tap Floating assistant again.');
+        return;
+      }
+      await SlicklyNative.setInstallId(installId);
+      await SlicklyNative.startOverlay();
+      setPlatformHint('Floating assistant is active. Use the movable Slickly bubble above other apps.');
+    } catch (nativeError) {
+      setError(nativeError?.message || 'Could not start the floating assistant.');
+    }
+  }
+
+  async function stopFloatingOverlay() {
+    try {
+      await SlicklyNative.stopOverlay();
+      setPlatformHint('Floating assistant stopped.');
+    } catch (nativeError) {
+      setError(nativeError?.message || 'Could not stop the floating assistant.');
+    }
+  }
+
+  async function startAndroidScreenAI() {
+    if (Platform.OS !== 'android') return;
+    try {
+      await SlicklyNative.startScreenCapture();
+      setPlatformHint('Android will ask you to share your screen. Approve it, then switch to the app you want analyzed within five seconds.');
+    } catch (nativeError) {
+      setError(nativeError?.message || 'Could not start Android Screen AI capture.');
+    }
+  }
+
+  async function refreshLatestScreenContext() {
+    if (Platform.OS !== 'ios' && Platform.OS !== 'android') return;
+    try {
+      const latest = await SlicklyNative.readLatestScreenContext();
+      if (latest?.text && latest.capturedAt && lastBroadcastCapture.current !== latest.capturedAt) {
+        lastBroadcastCapture.current = latest.capturedAt;
+        setMessages(current => [...current, {
+          id: Crypto.randomUUID(),
+          role: 'assistant',
+          text: 'SCREEN AI — broadcast screen analyzed\n' + latest.text + '\n\nAsk a follow-up question about this captured screen.'
+        }]);
+        setScreenReady(true);
+        setPlatformHint('Latest screen capture loaded. Follow-up questions can use this context.');
+        requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+      } else if (latest?.status) {
+        setPlatformHint(latest.status);
+      } else {
+        setPlatformHint(Platform.OS === 'ios' ? 'Start the ReplayKit broadcast, switch to the app you want analyzed within five seconds, stop sharing, then return and load the result.' : 'Start screen sharing, switch to the app you want analyzed within five seconds, then return here after capture completes.');
+      }
+    } catch (nativeError) {
+      setError(nativeError?.message || 'Could not load the latest screen broadcast.');
+    }
+  }
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios' && Platform.OS !== 'android') return undefined;
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') refreshLatestScreenContext();
+    });
+    return () => subscription.remove();
   }, []);
 
   async function sendMessage() {
@@ -143,7 +215,7 @@ export default function App() {
               <View style={styles.emptyState}>
                 <Image source={require('./assets/icon.png')} style={styles.welcomeLogo} accessibilityLabel="Slickly logo" />
                 <Text style={styles.welcomeTitle}>Your AI, wherever you work.</Text>
-                <Text style={styles.welcomeBody}>Chat with Slickly or share a screenshot to let Screen AI understand what you’re looking at.</Text>
+                <Text style={styles.welcomeBody}>Chat with Slickly, choose a screenshot, or start an authorized screen share so Screen AI can understand what you’re looking at.</Text>
                 <Pressable accessibilityRole="button" onPress={startScreenAI} style={styles.screenCard}>
                   <Text style={styles.screenCardIcon}>▣</Text>
                   <View style={{flex: 1}}><Text style={styles.screenCardTitle}>Open Screen AI</Text><Text style={styles.screenCardBody}>Choose a screenshot · Ask follow-up questions</Text></View>
@@ -161,19 +233,47 @@ export default function App() {
 
         {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
         {screenReady && <Text style={styles.contextStatus}>● Screen context active · Follow-up questions enabled</Text>}
+        {!!platformHint && <Text style={styles.platformHint}>{platformHint}</Text>}
         <View style={styles.actionRow}>
           <Pressable accessibilityRole="button" onPress={startScreenAI} disabled={sending || initializing} style={[styles.screenButton, sending && styles.disabled]}>
             <Text style={styles.screenButtonText}>▣  Screen AI</Text>
           </Pressable>
-          <Text style={styles.actionHint}>Share a screenshot to analyze its contents</Text>
+          <Text style={styles.actionHint}>Choose a screenshot for instant Screen AI analysis</Text>
         </View>
+        {Platform.OS === 'android' ? (
+          <>
+            <View style={styles.platformActionRow}>
+              <Pressable accessibilityRole="button" onPress={startAndroidScreenAI} disabled={initializing || sending} style={styles.platformButton}>
+                <Text style={styles.platformButtonText}>Capture current screen</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={refreshLatestScreenContext} style={styles.platformButtonSecondary}>
+                <Text style={styles.platformButtonText}>Load result</Text>
+              </Pressable>
+            </View>
+            <View style={styles.platformActionRow}>
+              <Pressable accessibilityRole="button" onPress={enableFloatingOverlay} disabled={initializing || !installId} style={styles.platformButton}>
+                <Text style={styles.platformButtonText}>Enable floating assistant</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={stopFloatingOverlay} style={styles.platformButtonSecondary}>
+                <Text style={styles.platformButtonText}>Stop</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : (
+          <View style={styles.platformActionRow}>
+            <SlicklyBroadcastPicker preferredExtension="ai.slickly.mobile.SlicklyScreenBroadcast" style={styles.broadcastPicker} />
+            <Pressable accessibilityRole="button" onPress={refreshLatestScreenContext} style={styles.platformButton}>
+              <Text style={styles.platformButtonText}>Load screen result</Text>
+            </Pressable>
+          </View>
+        )}
         <View style={styles.composer}>
           <TextInput accessibilityLabel="Message Slickly" value={draft} onChangeText={setDraft} placeholder="Ask Slickly anything…" placeholderTextColor="#71717a" multiline maxLength={12000} editable={!initializing && !sending && !!installId} style={styles.input} />
           <Pressable accessibilityRole="button" accessibilityLabel="Send message" disabled={!draft.trim() || sending || !installId} onPress={sendMessage} style={[styles.sendButton, (!draft.trim() || sending || !installId) && styles.disabled]}>
             <Text style={styles.sendText}>↑</Text>
           </Pressable>
         </View>
-        <Text style={styles.disclaimer}>Screen AI only analyzes screenshots you choose. It does not silently record your screen. Avoid sharing passwords or sensitive information.</Text>
+        <Text style={styles.disclaimer}>Screen AI captures only after you choose a screenshot or explicitly start system screen sharing. It analyzes one frame per capture session. Stop sharing when finished; avoid passwords or sensitive information.</Text>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -196,6 +296,12 @@ const styles = StyleSheet.create({
   centerState:{flex:1,alignItems:'center',justifyContent:'center',gap:14},stateText:{color:'#a1a1aa',fontSize:13},
   actionRow:{flexDirection:'row',alignItems:'center',gap:10,paddingHorizontal:16,paddingTop:10},screenButton:{borderWidth:1,borderColor:'#6d55b8',borderRadius:11,paddingHorizontal:13,paddingVertical:9,backgroundColor:'#1c1730'},screenButtonText:{color:'#ddd6fe',fontSize:12,fontWeight:'700'},actionHint:{color:'#71717a',fontSize:10,flex:1},
   contextStatus:{color:'#86efac',fontSize:10,paddingHorizontal:18,paddingTop:8},
+  platformHint:{color:'#c4b5fd',fontSize:10,lineHeight:15,paddingHorizontal:18,paddingTop:6},
+  platformActionRow:{flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:16,paddingTop:8},
+  platformButton:{borderWidth:1,borderColor:'#62508c',borderRadius:10,paddingHorizontal:11,paddingVertical:9,backgroundColor:'#1c1730'},
+  platformButtonSecondary:{borderWidth:1,borderColor:'#3f3f46',borderRadius:10,paddingHorizontal:12,paddingVertical:9},
+  platformButtonText:{color:'#ddd6fe',fontSize:10,fontWeight:'700'},
+  broadcastPicker:{width:155,height:40},
   composer:{marginHorizontal:14,marginTop:8,padding:8,minHeight:58,borderWidth:1,borderColor:'#3f3f46',borderRadius:17,backgroundColor:'#141417',flexDirection:'row',alignItems:'flex-end'},
   input:{flex:1,color:'#fafafa',fontSize:15,lineHeight:21,maxHeight:130,paddingHorizontal:10,paddingTop:9,paddingBottom:8},
   sendButton:{width:40,height:40,borderRadius:12,backgroundColor:'#8b5cf6',alignItems:'center',justifyContent:'center',marginLeft:7},sendText:{color:'#fff',fontSize:25,lineHeight:29,fontWeight:'700'},

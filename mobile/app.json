@@ -9,7 +9,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "ai.slickly.mobile",
-      "icon": "./assets/icon.png"
+      "icon": "./assets/icon.png",
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.ai.slickly.mobile"
+        ]
+      }
     },
     "android": {
       "package": "ai.slickly.mobile",
@@ -19,12 +24,18 @@
       }
     },
     "plugins": [
-      ["expo-secure-store"],
-      ["expo-image-picker", {
-        "photosPermission": "Slickly uses your selected screenshots so Screen AI can understand and answer questions about them.",
-        "cameraPermission": "Slickly can use your camera only when you choose to capture an image for Screen AI.",
-        "microphonePermission": false
-      }]
+      [
+        "expo-secure-store"
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Slickly uses your selected screenshots so Screen AI can understand and answer questions about them.",
+          "cameraPermission": "Slickly can use your camera only when you choose to capture an image for Screen AI.",
+          "microphonePermission": false
+        }
+      ],
+      "@bacons/apple-targets"
     ],
     "icon": "./assets/icon.png"
   }
