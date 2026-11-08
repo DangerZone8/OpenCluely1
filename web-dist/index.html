@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="en" data-type="software" data-radius="sharp">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f3f2ec">
+  <meta name="description" content="Slickly is a desktop AI assistant for screen-aware help, natural voice input and contextual chat. Available for Windows, macOS and Linux.">
+  <meta name="page-type" content="software">
+  <meta name="site-kind" content="software">
+  <title>Slickly — AI that works with your screen</title>
+  <link rel="canonical" href="https://slicklyai.vercel.app/">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <meta name="application-name" content="Slickly">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg:#f3f2ec; --paper:#fbfaf6; --ink:#171916; --muted:#62675f;
+      --line:rgba(23,25,22,.15); --line-strong:rgba(23,25,22,.28);
+      --accent:#d5f45b; --accent-ink:#17200b; --dark:#171b18; --dark-2:#222923;
+      --white:#f7f7ef; --radius:5px; --nav:72px;
+      --display:"Space Grotesk","DM Sans",sans-serif; --body:"DM Sans",sans-serif; --mono:"DM Mono",monospace;
+      --wrap:min(1280px,calc(100% - 112px));
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth;scroll-padding-top:88px}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased}
+    a{color:inherit}
+    button,a{-webkit-tap-highlight-color:transparent}
+    a:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid #526d16;outline-offset:4px}
+    .wrap{width:var(--wrap);max-width:1280px;margin:0 auto}
+    .topbar{height:var(--nav);position:fixed;z-index:20;inset:0 0 auto;background:rgba(243,242,236,.97);border-bottom:1px solid var(--line)}
+    .nav{height:100%;display:flex;align-items:center;justify-content:space-between;gap:28px}
+    .brand{display:inline-flex;align-items:center;gap:11px;text-decoration:none;font:700 21px var(--display);letter-spacing:-.06em}
+    .brand-mark{width:30px;height:30px;display:inline-block;border-radius:50%;background:url("/favicon.svg") center/contain no-repeat;flex:0 0 auto}
+    .navlinks{display:flex;align-items:center;gap:34px}
+    .navlinks a{font-size:14px;font-weight:600;text-decoration:none;color:#42473f;transition:color .18s}
+    .navlinks a:hover{color:#000}
+    .nav-cta,.button{display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:48px;padding:0 21px;border:1px solid var(--ink);border-radius:var(--radius);background:var(--ink);color:var(--white);font:700 14px var(--body);text-decoration:none;cursor:pointer;transition:transform .18s,background .18s,color .18s}
+    .nav-cta{min-height:42px;padding:0 17px}
+    .nav-cta:hover,.button:hover{transform:translateY(-2px);background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+    .button--light{background:transparent;color:var(--ink);border-color:var(--line-strong)}
+    .button--light:hover{background:var(--ink);color:var(--white);border-color:var(--ink)}
+    .button--lime{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+    .button--lime:hover{background:#e3ff77;border-color:#e3ff77}
+    .arrow{font-size:18px;line-height:1}
+    .menu-toggle{display:none;width:44px;height:44px;border:1px solid var(--line-strong);background:transparent;border-radius:var(--radius);font-size:21px}
+    .page-offset{height:var(--nav)}
+    .hero{min-height:calc(100svh - var(--nav));display:flex;align-items:center;padding:76px 0 72px;border-bottom:1px solid var(--line);overflow:hidden}
+    .hero-grid{display:grid;grid-template-columns:minmax(0,.88fr) minmax(0,1.12fr);gap:52px;align-items:center}
+    .eyebrow{display:flex;align-items:center;gap:10px;margin:0 0 25px;color:#59614e;font:500 12px var(--mono);letter-spacing:.035em;text-transform:uppercase}
+    .eyebrow:before{content:"";width:24px;height:1px;background:#687d2b}
+    h1,h2,h3,p{margin-top:0}
+    h1{max-width:650px;margin-bottom:25px;font:600 clamp(54px,6vw,88px)/.99 var(--display);letter-spacing:-.075em}
+    h1 .accent{position:relative;white-space:nowrap}
+    h1 .accent:after{content:"";position:absolute;z-index:-1;left:0;right:-5px;bottom:4px;height:16px;background:var(--accent)}
+    .hero-lead{max-width:490px;margin-bottom:30px;color:#555b52;font-size:18px;line-height:1.65}
+    .hero-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+    .release-line{margin:17px 0 0;color:#777d72;font:12px var(--mono);min-height:18px}
+    .release-line .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#7e9d34;margin-right:8px}
+    .hero-art{position:relative;min-width:0}
+    .art-label{display:flex;justify-content:space-between;align-items:center;margin:0 0 12px;color:#777d72;font:11px var(--mono);text-transform:uppercase;letter-spacing:.06em}
+    .desktop-window{position:relative;background:var(--dark);border:1px solid #303831;border-radius:9px;overflow:hidden;box-shadow:0 28px 70px rgba(23,27,24,.16);color:#f2f3eb}
+    .window-bar{height:43px;padding:0 15px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #343c35;background:#1d231e}
+    .window-dots{display:flex;gap:6px}.window-dots i{width:7px;height:7px;border-radius:50%;background:#60695d}
+    .window-title{font:11px var(--mono);color:#9da69a}
+    .window-status{display:flex;align-items:center;gap:7px;color:#c8e879;font:10px var(--mono)}
+    .window-status:before{content:"";width:6px;height:6px;border-radius:50%;background:#c8e879}
+    .app-body{display:grid;grid-template-columns:52px 1fr;min-height:405px}
+    .app-rail{padding:16px 0;display:flex;align-items:center;flex-direction:column;gap:17px;border-right:1px solid #343c35;background:#1c211d}
+    .rail-icon{width:27px;height:27px;border:1px solid #485147;border-radius:5px;display:grid;place-items:center;color:#aab4a4;font-size:12px}
+    .rail-icon.active{background:var(--accent);border-color:var(--accent);color:#17200b}
+    .app-content{padding:23px 25px 21px;min-width:0}
+    .app-topline{display:flex;align-items:center;justify-content:space-between;margin-bottom:21px}
+    .app-topline strong{font:600 14px var(--display);letter-spacing:-.02em}
+    .app-topline span{color:#9aa397;font:10px var(--mono)}
+    .screen-context{display:grid;grid-template-columns:1fr 120px;gap:14px;padding:13px;border:1px solid #465044;background:#252d26;border-radius:6px;margin-bottom:15px}
+    .context-kicker{font:10px var(--mono);color:#b7ca8e;margin-bottom:8px}
+    .context-title{font:500 13px var(--display);margin-bottom:6px}
+    .context-copy{font-size:10px;line-height:1.5;color:#aeb7aa}
+    .context-thumb{min-height:84px;background:#d9dfd1;border-radius:3px;padding:9px;color:#2c332a;font:9px var(--mono);display:flex;flex-direction:column;justify-content:space-between}
+    .thumb-lines{display:grid;gap:5px}.thumb-lines i{height:3px;background:#8b9682;width:100%}.thumb-lines i:nth-child(2){width:72%}.thumb-lines i:nth-child(3){width:86%}
+    .message{padding:13px 14px;border-radius:6px;margin:0 0 11px;font-size:11px;line-height:1.55;max-width:91%}
+    .message--user{margin-left:auto;background:#333d33;color:#e8eee2;border:1px solid #485447}
+    .message--ai{background:#252c26;border:1px solid #3c463c;color:#e6eae0}
+    .message-tag{display:block;margin-bottom:5px;color:#c8e879;font:9px var(--mono);text-transform:uppercase}
+    .message--ai strong{font-weight:700;color:#fff}
+    .composer{display:flex;align-items:center;gap:9px;margin-top:16px;padding:9px 11px;border:1px solid #505b4d;border-radius:5px;color:#9da79a;font-size:10px}
+    .composer .send{margin-left:auto;width:25px;height:25px;display:grid;place-items:center;background:var(--accent);color:#17200b;border-radius:4px;font-size:13px}
+    .art-caption{display:flex;justify-content:space-between;gap:12px;margin-top:12px;color:#747b70;font:10px var(--mono)}
+    .art-caption span:last-child{color:#5b6c34}
+    .ticker{background:var(--accent);color:#202719;padding:15px 0;border-bottom:1px solid rgba(23,25,22,.2)}
+    .ticker-inner{display:flex;justify-content:space-between;gap:20px;align-items:center;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.045em}
+    .ticker b{font-weight:500}.ticker .asterisk{font-size:18px}
+    .section{padding:112px 0;border-bottom:1px solid var(--line)}
+    .section-head{display:grid;grid-template-columns:.7fr 1.3fr;gap:50px;align-items:start;margin-bottom:55px}
+    .section-index{color:#78816d;font:12px var(--mono)}
+    h2{max-width:760px;margin:0;font:600 clamp(38px,4.4vw,62px)/1.04 var(--display);letter-spacing:-.065em}
+    .section-intro{max-width:520px;margin:18px 0 0 auto;color:#5d6359;font-size:16px;line-height:1.7}
+    .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+    .feature{min-height:315px;padding:24px;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);display:flex;flex-direction:column;justify-content:space-between;transition:transform .2s,border-color .2s}
+    .feature:hover{transform:translateY(-3px);border-color:#7e8a69}
+    .feature-no{font:11px var(--mono);color:#7c8378}
+    .feature-symbol{width:48px;height:48px;margin:20px 0 27px;border:1px solid var(--line-strong);border-radius:50%;display:grid;place-items:center;font-size:21px}
+    .feature h3{margin-bottom:9px;font:600 22px var(--display);letter-spacing:-.04em}
+    .feature p{max-width:310px;margin:0;color:#656b61;font-size:14px;line-height:1.65}
+    .workflow{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line-strong);border-bottom:1px solid var(--line-strong)}
+    .step{padding:28px 25px 32px 0;position:relative}
+    .step+.step{padding-left:25px;border-left:1px solid var(--line)}
+    .step-number{color:#7d865f;font:12px var(--mono);margin-bottom:45px}
+    .step h3{font:600 24px var(--display);letter-spacing:-.04em;margin-bottom:10px}
+    .step p{max-width:300px;margin:0;color:#62685e;font-size:14px;line-height:1.7}
+    .download-section{background:var(--dark);color:var(--white);padding:112px 0}
+    .download-head{display:flex;justify-content:space-between;align-items:end;gap:40px;margin-bottom:44px}
+    .download-head .eyebrow{color:#bdcf9d}
+    .download-head h2{max-width:680px}
+    .download-head p{max-width:320px;margin:0;color:#aab3a6;font-size:14px;line-height:1.65}
+    .download-main{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}
+    .download-recommend{padding:30px;background:#252d26;border:1px solid #455044;border-radius:var(--radius);display:flex;justify-content:space-between;align-items:center;gap:25px}
+    .download-recommend .os-label{font:11px var(--mono);color:#c8e879;text-transform:uppercase;margin-bottom:10px}
+    .download-recommend h3{font:600 25px var(--display);margin:0 0 8px;letter-spacing:-.04em}
+    .download-recommend p{margin:0;color:#aab3a6;font-size:13px;line-height:1.5}
+    .download-platforms{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+    .platform-link{min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:18px;padding:20px 17px;border:1px solid #455044;border-radius:var(--radius);text-decoration:none;transition:background .18s,border-color .18s}
+    .platform-link:hover{background:#2d372d;border-color:#c8e879}
+    .platform-link .platform-name{font:600 15px var(--display)}
+    .platform-link .platform-action{color:#c8e879;font:10px var(--mono);overflow-wrap:anywhere}
+    .platform-actions{display:flex;flex-direction:column;align-items:flex-end;gap:9px}
+    .platform-actions a{text-decoration:none}.platform-actions a:hover{text-decoration:underline}
+    .download-status{min-height:22px;margin:17px 0 0;color:#aab3a6;font:11px var(--mono)}
+    .trust-note{max-width:790px;margin:28px 0 0;color:#9ba597;font-size:12px;line-height:1.7}
+    .faq-layout{display:grid;grid-template-columns:.7fr 1.3fr;gap:60px}
+    .faq-list{border-top:1px solid var(--line-strong)}
+    details{border-bottom:1px solid var(--line);padding:20px 0}
+    summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:20px;font:600 17px var(--display)}
+    summary::-webkit-details-marker{display:none}
+    summary:after{content:"+";font:20px var(--body);color:#66724e}
+    details[open] summary:after{content:"−"}
+    details p{max-width:640px;margin:13px 35px 0 0;color:#62685e;font-size:14px;line-height:1.7}
+    .closing{padding:84px 0 35px;background:var(--accent);color:#202719}
+    .closing-row{display:flex;justify-content:space-between;align-items:end;gap:35px;padding-bottom:65px}
+    .closing h2{max-width:760px;font-size:clamp(42px,6vw,78px)}
+    .closing .button{background:var(--ink);color:var(--white);border-color:var(--ink);white-space:nowrap}
+    .closing .button:hover{background:#fff;color:var(--ink);border-color:#fff}
+    .footer-row{display:flex;justify-content:space-between;align-items:center;gap:20px;padding-top:20px;border-top:1px solid rgba(23,25,22,.25);font:11px var(--mono)}
+    .footer-links{display:flex;gap:22px;flex-wrap:wrap}.footer-links a{text-decoration:none}.footer-links a:hover{text-decoration:underline}
+
+    /* Interactive capability demos */
+    .demo-section{padding:112px 0;background:#e9e9df;border-bottom:1px solid var(--line)}
+    .demo-shell{background:#171b18;color:#f5f6ed;border:1px solid #354034;border-radius:9px;overflow:hidden;box-shadow:0 28px 70px rgba(23,27,24,.14)}
+    .demo-tabs{display:flex;gap:0;border-bottom:1px solid #3a4439;background:#202720;overflow-x:auto}
+    .demo-tab{flex:1;min-width:150px;padding:18px 20px;background:transparent;border:0;border-right:1px solid #394238;color:#aab4a5;font:11px var(--mono);cursor:pointer;white-space:nowrap}
+    .demo-tab[aria-selected="true"]{background:#c8e879;color:#17200b}
+    .demo-panel{display:none;padding:clamp(20px,4vw,42px);min-height:390px}
+    .demo-panel.active{display:grid;grid-template-columns:1fr .9fr;gap:36px;align-items:center}
+    .demo-copy .demo-kicker{color:#c8e879;font:10px var(--mono);letter-spacing:.08em;margin-bottom:14px}
+    .demo-copy h3{font:600 clamp(27px,3vw,40px)/1.05 var(--display);letter-spacing:-.05em;margin:0 0 14px}
+    .demo-copy p{color:#b0b9ad;font-size:14px;line-height:1.7;max-width:430px}
+    .demo-controls{display:flex;flex-wrap:wrap;gap:9px;margin-top:20px}
+    .demo-btn{min-height:42px;padding:0 15px;border:1px solid #68745e;border-radius:4px;background:transparent;color:#f5f6ed;font:600 12px var(--body);cursor:pointer}
+    .demo-btn.primary{background:#c8e879;color:#17200b;border-color:#c8e879}
+    .demo-btn:focus-visible,.demo-tab:focus-visible{outline:2px solid #fff;outline-offset:3px}
+    .demo-stage{position:relative;min-height:260px;padding:20px;background:#222a23;border:1px solid #465244;border-radius:7px;overflow:hidden}
+    .demo-stage-label{font:9px var(--mono);color:#aeb9a6;letter-spacing:.06em;margin-bottom:15px}
+    .demo-screen{background:#e9ecdf;color:#242b22;border-radius:4px;padding:17px;min-height:150px}
+    .demo-screen small{font:9px var(--mono);color:#68745e}
+    .demo-screen h4{font:600 16px var(--display);margin:12px 0 8px}
+    .demo-screen p{font-size:11px;line-height:1.55;color:#51594d;margin:0}
+    .demo-answer{margin-top:12px;padding:13px;border:1px solid #506047;border-radius:4px;color:#e8eee1;font-size:11px;line-height:1.55;min-height:64px}
+    .demo-answer b{color:#c8e879}
+    .demo-input-row{display:flex;gap:8px;margin-top:12px}
+    .demo-input{min-width:0;flex:1;padding:11px 12px;background:#161c17;border:1px solid #52604e;border-radius:4px;color:#f5f6ed;font:11px var(--body)}
+    .demo-input::placeholder{color:#899485}
+    .overlay-stage{min-height:300px;background:linear-gradient(135deg,#dfe5d7,#aeb9a4);border-radius:5px;position:relative;overflow:hidden;color:#263024}
+    .overlay-desktop{position:absolute;inset:20px 20px 20px 20px;border:1px solid rgba(30,43,29,.25);border-radius:5px;background:rgba(250,251,244,.7);padding:18px}
+    .overlay-desktop strong{font:600 15px var(--display)}
+    .overlay-desktop p{max-width:230px;color:#5a6556;font-size:11px;line-height:1.6;margin-top:10px}
+    .floating-assistant{position:absolute;left:48%;top:43%;width:180px;background:#171d18;color:#f5f6ed;border:1px solid #647353;border-radius:7px;box-shadow:0 12px 32px #1c281e55;cursor:grab;touch-action:none;user-select:none}
+    .floating-assistant.dragging{cursor:grabbing}
+    .float-head{padding:9px 11px;border-bottom:1px solid #3b4639;display:flex;justify-content:space-between;align-items:center;font:10px var(--mono)}
+    .float-head span:last-child{color:#c8e879}
+    .float-body{padding:12px;font-size:10px;line-height:1.5;color:#c5cec0}
+    .float-body b{color:#c8e879}
+    .overlay-hint{position:absolute;bottom:9px;left:12px;color:#53604e;font:9px var(--mono)}
+    .audio-stage{min-height:270px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+    .audio-orb{width:82px;height:82px;border-radius:50%;display:grid;place-items:center;background:#c8e879;color:#17200b;font-size:28px;box-shadow:0 0 0 12px #c8e87920;margin-bottom:18px}
+    .audio-orb.recording{animation:audioPulse 1.2s ease-in-out infinite}
+    @keyframes audioPulse{50%{box-shadow:0 0 0 22px #c8e87912,0 0 38px #c8e87955}}
+    .waveform{height:38px;display:flex;align-items:center;justify-content:center;gap:4px;margin:8px 0 15px}
+    .waveform i{display:block;width:3px;height:8px;background:#c8e879;border-radius:4px;opacity:.55}
+    .waveform.live i{opacity:1;animation:wave .65s ease-in-out infinite alternate}
+    .waveform.live i:nth-child(3n){animation-delay:.18s}.waveform.live i:nth-child(2n){animation-delay:.32s}
+    @keyframes wave{to{height:32px}}
+    .audio-transcript{width:100%;max-width:360px;text-align:left;padding:13px;border:1px solid #4b5847;border-radius:4px;color:#c6d0c0;font-size:11px;line-height:1.6;min-height:58px}
+    .demo-disclaimer{margin:13px 0 0;color:#777f72;font:10px var(--mono)}
+    @media(max-width:760px){.demo-section{padding:78px 0}.demo-panel.active{grid-template-columns:1fr;gap:22px}.demo-stage{min-height:250px}.demo-tab{min-width:130px;padding:15px 13px}}
+    @media(prefers-reduced-motion:reduce){.audio-orb.recording,.waveform.live i{animation:none}}
+
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    @media(max-width:1000px){
+      :root{--wrap:min(100% - 64px,1280px)}
+      .hero-grid{grid-template-columns:1fr;gap:45px}.hero-copy{max-width:740px}.hero-art{max-width:800px}
+      .hero{padding:70px 0}.section-head{grid-template-columns:1fr;gap:18px}.section-intro{margin:0}
+      .faq-layout{grid-template-columns:1fr;gap:35px}
+    }
+    @media(max-width:700px){
+      :root{--nav:62px;--wrap:calc(100% - 40px)}
+      .navlinks{display:none;position:fixed;inset:var(--nav) 0 auto;background:var(--bg);padding:20px;width:100%;border-bottom:1px solid var(--line);flex-direction:column;align-items:stretch;gap:0}
+      .navlinks.open{display:flex}.navlinks a{padding:16px 0;border-bottom:1px solid var(--line)}
+      .nav-cta{margin-left:auto;min-height:40px;padding:0 12px;font-size:12px}.menu-toggle{display:block}
+      .hero{padding:56px 0 54px;min-height:0}.hero-grid{gap:36px}
+      h1{font-size:clamp(49px,13vw,72px)}.hero-lead{font-size:16px}
+      .hero-actions .button{width:100%}
+      .app-body{grid-template-columns:39px 1fr;min-height:360px}.app-content{padding:17px 13px}
+      .screen-context{grid-template-columns:1fr 85px;padding:10px;gap:9px}.context-thumb{min-height:76px}
+      .message{max-width:100%;font-size:10px}
+      .ticker-inner{justify-content:flex-start;flex-wrap:wrap;gap:9px 20px}
+      .section{padding:78px 0}.section-head{margin-bottom:34px}
+      .feature-grid{grid-template-columns:1fr}.feature{min-height:235px}
+      .workflow{grid-template-columns:1fr}.step,.step+.step{padding:22px 0;border-left:0;border-bottom:1px solid var(--line)}
+      .step-number{margin-bottom:18px}.step:last-child{border-bottom:0}
+      .download-section{padding:78px 0}.download-head{display:block}.download-head p{margin-top:18px}
+      .download-main{grid-template-columns:1fr}.download-recommend{display:block}.download-recommend .button{width:100%;margin-top:20px}
+      .download-platforms{grid-template-columns:1fr}
+      .platform-link{min-height:86px;flex-direction:row;align-items:center}
+      .platform-link--mac{align-items:flex-start}.platform-actions{align-items:flex-end}
+      .closing{padding:65px 0 25px}.closing-row{display:block;padding-bottom:45px}.closing .button{margin-top:28px;width:100%}
+      .footer-row{align-items:flex-start;flex-direction:column}
+    }
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important;animation:none!important}}
+  
+    /* Cinematic preview layer */
+    :root{--acid:#d9ff62;--glow:rgba(205,255,74,.28)}
+    body{overflow-x:hidden}
+    .topbar{backdrop-filter:blur(18px);background:rgba(243,242,236,.78);box-shadow:0 1px 0 rgba(23,25,22,.06)}
+    .hero{position:relative;isolation:isolate;overflow:hidden;background:radial-gradient(ellipse at 75% 40%,rgba(216,255,92,.20),transparent 38%),radial-gradient(ellipse at 10% 10%,rgba(255,255,255,.9),transparent 42%),var(--bg)}
+    .hero:before{content:"";position:absolute;z-index:-1;width:720px;height:720px;border:1px solid rgba(23,25,22,.08);border-radius:50%;right:-220px;top:-210px;box-shadow:0 0 0 55px rgba(23,25,22,.018),0 0 0 110px rgba(23,25,22,.014),0 0 0 165px rgba(23,25,22,.01);animation:orbit-drift 24s linear infinite}
+    .hero:after{content:"";position:absolute;z-index:-1;inset:auto 0 0;height:1px;background:linear-gradient(90deg,transparent,rgba(23,25,22,.2),transparent)}
+    .hero-copy{position:relative;z-index:2}
+    h1{letter-spacing:-.085em;line-height:.91;font-size:clamp(64px,8.2vw,116px);max-width:780px}
+    h1 .accent{position:relative;display:inline-block;color:#657d19;text-shadow:0 8px 34px rgba(157,194,47,.18)}
+    h1 .accent:after{content:"";position:absolute;left:0;right:0;bottom:-.08em;height:.11em;background:var(--accent);z-index:-1;transform:skewX(-12deg);border-radius:99px;filter:drop-shadow(0 4px 15px rgba(180,220,65,.42))}
+    .hero-art{position:relative;transform:perspective(1400px) rotateY(-7deg) rotateX(3deg);transform-origin:center;transition:transform .7s cubic-bezier(.2,.8,.2,1);filter:drop-shadow(0 38px 50px rgba(20,26,15,.16))}
+    .hero-art:hover{transform:perspective(1400px) rotateY(-2deg) rotateX(0) translateY(-8px)}
+    .desktop-window{border:1px solid rgba(255,255,255,.75);box-shadow:0 28px 90px rgba(25,31,18,.18),0 0 0 1px rgba(23,25,22,.08);background:rgba(255,255,255,.84);backdrop-filter:blur(24px);animation:window-float 7s ease-in-out infinite}
+    .window-bar{background:linear-gradient(110deg,#252c25,#151a16);color:#e9f1dc}
+    .window-status{color:#d9ff62}
+    .screen-context{background:linear-gradient(130deg,#f5f8e9,#e8eddb);border:1px solid rgba(120,150,49,.18);box-shadow:inset 0 1px rgba(255,255,255,.9)}
+    .message--ai{border:1px solid rgba(140,170,62,.22);box-shadow:0 8px 25px rgba(25,35,10,.05)}
+    .message--ai:after{content:"";display:inline-block;width:5px;height:5px;margin-left:5px;border-radius:50%;background:#91b92a;box-shadow:0 0 0 4px rgba(145,185,42,.13);vertical-align:middle}
+    .hero-actions .button{box-shadow:0 8px 24px rgba(30,40,10,.09);transition:transform .25s,box-shadow .25s,background .25s}
+    .hero-actions .button:hover,.nav-cta:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(30,40,10,.15)}
+    .button--lime{background:linear-gradient(115deg,#e3ff79,#c9ef43);box-shadow:0 10px 35px rgba(183,220,66,.22)}
+    .ticker{background:#1a211a;color:#f5f6ee;position:relative;overflow:hidden}
+    .ticker:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,#1a211a,transparent 12%,transparent 88%,#1a211a)}
+    .ticker-inner{animation:ticker-breathe 5s ease-in-out infinite}
+    .feature{position:relative;overflow:hidden;background:linear-gradient(145deg,rgba(255,255,255,.75),rgba(255,255,255,.28));box-shadow:0 12px 35px rgba(26,30,20,.035);transition:transform .35s,box-shadow .35s,border-color .35s}
+    .feature:before{content:"";position:absolute;width:190px;height:190px;right:-100px;top:-100px;border-radius:50%;background:radial-gradient(circle,var(--glow),transparent 68%);opacity:0;transition:opacity .4s}
+    .feature:hover{transform:translateY(-9px);box-shadow:0 25px 55px rgba(26,30,20,.10);border-color:rgba(133,166,40,.4)}
+    .feature:hover:before{opacity:1}
+    .feature-symbol{color:#738d22;text-shadow:0 0 22px rgba(174,213,63,.45)}
+    .download-section{position:relative;overflow:hidden;background:radial-gradient(ellipse at 88% 12%,rgba(211,255,89,.13),transparent 36%),linear-gradient(135deg,#171d18,#202920 65%,#111611)}
+    .download-section:before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.13;background-image:linear-gradient(rgba(255,255,255,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.08) 1px,transparent 1px);background-size:54px 54px;mask-image:linear-gradient(90deg,transparent,#000)}
+    .download-section .wrap{position:relative}
+    .download-recommend{background:linear-gradient(115deg,rgba(255,255,255,.10),rgba(255,255,255,.035));border:1px solid rgba(255,255,255,.17);box-shadow:0 22px 70px rgba(0,0,0,.2);backdrop-filter:blur(16px)}
+    .platform-link{transition:background .25s,transform .25s,border-color .25s}
+    .platform-link:hover{transform:translateY(-4px);background:rgba(255,255,255,.09);border-color:rgba(218,255,98,.45)}
+    .section{content-visibility:auto;contain-intrinsic-size:700px}
+    .reveal{opacity:0;transform:translateY(28px);transition:opacity .8s ease,transform .8s cubic-bezier(.2,.75,.25,1)}
+    .reveal.is-visible{opacity:1;transform:translateY(0)}
+    .hero-copy>*{animation:hero-enter .8s both}
+    .hero-copy>*:nth-child(2){animation-delay:.08s}.hero-copy>*:nth-child(3){animation-delay:.16s}.hero-copy>*:nth-child(4){animation-delay:.24s}.hero-copy>*:nth-child(5){animation-delay:.32s}
+    @keyframes hero-enter{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes window-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+    @keyframes orbit-drift{to{transform:rotate(360deg)}}
+    @keyframes ticker-breathe{0%,100%{letter-spacing:normal}50%{letter-spacing:.015em}}
+    @media(max-width:1000px){.hero-art{transform:none}.hero-art:hover{transform:translateY(-4px)}h1{font-size:clamp(58px,10vw,94px)}}
+    @media(max-width:700px){h1{font-size:clamp(54px,14vw,78px)}.hero:before{width:420px;height:420px;right:-250px;top:-140px}.hero-art{filter:drop-shadow(0 18px 24px rgba(20,26,15,.12))}.desktop-window{animation:none}}
+    @media(prefers-reduced-motion:reduce){.hero:before,.desktop-window,.ticker-inner,.hero-copy>*{animation:none!important}.reveal{opacity:1;transform:none;transition:none}}
+
+  
+    /* High-impact cinematic pass: intentionally bold, not just subtle polish */
+    .hero{min-height:790px;padding:158px 0 112px;background:
+      radial-gradient(ellipse 42% 48% at 77% 43%,rgba(211,255,74,.34),transparent 72%),
+      radial-gradient(ellipse 38% 50% at 92% 75%,rgba(144,182,44,.18),transparent 70%),
+      linear-gradient(135deg,#f8f8f0 0%,#f0f1e7 48%,#e9edda 100%)}
+    .hero:before{width:900px;height:900px;right:-260px;top:-245px;border:1px solid rgba(105,133,36,.19);
+      box-shadow:0 0 0 42px rgba(105,133,36,.045),0 0 0 100px rgba(105,133,36,.035),0 0 0 170px rgba(105,133,36,.025),0 0 100px rgba(197,239,75,.18)}
+    .hero-grid{align-items:center;gap:clamp(38px,6vw,96px)}
+    .hero-copy{max-width:650px}
+    .eyebrow{letter-spacing:.19em}
+    h1{font-size:clamp(70px,9.2vw,132px);max-width:720px;letter-spacing:-.095em;line-height:.86}
+    h1 .accent{color:#536d12;text-shadow:0 12px 44px rgba(157,194,47,.25)}
+    h1 .accent:after{height:.14em;bottom:-.1em;box-shadow:0 5px 22px rgba(180,220,65,.55)}
+    .hero-lead{font-size:clamp(17px,1.45vw,20px);line-height:1.7;max-width:520px}
+    .hero-art{z-index:1;transform:perspective(1500px) rotateY(-12deg) rotateX(5deg) scale(1.04);filter:drop-shadow(0 48px 60px rgba(26,34,14,.22))}
+    .hero-art:hover{transform:perspective(1500px) rotateY(-4deg) rotateX(1deg) translateY(-12px) scale(1.055)}
+    .desktop-window{position:relative;border-radius:19px;overflow:hidden;border:1px solid rgba(255,255,255,.95);
+      box-shadow:0 40px 110px rgba(25,31,18,.25),0 0 0 1px rgba(23,25,22,.1),0 0 70px rgba(199,241,69,.2);
+      background:rgba(255,255,255,.91)}
+    .window-bar{height:54px}
+    .app-body{min-height:340px}
+    .screen-context{border-radius:12px}
+    .message{border-radius:12px}
+    .float-chip{position:absolute;z-index:4;padding:13px 17px;border-radius:12px;background:rgba(23,29,21,.92);color:#f6f8ed;
+      border:1px solid rgba(255,255,255,.22);box-shadow:0 18px 42px rgba(19,26,12,.2);backdrop-filter:blur(18px);
+      font:600 10px var(--mono);letter-spacing:.1em;white-space:nowrap;animation:chip-float 5.5s ease-in-out infinite}
+    .chip-context{top:21%;right:-8%;color:#e9ffc0}
+    .chip-voice{bottom:18%;left:-10%;animation-delay:-1.7s}
+    .chip-followup{bottom:-7%;right:5%;background:linear-gradient(110deg,#dfff76,#bfe94c);color:#1b2410;border-color:rgba(255,255,255,.8);animation-delay:-3.1s}
+    .chip-pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:#cfff54;margin-right:8px;box-shadow:0 0 0 5px rgba(207,255,84,.16),0 0 18px #cfff54}
+    .chip-wave{color:#dfff76;font-size:14px;letter-spacing:.15em;margin-right:7px}
+    .art-label{font-size:10px;letter-spacing:.15em}
+    .ticker{padding:23px 0;background:#161d15}
+    .ticker-inner{font-size:13px;letter-spacing:.14em}
+    .feature{border-radius:16px;padding:34px;background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(246,248,235,.68));box-shadow:0 18px 50px rgba(25,31,18,.07)}
+    .feature:hover{transform:translateY(-12px) scale(1.012);box-shadow:0 30px 75px rgba(25,31,18,.13)}
+    .feature-symbol{width:58px;height:58px;display:grid;place-items:center;border-radius:16px;background:linear-gradient(145deg,#f0facd,#d9f38b);box-shadow:inset 0 1px white,0 8px 24px rgba(156,192,50,.17)}
+    .download-section{background:radial-gradient(ellipse 48% 65% at 88% 18%,rgba(203,255,78,.22),transparent 72%),radial-gradient(ellipse at 8% 100%,rgba(105,145,42,.18),transparent 50%),linear-gradient(135deg,#101710,#202b20 60%,#101610)}
+    .download-recommend{border-radius:20px;background:linear-gradient(120deg,rgba(255,255,255,.14),rgba(255,255,255,.045));border:1px solid rgba(226,255,170,.3);box-shadow:0 28px 90px rgba(0,0,0,.34)}
+    .platform-link{border-radius:12px}
+    @keyframes chip-float{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-12px) rotate(-1deg)}}
+    @media(max-width:1000px){.hero{min-height:unset;padding:140px 0 90px}.hero-grid{gap:60px}.hero-art{transform:none}.hero-art:hover{transform:translateY(-5px)}.chip-context{right:-2%}.chip-voice{left:-2%}}
+    @media(max-width:700px){.hero{padding:125px 0 70px}h1{font-size:clamp(58px,15vw,88px)}.hero-art{transform:none}.float-chip{font-size:8px;padding:10px 11px}.chip-context{right:-2%;top:16%}.chip-voice{left:-2%;bottom:14%}.chip-followup{bottom:-10%}}
+    @media(prefers-reduced-motion:reduce){.float-chip{animation:none!important}}
+
+  </style>
+
+  <!-- Vercel Web Analytics -->
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body id="top">
+  <header class="topbar">
+    <div class="wrap nav">
+      <a class="brand" href="#top" aria-label="Slickly home"><span class="brand-mark" aria-hidden="true"></span>Slickly</a>
+      <nav class="navlinks" id="site-nav" aria-label="Main navigation">
+        <a href="#product">Product</a><a href="#workflow">How it works</a><a href="#download">Download</a><a href="#faq">FAQ</a>
+      </nav>
+      <a class="nav-cta" href="#download">Get Slickly <span class="arrow">↗</span></a>
+      <button class="menu-toggle" id="menu-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="site-nav">☰</button>
+    </div>
+  </header>
+  <div class="page-offset" aria-hidden="true"></div>
+
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">A desktop AI assistant · Windows, macOS, Linux</p>
+          <h1 id="hero-title">AI that sees what <span class="accent">you see.</span></h1>
+          <p class="hero-lead">Slickly brings screen context, voice and chat into one desktop assistant — so you can ask a follow-up without starting from zero.</p>
+          <div class="hero-actions">
+            <a class="button button--lime" id="hero-download" href="#download">Get the desktop app <span class="arrow">↗</span></a>
+            <a class="button button--light" href="#product">See how it works <span class="arrow">↓</span></a>
+          </div>
+          <p class="release-line" id="hero-release"><span class="dot"></span>Checking the latest release…</p>
+        </div>
+        <div class="hero-art" aria-label="Illustration of the Slickly desktop assistant">
+          <div class="art-label"><span>01 / The workspace</span><span>Screen + conversation</span></div>
+          <div class="float-chip chip-context"><span class="chip-pulse"></span> SCREEN CONTEXT ACTIVE</div>
+          <div class="float-chip chip-voice"><span class="chip-wave">▂ ▅ ▃ ▇</span> VOICE READY</div>
+          <div class="float-chip chip-followup">✳ FOLLOW-UP UNDERSTOOD</div>
+          <div class="desktop-window">
+            <div class="window-bar"><span class="window-dots"><i></i><i></i><i></i></span><span class="window-title">Slickly · Assistant</span><span class="window-status">Ready</span></div>
+            <div class="app-body">
+              <aside class="app-rail" aria-hidden="true"><span class="rail-icon active">✳</span><span class="rail-icon">▣</span><span class="rail-icon">◉</span><span class="rail-icon">⌘</span></aside>
+              <div class="app-content">
+                <div class="app-topline"><strong>Let's work through it.</strong><span>SCREEN CONTEXT · ON</span></div>
+                <div class="screen-context">
+                  <div><div class="context-kicker">CURRENT SCREEN</div><div class="context-title">Problem statement</div><div class="context-copy">A function receives an array and a target value. Find the pair that adds up to the target.</div></div>
+                  <div class="context-thumb"><span>INPUT / OUTPUT</span><span class="thumb-lines"><i></i><i></i><i></i></span><span>array · target</span></div>
+                </div>
+                <div class="message message--user">Can you explain the approach before showing code?</div>
+                <div class="message message--ai"><span class="message-tag">Slickly response</span>Start with a hash map. As you scan the array, check whether the complement has already appeared. This keeps the lookup efficient and the explanation tied to the question on screen.</div>
+                <div class="composer"><span>Ask a follow-up about this screen…</span><span class="send">↑</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="art-caption"><span>One conversation, shared context</span><span>BUILT FOR DESKTOP</span></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="ticker" aria-label="Product capabilities">
+      <div class="wrap ticker-inner"><b>Screen-aware chat</b><span class="asterisk">✳</span><b>Natural voice input</b><span class="asterisk">✳</span><b>Contextual follow-ups</b><span class="asterisk">✳</span><b>One desktop workspace</b></div>
+    </div>
+
+    <section class="section" id="product">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="section-index">02 / Product</p>
+          <div><h2>Stay with the problem. Not the setup.</h2><p class="section-intro">Move between what is on your screen and what you want to ask. Slickly keeps the interaction in one place.</p></div>
+        </div>
+        <div class="feature-grid">
+          <article class="feature"><div><span class="feature-no">01 — SCREEN CONTEXT</span><div class="feature-symbol" aria-hidden="true">▣</div><h3>Ask about what’s visible</h3><p>Capture the screen and ask about a question, diagram, page or piece of work in front of you.</p></div><span class="feature-no">SCREEN → CONTEXT</span></article>
+          <article class="feature"><div><span class="feature-no">02 — VOICE</span><div class="feature-symbol" aria-hidden="true">〰</div><h3>Speak naturally</h3><p>Use voice input when typing interrupts your flow. Review and continue the conversation in chat.</p></div><span class="feature-no">VOICE → TEXT</span></article>
+          <article class="feature"><div><span class="feature-no">03 — FOLLOW-UPS</span><div class="feature-symbol" aria-hidden="true">↗</div><h3>Keep the context</h3><p>Ask the next question about the screen you shared instead of repeating the entire prompt.</p></div><span class="feature-no">CONTEXT → CLARITY</span></article>
+        </div>
+      </div>
+    </section>
+
+
+    <section class="demo-section" id="try-it">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="section-index">03 / Try Slickly</p>
+          <div><h2>Don't just read about it. Try the interaction.</h2><p class="section-intro">Explore three small, hands-on demonstrations of how Slickly fits into a desktop workflow.</p></div>
+        </div>
+        <div class="demo-shell">
+          <div class="demo-tabs" role="tablist" aria-label="Interactive Slickly demonstrations">
+            <button class="demo-tab" id="tab-screen" role="tab" aria-selected="true" aria-controls="demo-screen-panel">01 / SCREEN AI</button>
+            <button class="demo-tab" id="tab-overlay" role="tab" aria-selected="false" aria-controls="demo-overlay-panel">02 / MOVABLE OVERLAY</button>
+            <button class="demo-tab" id="tab-audio" role="tab" aria-selected="false" aria-controls="demo-audio-panel">03 / LIVE AUDIO</button>
+          </div>
+          <div class="demo-panel active" id="demo-screen-panel" role="tabpanel" aria-labelledby="tab-screen">
+            <div class="demo-copy"><div class="demo-kicker">SCREEN CONTEXT → FOLLOW-UP</div><h3>Ask the next question. Keep the context.</h3><p>Try a follow-up about the sample screen. The demo keeps the page context in view and changes its response based on your question.</p><div class="demo-controls"><button class="demo-btn primary" id="screen-example">Try example question</button><button class="demo-btn" id="screen-reset">Reset demo</button></div></div>
+            <div class="demo-stage"><div class="demo-stage-label">SAMPLE SCREEN · PROJECT BRIEF</div><div class="demo-screen"><small>PRODUCT BRIEF / 01</small><h4>Reduce friction in team handoffs</h4><p>Teams lose time when decisions, owners and next steps are scattered across tools. A shared context layer could keep work moving.</p></div><div class="demo-answer" id="screen-answer" aria-live="polite"><b>SLICKLY:</b> I've got the sample brief in context. Ask what you'd like to understand or improve.</div><form class="demo-input-row" id="screen-form"><label class="sr-only" for="screen-question">Ask a follow-up about the sample screen</label><input class="demo-input" id="screen-question" placeholder="e.g. What problem is this solving?" autocomplete="off"><button class="demo-btn primary" type="submit">Ask ↗</button></form></div>
+          </div>
+          <div class="demo-panel" id="demo-overlay-panel" role="tabpanel" aria-labelledby="tab-overlay">
+            <div class="demo-copy"><div class="demo-kicker">YOUR DESKTOP · YOUR POSITION</div><h3>Put the assistant where it works for you.</h3><p>Drag the floating Slickly panel around the sample desktop. Use the controls to switch between compact and expanded views.</p><div class="demo-controls"><button class="demo-btn primary" id="overlay-toggle">Compact overlay</button><button class="demo-btn" id="overlay-center">Reset position</button></div></div>
+            <div class="demo-stage"><div class="demo-stage-label">INTERACTIVE DESKTOP MOCKUP · DRAG THE PANEL</div><div class="overlay-stage" id="overlay-stage"><div class="overlay-desktop"><strong>Project workspace</strong><p>Notes, browser content and your work stay on your desktop. Move the assistant to a convenient spot.</p></div><div class="floating-assistant" id="floating-assistant" role="group" aria-label="Movable Slickly demo panel"><div class="float-head"><span>✳ SLICKLY</span><span>READY</span></div><div class="float-body" id="overlay-body">Screen context is ready.<br><b>Ask a follow-up →</b></div></div><div class="overlay-hint">DRAG THE SLICKLY WINDOW</div></div></div>
+          </div>
+          <div class="demo-panel" id="demo-audio-panel" role="tabpanel" aria-labelledby="tab-audio">
+            <div class="demo-copy"><div class="demo-kicker">VOICE → TRANSCRIPT → CONTEXT</div><h3>See how a voice session flows.</h3><p>Start the sample session to animate the waveform and reveal a sample transcript. This is a website preview, not a microphone recording.</p><div class="demo-controls"><button class="demo-btn primary" id="audio-toggle">Start sample session</button><button class="demo-btn" id="audio-reset">Reset</button></div></div>
+            <div class="demo-stage audio-stage"><div class="audio-orb" id="audio-orb" aria-hidden="true">⌁</div><div class="demo-stage-label" id="audio-status">VOICE SESSION · STANDBY</div><div class="waveform" id="audio-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="audio-transcript" id="audio-transcript" aria-live="polite">Your sample transcript will appear here when you start the session.</div></div>
+          </div>
+        </div>
+        <p class="demo-disclaimer">INTERACTIVE WEBSITE PREVIEW · SAMPLE CONTENT ONLY · NO SCREEN CAPTURE OR MICROPHONE ACCESS</p>
+      </div>
+    </section>
+
+    <section class="section" id="workflow">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="section-index">03 / Workflow</p>
+          <div><h2>From screen to a useful answer.</h2><p class="section-intro">A simple flow for learning, exploring ideas and working through unfamiliar material.</p></div>
+        </div>
+        <div class="workflow">
+          <article class="step"><div class="step-number">STEP 01 / CAPTURE</div><h3>Share the context</h3><p>Point Slickly at the part of your screen you want help understanding, or start with a typed question.</p></article>
+          <article class="step"><div class="step-number">STEP 02 / ASK</div><h3>Choose how to ask</h3><p>Type a prompt or use voice. Add detail naturally as the conversation develops.</p></article>
+          <article class="step"><div class="step-number">STEP 03 / CONTINUE</div><h3>Build on the answer</h3><p>Ask a follow-up about the same screen context and keep moving through the task.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="download-section" id="download">
+      <div class="wrap">
+        <div class="download-head">
+          <div><p class="eyebrow">04 / Get started</p><h2>Bring Slickly to your desktop.</h2></div>
+          <p>Choose your operating system. Downloads come directly from the published Slickly release through this website.</p>
+        </div>
+        <div class="download-main">
+          <div class="download-recommend">
+            <div><p class="os-label" id="recommend-label">YOUR DESKTOP</p><h3 id="recommend-title">Find your download</h3><p id="recommend-detail">Checking the latest published release and available installers.</p></div>
+            <a class="button button--lime" id="recommended-download" href="#download">Checking release… <span class="arrow">↗</span></a>
+          </div>
+          <div class="download-platforms">
+            <a class="platform-link" id="windows-download" href="#download"><span class="platform-name">Windows</span><span class="platform-action">CHECKING · EXE ↗</span></a>
+            <div class="platform-link platform-link--mac"><span class="platform-name">macOS</span><div class="platform-actions"><a class="platform-action" id="mac-arm-download" href="#download">Apple silicon · checking ↗</a><a class="platform-action" id="mac-intel-download" href="#download">Intel · checking ↗</a></div></div>
+            <a class="platform-link" id="linux-download" href="#download"><span class="platform-name">Linux</span><span class="platform-action">CHECKING · APPIMAGE ↗</span></a>
+          </div>
+        </div>
+        <p class="download-status" id="release-status" role="status" aria-live="polite">Checking GitHub for the latest published release…</p>
+        <p class="trust-note">Slickly can use its hosted AI service without requiring you to add a Gemini API key. You may also configure your own key. When you submit text, screen frames or audio, that content is sent to the Slickly service and Google Gemini over HTTPS. Do not submit passwords or other sensitive information. Follow the rules that apply to your school, assessment, interview or workplace.</p>
+      </div>
+    </section>
+
+    <section class="section" id="faq">
+      <div class="wrap faq-layout">
+        <div><p class="section-index">05 / Questions</p><h2>Before you install.</h2></div>
+        <div class="faq-list">
+          <details><summary>Which operating systems are supported?</summary><p>Slickly publishes desktop builds for Windows, macOS and Linux. The download section lists the installers available in the latest release.</p></details>
+          <details><summary>Do I need to provide an API key?</summary><p>No key is required to try the hosted AI service. You can optionally configure your own Gemini API key in the app. Hosted service availability and usage limits apply.</p></details>
+          <details><summary>Can I ask follow-up questions about a screen?</summary><p>Yes. Screen context is intended to carry into follow-up questions, so you can ask for an explanation or a next step without restating everything visible.</p></details>
+          <details><summary>What happens to the content I submit?</summary><p>Text, screen frames and audio you choose to submit are sent to the Slickly service and Google Gemini over HTTPS when using hosted AI. Avoid sending passwords, private keys or other sensitive information.</p></details>
+          <details><summary>Where can I inspect the source?</summary><p>Slickly is open source. The repository, issue tracker and release history are available on GitHub.</p></details>
+        </div>
+      </div>
+    </section>
+
+    <footer class="closing">
+      <div class="wrap">
+        <div class="closing-row"><h2>Keep the context.<br>Keep moving.</h2><a class="button" href="#download">Get Slickly <span class="arrow">↗</span></a></div>
+        <div class="footer-row"><a class="brand" href="#top"><span class="brand-mark" aria-hidden="true"></span>Slickly</a><div class="footer-links"><a href="https://github.com/DangerZone8/OpenCluely1">GitHub</a><a href="https://github.com/DangerZone8/OpenCluely1/releases">Releases</a><a href="https://github.com/DangerZone8/OpenCluely1/blob/main/LICENSE">Apache 2.0</a><a href="https://github.com/DangerZone8/OpenCluely1/issues">Support</a></div><span>© <span id="year"></span> Slickly</span></div>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      "use strict";
+      var API = "https://api.github.com/repos/DangerZone8/OpenCluely1/releases/latest";
+      var fallback = "https://github.com/DangerZone8/OpenCluely1/releases/latest";
+      var byId = function (id) { return document.getElementById(id); };
+      var links = {
+        windows: byId("windows-download"),
+        linux: byId("linux-download")
+      };
+      var macArmLink = byId("mac-arm-download");
+      var macIntelLink = byId("mac-intel-download");
+      var recommended = byId("recommended-download");
+      var status = byId("release-status");
+      var version = byId("hero-release");
+      var heroDownload = byId("hero-download");
+      byId("year").textContent = new Date().getFullYear();
+
+      function downloadUrl(asset) { return "/api/updates/" + encodeURIComponent(asset.name); }
+      function setLink(link, asset, label, extension) {
+        var action = link.querySelector(".platform-action") || (link.classList.contains("platform-action") ? link : null);
+        if (!asset) {
+          link.href = fallback;
+          if (action) action.textContent = "VIEW RELEASE ↗";
+          else link.textContent = label + " unavailable";
+          return;
+        }
+        link.href = downloadUrl(asset);
+        if (action) action.textContent = "DOWNLOAD " + extension + " ↗";
+        else link.textContent = "Download " + asset.name;
+      }
+      function detectOS() {
+        var ua = navigator.userAgent || "";
+        if (/Windows/i.test(ua)) return "windows";
+        if (/Macintosh|Mac OS X/i.test(ua)) return "mac";
+        if (/Linux|X11/i.test(ua)) return "linux";
+        return "other";
+      }
+      function findAsset(assets, patterns) {
+        for (var i = 0; i < patterns.length; i++) {
+          var found = assets.find(function (asset) { return patterns[i].test(asset.name); });
+          if (found) return found;
+        }
+        return null;
+      }
+      function showFailure() {
+        status.textContent = "The latest release could not be loaded. You can still inspect all published builds on GitHub.";
+        version.textContent = "Release lookup unavailable";
+        recommended.href = fallback;
+        recommended.textContent = "View releases ↗";
+        heroDownload.href = fallback;
+        heroDownload.textContent = "View releases ↗";
+        Object.keys(links).forEach(function (key) { setLink(links[key], null, key, ""); });
+      }
+      fetch(API, { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" })
+        .then(function (response) {
+          if (!response.ok) throw new Error("Release lookup failed: " + response.status);
+          return response.json();
+        })
+        .then(function (release) {
+          var assets = Array.isArray(release.assets) ? release.assets : [];
+          var windows = findAsset(assets, [/^Slickly-AI-Setup-.*\.exe$/i, /\.exe$/i]);
+          var macArm = findAsset(assets, [/arm64.*\.dmg$/i, /arm64.*\.zip$/i]);
+          var macIntel = findAsset(assets, [/^Slickly\.AI-.*\.dmg$/i, /^(?!.*arm64).*\.zip$/i]);
+          var linux = findAsset(assets, [/\.AppImage$/i, /_amd64\.deb$/i, /\.deb$/i]);
+          setLink(links.windows, windows, "Windows", "EXE");
+          setLink(macArmLink, macArm, "macOS", "APPLE SILICON DMG");
+          setLink(macIntelLink, macIntel, "macOS", "INTEL DMG");
+          setLink(links.linux, linux, "Linux", linux && /\.deb$/i.test(linux.name) ? "DEB" : "APPIMAGE");
+          var os = detectOS();
+          var selected = os === "windows" ? windows : os === "mac" ? (macIntel || macArm) : os === "linux" ? linux : null;
+          if (selected) {
+            recommended.href = downloadUrl(selected);
+            recommended.textContent = "Download for " + (os === "mac" ? "macOS" : os.charAt(0).toUpperCase() + os.slice(1)) + " ↗";
+            heroDownload.href = downloadUrl(selected);
+            heroDownload.innerHTML = "Download for " + (os === "mac" ? "macOS" : os.charAt(0).toUpperCase() + os.slice(1)) + ' <span class="arrow">↗</span>';
+            byId("recommend-label").textContent = "READY FOR YOUR DESKTOP";
+            byId("recommend-title").textContent = release.tag_name || "Latest release";
+            byId("recommend-detail").textContent = selected.name;
+          } else {
+            recommended.href = release.html_url || fallback;
+            recommended.textContent = "Choose a release ↗";
+            heroDownload.href = "#download";
+            heroDownload.innerHTML = 'Choose your platform <span class="arrow">↓</span>';
+            byId("recommend-label").textContent = "LATEST RELEASE";
+            byId("recommend-title").textContent = release.tag_name || "Slickly";
+            byId("recommend-detail").textContent = "Select your operating system to find its installer.";
+          }
+          version.innerHTML = '<span class="dot"></span>' + (release.tag_name || "Latest release") + " · desktop builds";
+          status.textContent = (release.tag_name || "Latest release") + " · " + assets.length + " published release assets. Downloads are served through the Slickly website.";
+        })
+        .catch(showFailure);
+
+
+      // Interactive website-only product demonstrations (sample data; no device capture).
+      var demoTabs = Array.prototype.slice.call(document.querySelectorAll(".demo-tab"));
+      var demoPanels = Array.prototype.slice.call(document.querySelectorAll(".demo-panel"));
+      demoTabs.forEach(function (tab) {
+        tab.addEventListener("click", function () {
+          demoTabs.forEach(function (item) { item.setAttribute("aria-selected", String(item === tab)); });
+          demoPanels.forEach(function (panel) { panel.classList.toggle("active", panel.id === tab.getAttribute("aria-controls")); });
+        });
+      });
+      var screenForm = byId("screen-form");
+      var screenAnswer = byId("screen-answer");
+      function answerSample(question) {
+        var q = question.toLowerCase();
+        var answer = q.includes("problem") ? "The brief is about fragmented handoffs: decisions, owners and next steps are spread across tools. The proposed opportunity is a shared context layer." :
+          q.includes("improve") || q.includes("solution") ? "Make the value concrete: show one handoff before and after, identify who owns the next step, and measure time saved or missed actions." :
+          q.includes("audience") || q.includes("who") ? "The likely audience is teams coordinating work across multiple tools. The brief should narrow this to a specific team type and workflow." :
+          "Based on the sample brief, focus on the handoff problem: scattered decisions, unclear ownership and missing next steps. A useful next step is to define one measurable workflow.";
+        screenAnswer.innerHTML = "<b>SLICKLY · SAMPLE RESPONSE:</b> " + answer;
+      }
+      screenForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        var question = byId("screen-question").value.trim();
+        if (!question) { screenAnswer.innerHTML = "<b>SLICKLY:</b> Type a question about the sample brief first."; return; }
+        answerSample(question);
+      });
+      byId("screen-example").addEventListener("click", function () {
+        byId("screen-question").value = "What problem is this solving?";
+        answerSample(byId("screen-question").value);
+      });
+      byId("screen-reset").addEventListener("click", function () {
+        byId("screen-question").value = "";
+        screenAnswer.innerHTML = "<b>SLICKLY:</b> I've got the sample brief in context. Ask what you'd like to understand or improve.";
+      });
+      var overlayStage = byId("overlay-stage"), floating = byId("floating-assistant"), dragging = false, dragOffset = {x:0,y:0};
+      floating.addEventListener("pointerdown", function (event) {
+        if (event.target.closest("button")) return;
+        dragging = true; floating.classList.add("dragging"); floating.setPointerCapture(event.pointerId);
+        var rect = floating.getBoundingClientRect(); var stageRect = overlayStage.getBoundingClientRect();
+        dragOffset.x = event.clientX - rect.left; dragOffset.y = event.clientY - rect.top;
+      });
+      floating.addEventListener("pointermove", function (event) {
+        if (!dragging) return;
+        var bounds = overlayStage.getBoundingClientRect();
+        var x = Math.max(0, Math.min(bounds.width - floating.offsetWidth, event.clientX - bounds.left - dragOffset.x));
+        var y = Math.max(0, Math.min(bounds.height - floating.offsetHeight, event.clientY - bounds.top - dragOffset.y));
+        floating.style.left = x + "px"; floating.style.top = y + "px";
+      });
+      function stopDrag() { dragging = false; floating.classList.remove("dragging"); }
+      floating.addEventListener("pointerup", stopDrag); floating.addEventListener("pointercancel", stopDrag);
+      byId("overlay-toggle").addEventListener("click", function () {
+        var compact = floating.classList.toggle("compact");
+        floating.style.width = compact ? "142px" : "180px";
+        byId("overlay-body").style.display = compact ? "none" : "block";
+        this.textContent = compact ? "Expand overlay" : "Compact overlay";
+      });
+      byId("overlay-center").addEventListener("click", function () {
+        floating.style.left = "48%"; floating.style.top = "43%";
+      });
+      var audioActive = false;
+      function setAudio(active) {
+        audioActive = active;
+        byId("audio-orb").classList.toggle("recording", active);
+        byId("audio-wave").classList.toggle("live", active);
+        byId("audio-status").textContent = active ? "SAMPLE SESSION · PROCESSING VOICE" : "VOICE SESSION · STANDBY";
+        byId("audio-toggle").textContent = active ? "Stop sample session" : "Start sample session";
+        byId("audio-transcript").textContent = active ? "“Let's make the handoff clearer. The key decisions are who owns the next step, what needs to happen, and when it's due.”" : "Your sample transcript will appear here when you start the session.";
+      }
+      byId("audio-toggle").addEventListener("click", function () { setAudio(!audioActive); });
+      byId("audio-reset").addEventListener("click", function () { setAudio(false); });
+
+      var toggle = byId("menu-toggle");
+      var nav = byId("site-nav");
+      toggle.addEventListener("click", function () {
+        var open = nav.classList.toggle("open");
+        toggle.setAttribute("aria-expanded", String(open));
+        toggle.setAttribute("aria-label", open ? "Close navigation" : "Open navigation");
+        toggle.textContent = open ? "×" : "☰";
+      });
+
+      if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches && "IntersectionObserver" in window) {
+        var revealTargets = document.querySelectorAll(".section-head,.feature,.step,.faq-list details,.download-recommend,.platform-link");
+        revealTargets.forEach(function (element) { element.classList.add("reveal"); });
+        var revealObserver = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("is-visible");
+              revealObserver.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.12, rootMargin: "0px 0px -35px 0px" });
+        revealTargets.forEach(function (element) { revealObserver.observe(element); });
+      }
+      nav.addEventListener("click", function (event) {
+        if (event.target.closest("a")) {
+          nav.classList.remove("open");
+          toggle.setAttribute("aria-expanded", "false");
+          toggle.setAttribute("aria-label", "Open navigation");
+          toggle.textContent = "☰";
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
