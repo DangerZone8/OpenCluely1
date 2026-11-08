@@ -24,6 +24,31 @@ Native Expo / React Native app for Android and iOS.
 - iOS ReplayKit requires an Apple Developer team, provisioning profiles, and the App Group entitlement `group.ai.slickly.mobile`. Register that App Group for the app and extension bundle identifiers before creating signed device builds.
 - Android preview builds produce APKs through EAS. iOS distribution uses TestFlight/App Store or properly provisioned internal distribution; an IPA is not generally installable like an Android APK.
 
+## Signed iOS IPA builds (GitHub Actions)
+
+The mobile workflow can additionally produce a signed **Ad Hoc IPA** when all five repository Actions secrets below are configured. The unsigned simulator build remains available when signing secrets are absent; the workflow reports that the signed IPA step was skipped.
+
+Configure these under **GitHub → Settings → Secrets and variables → Actions → New repository secret**:
+
+- `IOS_CERTIFICATE_P12_BASE64`: Base64-encoded Apple Distribution `.p12` certificate (including its private key).
+- `IOS_CERTIFICATE_PASSWORD`: Password used to protect that `.p12` file.
+- `IOS_APP_PROVISIONING_PROFILE_BASE64`: Base64-encoded Ad Hoc provisioning profile for `ai.slickly.mobile`.
+- `IOS_EXTENSION_PROVISIONING_PROFILE_BASE64`: Base64-encoded Ad Hoc provisioning profile for `ai.slickly.mobile.SlicklyScreenBroadcast`.
+- `IOS_TEAM_ID`: The 10-character Apple Developer Team ID.
+
+Both profiles must:
+- Be Ad Hoc distribution profiles for the same Apple Developer team.
+- Match their respective bundle identifiers exactly.
+- Include the App Group entitlement `group.ai.slickly.mobile`.
+- Include the same Apple Distribution certificate used in the P12.
+- Include the UDIDs of every iPhone/iPad on which the Ad Hoc IPA should be installed.
+
+The workflow validates the team, explicit application identifier, and App Group entitlement before archiving. It then archives the Release iOS device app, exports an Ad Hoc IPA using the two profile names, verifies the app and ReplayKit extension code signatures, and uploads `slickly-ios-adhoc-ipa` as a workflow artifact.
+
+For a P12 file, create the Base64 value locally on macOS with `base64 -i distribution.p12 | tr -d '\\n'`. For each provisioning profile, use `base64 -i profile.mobileprovision | tr -d '\\n'`. Paste those outputs directly into the matching GitHub secret fields. **Do not commit certificates, private keys, provisioning profiles, or passwords to Git, and do not paste them into ChatGPT or issue comments.** Keep the P12 password in its own secret.
+
+An Ad Hoc IPA installs only on devices registered in the included provisioning profile. For wider beta distribution, use TestFlight/App Store Connect signing instead; this workflow is specifically configured for Ad Hoc device installation.
+
 ## Local development
 
 Requires Node.js 20+.
