@@ -167,6 +167,7 @@ jobs:
           fi
 
       - name: Install Apple distribution certificate and provisioning profiles
+        id: install-ios-signing
         if: matrix.platform == 'ios' && steps.ios-signing.outputs.available == 'true'
         shell: bash
         env:
@@ -184,7 +185,7 @@ jobs:
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security import <(printf '%s' "$IOS_CERTIFICATE_P12_BASE64" | base64 --decode) \
+          security import <(printf '%s' "$IOS_CERTIFICATE_P12_BASE64" | base64 -D) \
             -k "$KEYCHAIN_PATH" -P "$IOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychains -d user -s "$KEYCHAIN_PATH"
@@ -192,7 +193,7 @@ jobs:
           install_profile() {
             local encoded="$1" expected_bundle="$2" label="$3"
             local tmp="$RUNNER_TEMP/$label.mobileprovision"
-            printf '%s' "$encoded" | base64 --decode > "$tmp"
+            printf '%s' "$encoded" | base64 -D > "$tmp"
             local decoded="$RUNNER_TEMP/$label.plist"
             security cms -D -i "$tmp" > "$decoded"
             local uuid team app_id
@@ -203,15 +204,19 @@ jobs:
               echo "::error::$label provisioning profile belongs to a different Apple team."
               exit 1
             fi
-            case "$app_id" in
-              *."$expected_bundle"|*.*) ;;
-              *) echo "::error::$label profile does not match $expected_bundle (application identifier: $app_id)"; exit 1 ;;
-            esac
-            if ! /usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.security.application-groups:0' "$decoded" | grep -Fxq 'group.ai.slickly.mobile'; then
+            if [ "$app_id" != "$IOS_TEAM_ID.$expected_bundle" ]; then
+              echo "::error::$label profile does not match $expected_bundle (application identifier: $app_id)"
+              exit 1
+            fi
+            if ! /usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.security.application-groups' "$decoded" | grep -Fq 'group.ai.slickly.mobile'; then
               echo "::error::$label profile is missing App Group group.ai.slickly.mobile"
               exit 1
             fi
             cp "$tmp" "$HOME/Library/MobileDevice/Provisioning Profiles/$uuid.mobileprovision"
+            local profile_name
+            profile_name=$(/usr/libexec/PlistBuddy -c 'Print Name' "$decoded")
+            if [ "$label" = "slickly-app" ]; then echo "app_profile_name=$profile_name" >> "$GITHUB_OUTPUT"; fi
+            if [ "$label" = "slickly-broadcast-extension" ]; then echo "extension_profile_name=$profile_name" >> "$GITHUB_OUTPUT"; fi
             echo "$label profile installed: $uuid"
           }
           install_profile "$IOS_APP_PROVISIONING_PROFILE_BASE64" "ai.slickly.mobile" "slickly-app"
@@ -238,6 +243,8 @@ jobs:
         working-directory: mobile
         env:
           IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          APP_PROFILE_NAME: ${{ steps.install-ios-signing.outputs.app_profile_name }}
+          EXTENSION_PROFILE_NAME: ${{ steps.install-ios-signing.outputs.extension_profile_name }}
         run: |
           set -euo pipefail
           cat > ios/build/ExportOptions.plist <<PLIST
@@ -250,14 +257,14 @@ jobs:
             <key>teamID</key><string>$IOS_TEAM_ID</string>
             <key>provisioningProfiles</key>
             <dict>
-              <key>ai.slickly.mobile</key><string>$(/usr/libexec/PlistBuddy -c 'Print Name' "$HOME/Library/MobileDevice/Provisioning Profiles/$(security cms -D -i "$RUNNER_TEMP/slickly-app.mobileprovision" 2>/dev/null | /usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin).mobileprovision" 2>/dev/null || true)</string>
-              <key>ai.slickly.mobile.SlicklyScreenBroadcast</key><string>$(/usr/libexec/PlistBuddy -c 'Print Name' "$HOME/Library/MobileDevice/Provisioning Profiles/$(security cms -D -i "$RUNNER_TEMP/slickly-broadcast-extension.mobileprovision" 2>/dev/null | /usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin).mobileprovision" 2>/dev/null || true)</string>
+              <key>ai.slickly.mobile</key><string>$APP_PROFILE_NAME</string>
+              <key>ai.slickly.mobile.SlicklyScreenBroadcast</key><string>$EXTENSION_PROFILE_NAME</string>
             </dict>
-            <key>compileBitcode</key><false/>
             <key>destination</key><string>export</string>
           </dict>
           </plist>
           PLIST
+          plutil -lint ios/build/ExportOptions.plist
           xcodebuild -exportArchive \
             -archivePath ios/build/Slickly.xcarchive \
             -exportPath ios/build/ipa \
