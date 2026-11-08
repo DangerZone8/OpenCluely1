@@ -213,10 +213,8 @@ jobs:
               exit 1
             fi
             cp "$tmp" "$HOME/Library/MobileDevice/Provisioning Profiles/$uuid.mobileprovision"
-            local profile_name
-            profile_name=$(/usr/libexec/PlistBuddy -c 'Print Name' "$decoded")
-            if [ "$label" = "slickly-app" ]; then echo "app_profile_name=$profile_name" >> "$GITHUB_OUTPUT"; fi
-            if [ "$label" = "slickly-broadcast-extension" ]; then echo "extension_profile_name=$profile_name" >> "$GITHUB_OUTPUT"; fi
+            if [ "$label" = "slickly-app" ]; then echo "app_profile_uuid=$uuid" >> "$GITHUB_OUTPUT"; fi
+            if [ "$label" = "slickly-broadcast-extension" ]; then echo "extension_profile_uuid=$uuid" >> "$GITHUB_OUTPUT"; fi
             echo "$label profile installed: $uuid"
           }
           install_profile "$IOS_APP_PROVISIONING_PROFILE_BASE64" "ai.slickly.mobile" "slickly-app"
@@ -243,8 +241,8 @@ jobs:
         working-directory: mobile
         env:
           IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
-          APP_PROFILE_NAME: ${{ steps.install-ios-signing.outputs.app_profile_name }}
-          EXTENSION_PROFILE_NAME: ${{ steps.install-ios-signing.outputs.extension_profile_name }}
+          APP_PROFILE_UUID: ${{ steps.install-ios-signing.outputs.app_profile_uuid }}
+          EXTENSION_PROFILE_UUID: ${{ steps.install-ios-signing.outputs.extension_profile_uuid }}
         run: |
           set -euo pipefail
           cat > ios/build/ExportOptions.plist <<PLIST
@@ -257,8 +255,8 @@ jobs:
             <key>teamID</key><string>$IOS_TEAM_ID</string>
             <key>provisioningProfiles</key>
             <dict>
-              <key>ai.slickly.mobile</key><string>$APP_PROFILE_NAME</string>
-              <key>ai.slickly.mobile.SlicklyScreenBroadcast</key><string>$EXTENSION_PROFILE_NAME</string>
+              <key>ai.slickly.mobile</key><string>$APP_PROFILE_UUID</string>
+              <key>ai.slickly.mobile.SlicklyScreenBroadcast</key><string>$EXTENSION_PROFILE_UUID</string>
             </dict>
             <key>destination</key><string>export</string>
           </dict>
