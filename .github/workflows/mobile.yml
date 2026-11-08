@@ -104,6 +104,15 @@ jobs:
       - name: Generate native project
         run: npx expo prebuild --platform ${{ matrix.platform }} --no-install --clean
 
+      - name: Verify local native module autolinking
+        run: |
+          if [ "${{ matrix.platform }}" = "ios" ]; then
+            npx expo-modules-autolinking resolve --platform apple > /tmp/native-modules.json
+          else
+            npx expo-modules-autolinking resolve --platform android > /tmp/native-modules.json
+          fi
+          node --input-type=module -e "import fs from 'node:fs'; const result = JSON.parse(fs.readFileSync('/tmp/native-modules.json', 'utf8')); const modules = result.modules ?? []; if (!modules.some(module => module.packageName === 'slickly-native')) { console.error('slickly-native was not discovered by Expo Autolinking'); process.exit(1); } console.log('Expo Autolinking discovered slickly-native');"
+
       - name: Compile Android debug APK
         if: matrix.platform == 'android'
         run: |
@@ -115,9 +124,17 @@ jobs:
         if: matrix.platform == 'ios'
         run: pod install --project-directory=ios
 
+      - name: Verify iOS native module pod integration
+        if: matrix.platform == 'ios'
+        run: grep -q "SlicklyNative" ios/Podfile.lock
+
+      - name: List iOS workspace schemes
+        if: matrix.platform == 'ios'
+        run: xcodebuild -list -workspace ios/Slickly.xcworkspace
+
       - name: Compile iOS simulator app and ReplayKit extension
         if: matrix.platform == 'ios'
-        run: xcodebuild -workspace ios/slickly.xcworkspace -scheme slickly -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO build
+        run: xcodebuild -workspace ios/Slickly.xcworkspace -scheme Slickly -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO build
 
       - name: Upload Android debug APK
         if: success() && matrix.platform == 'android'
@@ -132,5 +149,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: slickly-ios-simulator-app
-          path: mobile/ios/build/Build/Products/Debug-iphonesimulator/slickly.app
+          path: mobile/ios/build/Build/Products/Debug-iphonesimulator/Slickly.app
           if-no-files-found: error
