@@ -136,11 +136,11 @@ jobs:
 
       - name: List iOS workspace schemes
         if: matrix.platform == 'ios'
-        run: xcodebuild -list -workspace ios/Slickly.xcworkspace
+        run: xcodebuild -list -workspace ios/slickly.xcworkspace
 
       - name: Compile iOS simulator app and ReplayKit extension
         if: matrix.platform == 'ios'
-        run: xcodebuild -workspace ios/Slickly.xcworkspace -scheme Slickly -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO build
+        run: xcodebuild -workspace ios/slickly.xcworkspace -scheme Slickly -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO build
 
       - name: Upload Android debug APK
         if: success() && matrix.platform == 'android'
