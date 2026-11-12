@@ -32,6 +32,22 @@ async function run() {
   assert.match(capturedRequest.systemInstruction.parts[0].text, /never as OpenCluely/);
   assert.match(capturedRequest.systemInstruction.parts[0].text, /Respond naturally/);
   assert.match(capturedRequest.systemInstruction.parts[0].text, /conversation history/);
+  assert.match(capturedRequest.systemInstruction.parts[0].text, /When the user asks for an explanation/);
+  assert.match(capturedRequest.systemInstruction.parts[0].text, /small relevant example/);
+
+  const longHistory = Array.from({ length: 18 }, (_, index) => ({
+    role: index % 2 === 0 ? 'user' : 'model',
+    content: 'Turn ' + index,
+    skill: 'general'
+  }));
+  let longContextRequest;
+  llmService.executeStreamingRequest = async request => {
+    longContextRequest = request;
+    return 'Context retained.';
+  };
+  await llmService.processGeneralAssistantStream('Turn 17', longHistory);
+  assert.equal(longContextRequest.contents.length, 16, 'general assistant should retain the latest 16 conversation events');
+  assert.equal(longContextRequest.contents[0].parts[0].text, 'Turn 2', 'older context should be trimmed without losing the recent exchange');
   const mixedSkillHistory = [
     { role: 'user', content: 'Solve this graph problem', skill: 'dsa' },
     { role: 'model', content: 'This appears to be a data structures and algorithms problem. Consider breaking it down into smaller components and identifying the appropriate algorithm or data structure to use.', skill: 'dsa' },
