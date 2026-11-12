@@ -6,6 +6,7 @@ import {
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import * as ImagePicker from 'expo-image-picker';
+import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import { requestAssistantReply, requestScreenAnalysis } from './src/chat-api';
 import { SlicklyNative, SlicklyBroadcastPicker } from './src/native';
 
@@ -22,6 +23,27 @@ export default function App() {
   const [platformHint, setPlatformHint] = useState('');
   const listRef = useRef(null);
   const lastBroadcastCapture = useRef(null);
+  const voiceDraftBase = useRef('');
+  const [isListening, setIsListening] = useState(false);
+
+  useSpeechRecognitionEvent('start', () => setIsListening(true));
+  useSpeechRecognitionEvent('end', () => setIsListening(false));
+  useSpeechRecognitionEvent('result', event => {
+    const transcript = event.results?.[0]?.transcript?.trim();
+    if (!transcript) return;
+    const base = voiceDraftBase.current.trim();
+    const combined = [base, transcript].filter(Boolean).join(' ');
+    setDraft(combined);
+    if (event.isFinal) voiceDraftBase.current = combined;
+  });
+  useSpeechRecognitionEvent('error', event => {
+    setIsListening(false);
+    if (event.error !== 'aborted') {
+      setError(event.error === 'not-allowed'
+        ? 'Allow microphone and speech-recognition permissions to use voice input.'
+        : 'Voice recognition stopped. You can edit the transcript or try again.');
+    }
+  });
 
   useEffect(() => {
     let active = true;
@@ -112,7 +134,35 @@ export default function App() {
     return () => subscription.remove();
   }, []);
 
+  async function startVoiceInput() {
+    if (sending || initializing) return;
+    try {
+      const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!permission.granted) {
+        setError('Allow microphone and speech-recognition permissions to use voice input.');
+        return;
+      }
+      voiceDraftBase.current = draft.trim();
+      setError('');
+      ExpoSpeechRecognitionModule.start({
+        lang: 'en-IN',
+        interimResults: true,
+        continuous: false,
+        maxAlternatives: 1
+      });
+    } catch (recognitionError) {
+      setIsListening(false);
+      setError(recognitionError?.message || 'Voice recognition could not start on this device.');
+    }
+  }
+
+  function stopVoiceInput() {
+    try { ExpoSpeechRecognitionModule.stop(); }
+    catch { setIsListening(false); }
+  }
+
   async function sendMessage() {
+    if (isListening) stopVoiceInput();
     const text = draft.trim();
     if (!text || sending || !installId) return;
     const userMessage = { id: Crypto.randomUUID(), role: 'user', text };
@@ -268,12 +318,15 @@ export default function App() {
           </View>
         )}
         <View style={styles.composer}>
-          <TextInput accessibilityLabel="Message Slickly" value={draft} onChangeText={setDraft} placeholder="Ask Slickly anything…" placeholderTextColor="#71717a" multiline maxLength={12000} editable={!initializing && !sending && !!installId} style={styles.input} />
+          <TextInput accessibilityLabel="Message Slickly" value={draft} onChangeText={value => { setDraft(value); voiceDraftBase.current = value; }} placeholder={isListening ? "Listening… speak naturally" : "Ask Slickly anything…"} placeholderTextColor="#71717a" multiline maxLength={12000} editable={!initializing && !sending && !!installId} style={styles.input} />
+          <Pressable accessibilityRole="button" accessibilityLabel={isListening ? "Stop voice input" : "Start voice input"} disabled={initializing || sending || !installId} onPress={isListening ? stopVoiceInput : startVoiceInput} style={[styles.voiceButton, isListening && styles.voiceButtonActive, (initializing || sending || !installId) && styles.disabled]}>
+            <Text style={styles.voiceText}>{isListening ? "■" : "🎙"}</Text>
+          </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Send message" disabled={!draft.trim() || sending || !installId} onPress={sendMessage} style={[styles.sendButton, (!draft.trim() || sending || !installId) && styles.disabled]}>
             <Text style={styles.sendText}>↑</Text>
           </Pressable>
         </View>
-        <Text style={styles.disclaimer}>Screen AI captures only after you choose a screenshot or explicitly start system screen sharing. It analyzes one frame per capture session. Stop sharing when finished; avoid passwords or sensitive information.</Text>
+        <Text style={styles.disclaimer}>Voice input starts only when you tap the microphone. Review the transcript before sending; the transcript is added to this conversation so follow-up questions retain context. Screen AI captures only after you choose a screenshot or explicitly start system screen sharing. Avoid passwords or sensitive information.</Text>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -304,6 +357,7 @@ const styles = StyleSheet.create({
   broadcastPicker:{width:155,height:40},
   composer:{marginHorizontal:14,marginTop:8,padding:8,minHeight:58,borderWidth:1,borderColor:'#3f3f46',borderRadius:17,backgroundColor:'#141417',flexDirection:'row',alignItems:'flex-end'},
   input:{flex:1,color:'#fafafa',fontSize:15,lineHeight:21,maxHeight:130,paddingHorizontal:10,paddingTop:9,paddingBottom:8},
+  voiceButton:{width:40,height:40,borderRadius:12,backgroundColor:'#27272a',borderWidth:1,borderColor:'#52525b',alignItems:'center',justifyContent:'center',marginLeft:5},voiceButtonActive:{backgroundColor:'#7f1d1d',borderColor:'#ef4444'},voiceText:{color:'#fafafa',fontSize:16,fontWeight:'800'},
   sendButton:{width:40,height:40,borderRadius:12,backgroundColor:'#8b5cf6',alignItems:'center',justifyContent:'center',marginLeft:7},sendText:{color:'#fff',fontSize:25,lineHeight:29,fontWeight:'700'},
   disabled:{opacity:0.4},error:{color:'#fca5a5',fontSize:12,lineHeight:17,paddingHorizontal:20,paddingTop:8},
   disclaimer:{color:'#71717a',fontSize:10,lineHeight:14,textAlign:'center',paddingHorizontal:22,paddingTop:9,paddingBottom:9}
