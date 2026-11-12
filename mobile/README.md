@@ -30,7 +30,23 @@ Native Expo / React Native app for Android and iOS.
 
 - Android overlay uses `SYSTEM_ALERT_WINDOW` plus a foreground service with the Android `specialUse` foreground-service type. The user must explicitly grant display-over-other-apps permission in Android Settings. Screen AI uses Android's separate MediaProjection permission prompt and a `mediaProjection` foreground-service type.
 - iOS ReplayKit requires an Apple Developer team, provisioning profiles, and the App Group entitlement `group.ai.slickly.mobile`. Register that App Group for the app and extension bundle identifiers before creating signed device builds.
-- Android preview builds produce APKs through EAS. iOS distribution uses TestFlight/App Store or properly provisioned internal distribution; an IPA is not generally installable like an Android APK.
+- The current CI debug APK is for development/testing only. A public Android APK must be built with a persistent release keystore; the workflow supports this through repository Actions secrets.
+- iOS distribution uses TestFlight/App Store or a properly provisioned Ad Hoc IPA; an Ad Hoc IPA installs only on devices registered in its provisioning profile.
+
+## Signed Android APK builds (GitHub Actions)
+
+The workflow builds a Release APK only when all four Android signing secrets are configured. The keystore must be stable across updates; back it up securely and never replace it casually, or users will be unable to install updates over the existing app.
+
+Create a release keystore locally with Android keytool, then encode it locally. Keep the keystore and passwords private; do not upload them to the repository.
+
+Configure these repository Actions secrets:
+
+- ANDROID_KEYSTORE_BASE64: Base64-encoded persistent .jks or .keystore file.
+- ANDROID_KEYSTORE_PASSWORD: Keystore password.
+- ANDROID_KEY_ALIAS: Alias of the release key.
+- ANDROID_KEY_PASSWORD: Password for that key.
+
+The workflow decodes the keystore into the runner's temporary directory, builds assembleRelease, verifies the APK signature with apksigner, uploads slickly-android-signed-apk, and deletes the temporary keystore. If the secrets are missing, only the debug APK is produced and the workflow reports that the signed release build was skipped.
 
 ## Signed iOS IPA builds (GitHub Actions)
 
@@ -56,6 +72,10 @@ The workflow validates the team, explicit application identifier, and App Group 
 For a P12 file, create the Base64 value locally on macOS with `base64 -i distribution.p12 | tr -d '\\n'`. For each provisioning profile, use `base64 -i profile.mobileprovision | tr -d '\\n'`. Paste those outputs directly into the matching GitHub secret fields. **Do not commit certificates, private keys, provisioning profiles, or passwords to Git, and do not paste them into ChatGPT or issue comments.** Keep the P12 password in its own secret.
 
 An Ad Hoc IPA installs only on devices registered in the included provisioning profile. For wider beta distribution, use TestFlight/App Store Connect signing instead; this workflow is specifically configured for Ad Hoc device installation.
+
+## Publishing mobile installers to the website
+
+After the mobile PRs are merged to main and the Android/iOS signing secrets are configured, open GitHub Actions, select Mobile Android and iOS, and run the workflow with Attach signed mobile installers to the latest desktop release set to true. The workflow uploads whichever signed installers were successfully produced as assets on the existing latest desktop release; it does not create a separate release tag or replace the desktop assets. Slickly's website then detects .apk and .ipa assets and exposes direct download links automatically. If neither signed artifact exists, the publishing job fails instead of publishing a debug or simulator build.
 
 ## Local development
 
