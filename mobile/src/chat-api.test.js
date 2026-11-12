@@ -14,6 +14,9 @@ test('builds Gemini conversation contents with model roles for assistant replies
     { role: 'user', parts: [{ text: 'Follow up' }] }
   ]);
   assert.equal(payload.request.generationConfig.maxOutputTokens, 2048);
+  assert.match(payload.request.systemInstruction.parts[0].text, /conversation history/);
+  assert.match(payload.request.systemInstruction.parts[0].text, /clear steps/);
+  assert.match(payload.request.systemInstruction.parts[0].text, /small relevant example/);
 });
 
 test('limits submitted chat context to the most recent 20 messages', () => {
@@ -31,6 +34,7 @@ test('builds multimodal screen payload with screenshot and conversation history'
   assert.equal(payload.request.contents.length, 2);
   assert.deepEqual(payload.request.contents[1].parts[0], { text: 'Read this screen' });
   assert.deepEqual(payload.request.contents[1].parts[1], { inlineData: { mimeType: 'image/png', data: 'aGVsbG8=' } });
+  assert.match(payload.request.systemInstruction.parts[0].text, /most recent user-provided screen analysis/);
 });
 
 test('sends chat with stable installation ID and chat feature header', async () => {
