@@ -384,6 +384,9 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Check out source for app version metadata
+        uses: actions/checkout@v4
+
       - name: Download signed Android APK (if configured)
         uses: actions/download-artifact@v4
         with:
@@ -412,7 +415,8 @@ jobs:
             exit 1
           fi
           TAG="$(gh release view --json tagName --jq .tagName)"
-          if [ -n "$APK" ]; then cp "$APK" "release-assets/publish/Slickly-Android-1.0.0.apk"; fi
-          if [ -n "$IPA" ]; then cp "$IPA" "release-assets/publish/Slickly-iOS-1.0.0.ipa"; fi
+          VERSION="$(jq -r '.expo.version' mobile/app.json)"
+          if [ -n "$APK" ]; then cp "$APK" "release-assets/publish/Slickly-Android-$VERSION.apk"; fi
+          if [ -n "$IPA" ]; then cp "$IPA" "release-assets/publish/Slickly-iOS-$VERSION.ipa"; fi
           gh release upload "$TAG" release-assets/publish/* --clobber
           echo "Attached available signed mobile installers to existing desktop release $TAG."
