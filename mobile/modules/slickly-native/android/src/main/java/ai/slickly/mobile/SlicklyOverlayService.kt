@@ -260,9 +260,9 @@ class SlicklyOverlayService : Service() {
     val instruction = buildString {
       append("You are Slickly, a helpful general-purpose assistant. Use the supplied conversation history to understand follow-up questions and references. Answer directly first. When asked to explain, use clear steps, define unfamiliar terms, and include a small relevant example. Give enough detail to be understandable without unrelated filler. If context is missing, ask one focused clarifying question.")
       if (screenContext != null) {
-        append("\\n\\nLATEST USER-AUTHORIZED SCREEN ANALYSIS (snapshot, not live screen):\\n")
+        append("\n\nLATEST USER-AUTHORIZED SCREEN ANALYSIS (snapshot, not live screen):\n")
         append(screenContext.take(12000))
-        append("\\nUse this to answer follow-ups about the captured screen.")
+        append("\nUse this to answer follow-ups about the captured screen.")
       }
     }
     val request = JSONObject().put("request", JSONObject()
