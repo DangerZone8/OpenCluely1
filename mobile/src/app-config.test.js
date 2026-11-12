@@ -41,6 +41,19 @@ test('configures cross-platform speech recognition and explicit microphone conse
   assert.match(appSource, /accessibilityLabel=\{isListening \? "Stop voice input" : "Start voice input"\}/);
 });
 
+test('defines signed Android APK and manual website publishing gates', () => {
+  const workflow = read('../.github/workflows/mobile.yml');
+  assert.match(workflow, /ANDROID_KEYSTORE_BASE64/);
+  assert.match(workflow, /ANDROID_KEYSTORE_PASSWORD/);
+  assert.match(workflow, /ANDROID_KEY_ALIAS/);
+  assert.match(workflow, /ANDROID_KEY_PASSWORD/);
+  assert.match(workflow, /:app:assembleRelease/);
+  assert.match(workflow, /apksigner.*verify/);
+  assert.match(workflow, /slickly-android-signed-apk/);
+  assert.match(workflow, /publish-mobile-release/);
+  assert.match(workflow, /gh release upload/);
+});
+
 test('configures screenshot selection permissions for native Screen AI', () => {
   const picker = appConfig.plugins.find(plugin => Array.isArray(plugin) && plugin[0] === 'expo-image-picker');
   assert.ok(picker, 'expo-image-picker config plugin is required');
