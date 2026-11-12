@@ -31,7 +31,7 @@ async function run() {
   assert.match(capturedRequest.systemInstruction.parts[0].text, /You are Slickly AI/);
   assert.match(capturedRequest.systemInstruction.parts[0].text, /never as OpenCluely/);
   assert.match(capturedRequest.systemInstruction.parts[0].text, /Respond naturally/);
-  assert.match(capturedRequest.systemInstruction.parts[0].text, /conversation history/);
+  assert.match(capturedRequest.systemInstruction.parts[0].text, /recent conversation as one continuous discussion/);
   const voicePrompt = capturedRequest.systemInstruction.parts[0].text;
   assert.match(voicePrompt, /one continuous discussion/);
   assert.match(voicePrompt, /VOICE INPUT/);
