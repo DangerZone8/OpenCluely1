@@ -24,12 +24,19 @@ async function run() {
   assert.ok(downloadPage.includes('return "/api/updates/" + encodeURIComponent(asset.name);'));
   assert.ok(downloadPage.includes("recommended.href = downloadUrl(selected);"));
   assert.ok(!downloadPage.includes("href = asset.browser_download_url"));
+  assert.ok(downloadPage.includes('id="mobile-android-download"'));
+  assert.ok(downloadPage.includes('id="mobile-ios-download"'));
+  assert.match(downloadPage, /findAsset\(assets, \[\/\\\\\.apk\$\/i\]\)/);
+  assert.match(downloadPage, /findAsset\(assets, \[\/\\\\\.ipa\$\/i\]\)/);
+  assert.match(downloadPage, /NOT PUBLISHED/);
 
   const originalFetch = global.fetch;
   const assets = [
     { name: "latest.yml", browser_download_url: "https://github.com/DangerZone8/OpenCluely1/releases/download/v9.9.9/latest.yml" },
     { name: "Slickly-AI-Setup-9.9.9.exe", browser_download_url: "https://github.com/DangerZone8/OpenCluely1/releases/download/v9.9.9/Slickly-AI-Setup-9.9.9.exe" },
-    { name: "Slickly-AI-Setup-9.9.9.exe.blockmap", browser_download_url: "https://github.com/DangerZone8/OpenCluely1/releases/download/v9.9.9/Slickly-AI-Setup-9.9.9.exe.blockmap" }
+    { name: "Slickly-AI-Setup-9.9.9.exe.blockmap", browser_download_url: "https://github.com/DangerZone8/OpenCluely1/releases/download/v9.9.9/Slickly-AI-Setup-9.9.9.exe.blockmap" },
+    { name: "Slickly-Android-1.0.0.apk", browser_download_url: "https://github.com/DangerZone8/OpenCluely1/releases/download/v1.0.0/Slickly-Android-1.0.0.apk" },
+    { name: "Slickly-iOS-1.0.0.ipa", browser_download_url: "https://github.com/DangerZone8/OpenCluely1/releases/download/v1.0.0/Slickly-iOS-1.0.0.ipa" }
   ];
   try {
     global.fetch = async url => {
@@ -62,6 +69,16 @@ async function run() {
     assert.equal(blockmap.statusCode, 302);
     assert.equal(blockmap.headers.location, assets[2].browser_download_url);
 
+    const androidApk = response();
+    await handler({ method: "GET", query: { path: ["Slickly-Android-1.0.0.apk"] } }, androidApk);
+    assert.equal(androidApk.statusCode, 302, "published Android APK assets must be served through the website");
+    assert.equal(androidApk.headers.location, assets[3].browser_download_url);
+
+    const iosIpa = response();
+    await handler({ method: "GET", query: { path: ["Slickly-iOS-1.0.0.ipa"] } }, iosIpa);
+    assert.equal(iosIpa.statusCode, 302, "published iOS IPA assets must be served through the website");
+    assert.equal(iosIpa.headers.location, assets[4].browser_download_url);
+
     const traversal = response();
     await handler({ method: "GET", query: { path: ["..", "secrets"] } }, traversal);
     assert.equal(traversal.statusCode, 400);
@@ -73,7 +90,7 @@ async function run() {
     const wrongMethod = response();
     await handler({ method: "POST", query: { path: ["latest.yml"] } }, wrongMethod);
     assert.equal(wrongMethod.statusCode, 405);
-    console.log("Vercel update-feed tests passed: website links, manifest proxy, installer/blockmap redirects, path validation, missing assets, and method guard.");
+    console.log("Vercel update-feed tests passed: website desktop/mobile links, manifest proxy, installer/APK/IPA/blockmap redirects, path validation, missing assets, and method guard.");
   } finally {
     global.fetch = originalFetch;
   }
