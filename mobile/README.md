@@ -5,11 +5,19 @@ Native Expo / React Native app for Android and iOS.
 ## Implemented in this milestone
 
 - Phone-first native chat using Slickly's existing hosted Gemini endpoint.
+- Tap-to-speak voice input on Android and iOS using native speech recognition; users can review and edit the transcript before sending it into the same context-retaining conversation.
 - Screenshot-based Screen AI on Android and iOS, with follow-up context retained in the conversation.
 - Android draggable system-wide floating assistant bubble, expandable chat panel, and hosted AI chat.
 - Android overlay permission is requested through Android Settings; the foreground service runs only after the user enables it and can be stopped from Slickly.
 - iOS ReplayKit Broadcast Upload Extension target. The user starts a system broadcast using Apple's picker; the extension analyzes the first video frame and stores the result in a shared App Group for Slickly to load on return.
 - The iOS broadcast flow does not create an overlay above other apps. iOS does not allow third-party apps to draw arbitrary persistent overlays over other apps.
+
+## Voice input, conversation context, and privacy
+
+- Mobile voice input is opt-in: the microphone and speech-recognition permissions are requested only after the user taps the microphone button.
+- Speech is transcribed by the platform's native speech-recognition service. Slickly displays the transcript for review; only after the user sends it is the text added to the chat and sent to the hosted AI endpoint.
+- Voice transcripts and assistant replies remain in the current conversation so follow-up questions can refer to earlier turns. The Android floating panel keeps its own recent chat history while the service is running.
+- Speech recognition requires a native development or release build; it is not available in Expo Go.
 
 ## Screen AI behavior and privacy
 
