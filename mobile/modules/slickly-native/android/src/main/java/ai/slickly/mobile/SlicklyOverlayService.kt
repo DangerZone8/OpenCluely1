@@ -50,6 +50,8 @@ class SlicklyOverlayService : Service() {
   private var panel: LinearLayout? = null
   private val worker = Executors.newSingleThreadExecutor()
   private val endpoint = "https://slicklyai.vercel.app/api/gemini"
+  // All overlay chat calls run on the single worker, so this history remains ordered.
+  private val conversationHistory = JSONArray()
 
   private var mediaProjection: MediaProjection? = null
   private var virtualDisplay: VirtualDisplay? = null
@@ -243,12 +245,42 @@ class SlicklyOverlayService : Service() {
 
   private fun askAssistant(prompt: String): String {
     val installId = installId()
+    conversationHistory.put(JSONObject()
+      .put("role", "user")
+      .put("parts", JSONArray().put(JSONObject().put("text", prompt))))
+    while (conversationHistory.length() > 20) conversationHistory.remove(0)
+
+    val contents = JSONArray()
+    for (index in 0 until conversationHistory.length()) {
+      contents.put(conversationHistory.getJSONObject(index))
+    }
+    val screenContext = getSharedPreferences("slickly_native", Context.MODE_PRIVATE)
+      .getString("latest_screen_ai_context", null)
+      ?.takeIf { it.isNotBlank() }
+    val instruction = buildString {
+      append("You are Slickly, a helpful general-purpose assistant. Use the supplied conversation history to understand follow-up questions and references. Answer directly first. When asked to explain, use clear steps, define unfamiliar terms, and include a small relevant example. Give enough detail to be understandable without unrelated filler. If context is missing, ask one focused clarifying question.")
+      if (screenContext != null) {
+        append("\n\nLATEST USER-AUTHORIZED SCREEN ANALYSIS (snapshot, not live screen):\n")
+        append(screenContext.take(12000))
+        append("\nUse this to answer follow-ups about the captured screen.")
+      }
+    }
     val request = JSONObject().put("request", JSONObject()
-      .put("contents", JSONArray().put(JSONObject()
-        .put("role", "user")
-        .put("parts", JSONArray().put(JSONObject().put("text", prompt)))))
-      .put("generationConfig", JSONObject().put("temperature", 0.7).put("maxOutputTokens", 1024)))
-    return postRequest(request, installId, "chat")
+      .put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", instruction))))
+      .put("contents", contents)
+      .put("generationConfig", JSONObject().put("temperature", 0.7).put("maxOutputTokens", 1536)))
+    val response = postRequest(request, installId, "chat")
+    if (!response.startsWith("Couldn't reach Slickly") &&
+        !response.startsWith("The shared AI service") &&
+        !response.startsWith("The hosted AI service") &&
+        !response.startsWith("Slickly could not") &&
+        !response.startsWith("Slickly returned an empty")) {
+      conversationHistory.put(JSONObject()
+        .put("role", "model")
+        .put("parts", JSONArray().put(JSONObject().put("text", response))))
+      while (conversationHistory.length() > 20) conversationHistory.remove(0)
+    }
+    return response
   }
 
   private fun startScreenCapture(intent: Intent) {

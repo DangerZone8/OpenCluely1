@@ -5,11 +5,19 @@ Native Expo / React Native app for Android and iOS.
 ## Implemented in this milestone
 
 - Phone-first native chat using Slickly's existing hosted Gemini endpoint.
+- Tap-to-speak voice input on Android and iOS using native speech recognition; users can review and edit the transcript before sending it into the same context-retaining conversation.
 - Screenshot-based Screen AI on Android and iOS, with follow-up context retained in the conversation.
 - Android draggable system-wide floating assistant bubble, expandable chat panel, and hosted AI chat.
 - Android overlay permission is requested through Android Settings; the foreground service runs only after the user enables it and can be stopped from Slickly.
 - iOS ReplayKit Broadcast Upload Extension target. The user starts a system broadcast using Apple's picker; the extension analyzes the first video frame and stores the result in a shared App Group for Slickly to load on return.
 - The iOS broadcast flow does not create an overlay above other apps. iOS does not allow third-party apps to draw arbitrary persistent overlays over other apps.
+
+## Voice input, conversation context, and privacy
+
+- Mobile voice input is opt-in: the microphone and speech-recognition permissions are requested only after the user taps the microphone button.
+- Speech is transcribed by the platform's native speech-recognition service. Slickly displays the transcript for review; only after the user sends it is the text added to the chat and sent to the hosted AI endpoint.
+- Voice transcripts and assistant replies remain in the current conversation so follow-up questions can refer to earlier turns. The Android floating panel keeps its own recent chat history while the service is running.
+- Speech recognition requires a native development or release build; it is not available in Expo Go.
 
 ## Screen AI behavior and privacy
 
@@ -22,7 +30,23 @@ Native Expo / React Native app for Android and iOS.
 
 - Android overlay uses `SYSTEM_ALERT_WINDOW` plus a foreground service with the Android `specialUse` foreground-service type. The user must explicitly grant display-over-other-apps permission in Android Settings. Screen AI uses Android's separate MediaProjection permission prompt and a `mediaProjection` foreground-service type.
 - iOS ReplayKit requires an Apple Developer team, provisioning profiles, and the App Group entitlement `group.ai.slickly.mobile`. Register that App Group for the app and extension bundle identifiers before creating signed device builds.
-- Android preview builds produce APKs through EAS. iOS distribution uses TestFlight/App Store or properly provisioned internal distribution; an IPA is not generally installable like an Android APK.
+- The current CI debug APK is for development/testing only. A public Android APK must be built with a persistent release keystore; the workflow supports this through repository Actions secrets.
+- iOS distribution uses TestFlight/App Store or a properly provisioned Ad Hoc IPA; an Ad Hoc IPA installs only on devices registered in its provisioning profile.
+
+## Signed Android APK builds (GitHub Actions)
+
+The workflow builds a Release APK only when all four Android signing secrets are configured. The keystore must be stable across updates; back it up securely and never replace it casually, or users will be unable to install updates over the existing app.
+
+Create a release keystore locally with Android keytool, then encode it locally. Keep the keystore and passwords private; do not upload them to the repository.
+
+Configure these repository Actions secrets:
+
+- ANDROID_KEYSTORE_BASE64: Base64-encoded persistent .jks or .keystore file.
+- ANDROID_KEYSTORE_PASSWORD: Keystore password.
+- ANDROID_KEY_ALIAS: Alias of the release key.
+- ANDROID_KEY_PASSWORD: Password for that key.
+
+The workflow decodes the keystore into the runner's temporary directory, builds assembleRelease, verifies the APK signature with apksigner, uploads slickly-android-signed-apk, and deletes the temporary keystore. If the secrets are missing, only the debug APK is produced and the workflow reports that the signed release build was skipped.
 
 ## Signed iOS IPA builds (GitHub Actions)
 
@@ -48,6 +72,10 @@ The workflow validates the team, explicit application identifier, and App Group 
 For a P12 file, create the Base64 value locally on macOS with `base64 -i distribution.p12 | tr -d '\\n'`. For each provisioning profile, use `base64 -i profile.mobileprovision | tr -d '\\n'`. Paste those outputs directly into the matching GitHub secret fields. **Do not commit certificates, private keys, provisioning profiles, or passwords to Git, and do not paste them into ChatGPT or issue comments.** Keep the P12 password in its own secret.
 
 An Ad Hoc IPA installs only on devices registered in the included provisioning profile. For wider beta distribution, use TestFlight/App Store Connect signing instead; this workflow is specifically configured for Ad Hoc device installation.
+
+## Publishing mobile installers to the website
+
+After the mobile PRs are merged to main and the Android/iOS signing secrets are configured, open GitHub Actions, select Mobile Android and iOS, and run the workflow with Attach signed mobile installers to the latest desktop release set to true. The workflow uploads whichever signed installers were successfully produced as assets on the existing latest desktop release; it does not create a separate release tag or replace the desktop assets. Slickly's website then detects .apk and .ipa assets and exposes direct download links automatically. If neither signed artifact exists, the publishing job fails instead of publishing a debug or simulator build.
 
 ## Local development
 

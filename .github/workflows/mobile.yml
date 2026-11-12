@@ -11,6 +11,13 @@ on:
     paths:
       - 'mobile/**'
       - '.github/workflows/mobile.yml'
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: 'Attach signed mobile installers to the latest desktop release'
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -119,12 +126,63 @@ jobs:
           fi
           echo "Expo Autolinking discovered slickly-native for ${{ matrix.platform }}"
 
+      - name: Check whether Android release signing credentials are configured
+        if: matrix.platform == 'android'
+        id: android-signing
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          required=(ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD)
+          missing=()
+          for name in "${required[@]}"; do
+            if [ -z "${!name}" ]; then missing+=("$name"); fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Signed Android APK build skipped. Configure these GitHub Actions secrets: ${missing[*]}"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "All required Android signing secrets are present."
+          fi
+
       - name: Compile Android debug APK
         if: matrix.platform == 'android'
         run: |
           cd android
           chmod +x gradlew
           ./gradlew :app:assembleDebug
+
+      - name: Build and verify signed Android release APK
+        if: matrix.platform == 'android' && steps.android-signing.outputs.available == 'true'
+        working-directory: mobile
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYSTORE_PATH="$RUNNER_TEMP/slickly-upload-key.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          test -s "$KEYSTORE_PATH"
+          cd android
+          ./gradlew :app:assembleRelease \
+            -Pandroid.injected.signing.store.file="$KEYSTORE_PATH" \
+            -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK"
+          echo "Verified signed Android release APK: $APK"
+
+      - name: Clean up temporary Android signing keystore
+        if: always() && matrix.platform == 'android' && steps.android-signing.outputs.available == 'true'
+        run: rm -f "$RUNNER_TEMP/slickly-upload-key.jks"
 
       - name: Install iOS CocoaPods
         if: matrix.platform == 'ios'
@@ -293,6 +351,14 @@ jobs:
         run: |
           security delete-keychain "$RUNNER_TEMP/slickly-signing.keychain-db" || true
 
+      - name: Upload signed Android release APK
+        if: success() && matrix.platform == 'android' && steps.android-signing.outputs.available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: slickly-android-signed-apk
+          path: mobile/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+
       - name: Upload Android debug APK
         if: success() && matrix.platform == 'android'
         uses: actions/upload-artifact@v4
@@ -308,3 +374,49 @@ jobs:
           name: slickly-ios-simulator-app
           path: mobile/ios/build/Build/Products/Debug-iphonesimulator/Slickly.app
           if-no-files-found: error
+
+
+  publish-mobile-release:
+    name: Publish signed mobile installers to the latest desktop release
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_release
+    needs: native-build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out source for app version metadata
+        uses: actions/checkout@v4
+
+      - name: Download signed Android APK (if configured)
+        uses: actions/download-artifact@v4
+        with:
+          name: slickly-android-signed-apk
+          path: release-assets/android
+          if-no-artifact-found: ignore
+
+      - name: Download signed iOS IPA (if configured)
+        uses: actions/download-artifact@v4
+        with:
+          name: slickly-ios-adhoc-ipa
+          path: release-assets/ios
+          if-no-artifact-found: ignore
+
+      - name: Attach signed mobile installers to the current desktop release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets/publish
+          APK="$(find release-assets/android -type f -name '*.apk' -print -quit 2>/dev/null || true)"
+          IPA="$(find release-assets/ios -type f -name '*.ipa' -print -quit 2>/dev/null || true)"
+          if [ -z "$APK" ] && [ -z "$IPA" ]; then
+            echo "::error::No signed mobile installer artifacts were produced. Configure Android and/or iOS signing secrets and rerun."
+            exit 1
+          fi
+          TAG="$(gh release view --json tagName --jq .tagName)"
+          VERSION="$(jq -r '.expo.version' mobile/app.json)"
+          if [ -n "$APK" ]; then cp "$APK" "release-assets/publish/Slickly-Android-$VERSION.apk"; fi
+          if [ -n "$IPA" ]; then cp "$IPA" "release-assets/publish/Slickly-iOS-$VERSION.ipa"; fi
+          gh release upload "$TAG" release-assets/publish/* --clobber
+          echo "Attached available signed mobile installers to existing desktop release $TAG."

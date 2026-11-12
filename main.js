@@ -1482,8 +1482,9 @@ class ApplicationController {
       return;
     }
 
-    // Route speech UI events according to the user's response-target setting.
-    sessionManager.addUserInput(fragment, 'speech', 'general');
+    // Show transcript fragments immediately, but save only the final coalesced
+    // utterance to conversation history. This prevents partial fragments from
+    // crowding out earlier user/assistant turns and being duplicated in the prompt.
     this.sendToVoiceResponseWindows("transcription-received", { text: fragment });
 
     this._utteranceBuffer = this._utteranceBuffer
@@ -1525,6 +1526,7 @@ class ApplicationController {
     this._utteranceDispatchInFlight = true;
 
     try {
+      sessionManager.addUserInput(combined, 'speech', 'general');
       const sessionHistory = sessionManager.getOptimizedHistory();
       await this.processTranscriptionWithLLM(combined, sessionHistory);
     } catch (error) {
@@ -1591,7 +1593,7 @@ class ApplicationController {
       // and could return a canned DSA hint instead of a real assistant answer.
       const llmResult = await llmService.processGeneralAssistantStream(
         cleanText,
-        sessionManager.getConversationHistory(12),
+        sessionManager.getConversationHistory(20),
         (delta) => {
           this.sendToVoiceResponseWindows("transcription-llm-response-chunk", {
             messageId,

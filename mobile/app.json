@@ -35,6 +35,13 @@
           "microphonePermission": false
         }
       ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Slickly uses the microphone only while you tap the voice input button.",
+          "speechRecognitionPermission": "Slickly uses speech recognition to turn your spoken prompts into text."
+        }
+      ],
       "@bacons/apple-targets"
     ],
     "icon": "./assets/icon.png"

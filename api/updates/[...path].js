@@ -1,6 +1,6 @@
 "use strict";
 const RELEASE_API = "https://api.github.com/repos/DangerZone8/OpenCluely1/releases/latest";
-const ALLOWED = /^(latest(?:-mac|-linux)?\.yml|[^/\\\\]+\.(?:exe|dmg|zip|AppImage|deb|blockmap))$/i;
+const ALLOWED = /^(latest(?:-mac|-linux)?\.yml|[^/\\\\]+\.(?:exe|dmg|zip|AppImage|deb|apk|ipa|blockmap))$/i;
 
 function requestedAsset(req) {
   const raw = req.query && req.query.path;
