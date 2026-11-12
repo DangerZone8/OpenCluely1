@@ -26,8 +26,8 @@ async function run() {
   assert.ok(!downloadPage.includes("href = asset.browser_download_url"));
   assert.ok(downloadPage.includes('id="mobile-android-download"'));
   assert.ok(downloadPage.includes('id="mobile-ios-download"'));
-  assert.match(downloadPage, /findAsset\(assets, \[\/\\\\\.apk\$\/i\]\)/);
-  assert.match(downloadPage, /findAsset\(assets, \[\/\\\\\.ipa\$\/i\]\)/);
+  assert.ok(downloadPage.includes('var androidApk = findAsset(assets, [/\\.apk$/i]);'));
+  assert.ok(downloadPage.includes('var iosIpa = findAsset(assets, [/\\.ipa$/i]);'));
   assert.match(downloadPage, /NOT PUBLISHED/);
 
   const originalFetch = global.fetch;
