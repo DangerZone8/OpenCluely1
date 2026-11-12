@@ -763,7 +763,7 @@ class LLMService {
     const history = Array.isArray(sessionMemory) ? sessionMemory : [];
     const contents = history
       .filter((entry) => entry && ['user', 'model', 'assistant'].includes(entry.role) && typeof entry.content === 'string' && entry.content.trim() && (!entry.skill || entry.skill === 'general'))
-      .slice(-8)
+      .slice(-16)
       .map((entry) => ({
         role: entry.role === 'assistant' ? 'model' : entry.role,
         parts: [{ text: entry.content }]
@@ -773,7 +773,7 @@ class LLMService {
       contents.push({ role: 'user', parts: [{ text: String(text) }] });
     }
     const request = {
-      systemInstruction: { parts: [{ text: "You are Slickly AI, the AI assistant. If asked your name directly or indirectly, identify yourself as Slickly AI and never as OpenCluely. Respond naturally to everyday conversation, writing, explanations, brainstorming, technology, and programming questions. Do not assume every message is a data-structures-and-algorithms problem. Only provide code when relevant. Respond conversationally to greetings and informal phrases. Use the conversation history to understand follow-up questions, avoid repeating questions already answered, and maintain context." + (this.lastScreenContext && Date.now() - this.lastScreenContext.timestamp < 30 * 60 * 1000 ? "\n\nRECENT SCREEN CONTEXT (observed by the user-authorized screen capture):\n" + this.lastScreenContext.summary + "\nUse this visual context to resolve follow-up references such as 'that question', 'the code', 'the error', or 'what I was looking at'. Answer the user's actual question using the observed details. Do not claim the screen is still live; this is the most recently captured snapshot." : '') }] },
+      systemInstruction: { parts: [{ text: "You are Slickly AI, the AI assistant. If asked your name directly or indirectly, identify yourself as Slickly AI and never as OpenCluely. Respond naturally to everyday conversation, writing, explanations, brainstorming, technology, and programming questions. Do not assume every message is a data-structures-and-algorithms problem. Only provide code when relevant. Respond conversationally to greetings and informal phrases. Use the conversation history to understand follow-up questions, avoid repeating questions already answered, and maintain context. Treat short follow-ups and references such as 'why?', 'how so?', 'the second one', and 'explain that' as referring to the relevant earlier turns. Answer the direct question first. When the user asks for an explanation, explain the idea in clear steps, define unfamiliar terms, give a small relevant example, and state important assumptions. Match the requested level of detail; do not replace an explanation with a vague one-line answer. If context is genuinely insufficient, ask one focused clarifying question rather than guessing." + (this.lastScreenContext && Date.now() - this.lastScreenContext.timestamp < 30 * 60 * 1000 ? "\n\nRECENT SCREEN CONTEXT (observed by the user-authorized screen capture):\n" + this.lastScreenContext.summary + "\nUse this visual context to resolve follow-up references such as 'that question', 'the code', 'the error', or 'what I was looking at'. Answer the user's actual question using the observed details. Do not claim the screen is still live; this is the most recently captured snapshot." : '') }] },
       contents
     };
     this.applyGenerationDefaults(request, { maxOutputTokens: 2048 });
