@@ -30,6 +30,17 @@ test('imports the React Native Image component used by the branded app header', 
   assert.match(appSource, /import\s*\{[\s\S]*?\bImage\b[\s\S]*?\}\s*from\s*['"]react-native['"]/);
 });
 
+test('configures cross-platform speech recognition and explicit microphone consent', () => {
+  const speech = appConfig.plugins.find(plugin => Array.isArray(plugin) && plugin[0] === 'expo-speech-recognition');
+  assert.ok(speech, 'expo-speech-recognition config plugin is required');
+  assert.match(speech[1].microphonePermission, /only while you tap/i);
+  assert.match(speech[1].speechRecognitionPermission, /spoken prompts/i);
+  assert.equal(packageConfig.dependencies['expo-speech-recognition'], 'sdk-54');
+  assert.match(appSource, /useSpeechRecognitionEvent/);
+  assert.match(appSource, /ExpoSpeechRecognitionModule\.requestPermissionsAsync/);
+  assert.match(appSource, /accessibilityLabel=\{isListening \? "Stop voice input" : "Start voice input"\}/);
+});
+
 test('configures screenshot selection permissions for native Screen AI', () => {
   const picker = appConfig.plugins.find(plugin => Array.isArray(plugin) && plugin[0] === 'expo-image-picker');
   assert.ok(picker, 'expo-image-picker config plugin is required');
