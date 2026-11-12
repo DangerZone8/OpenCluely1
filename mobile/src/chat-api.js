@@ -1,4 +1,12 @@
 const DEFAULT_API_URL = 'https://slicklyai.vercel.app/api/gemini';
+const ASSISTANT_INSTRUCTION = [
+  'You are Slickly, a helpful general-purpose assistant.',
+  'Use the supplied conversation history to understand follow-up questions and references; do not treat each message as an isolated request.',
+  'Answer the direct question first. When asked to explain, use clear steps, define unfamiliar terms, and include a small relevant example.',
+  'Give enough detail to make the answer understandable, but avoid unrelated filler.',
+  'For screen-related follow-ups, use the most recent user-provided screen analysis in the conversation. Do not claim to see a live screen unless a new capture was supplied.',
+  'If essential context is missing, ask one focused clarifying question instead of guessing.'
+].join(' ');
 
 function contentsFromMessages(messages) {
   return messages
@@ -16,7 +24,11 @@ export function buildGeminiPayload(messages) {
   }
   const contents = contentsFromMessages(messages);
   if (!contents.length) throw new Error('There is no message content to send.');
-  return { request: { contents, generationConfig: { temperature: 0.7, maxOutputTokens: 2048 } } };
+  return { request: {
+    systemInstruction: { parts: [{ text: ASSISTANT_INSTRUCTION }] },
+    contents,
+    generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+  } };
 }
 
 function assertInstallId(installId) {
@@ -68,7 +80,11 @@ export function buildScreenVisionPayload({ imageBase64, mimeType = 'image/jpeg',
       { inlineData: { mimeType, data: imageBase64 } }
     ]
   });
-  return { request: { contents, generationConfig: { temperature: 0.4, maxOutputTokens: 2048 } } };
+  return { request: {
+    systemInstruction: { parts: [{ text: ASSISTANT_INSTRUCTION }] },
+    contents,
+    generationConfig: { temperature: 0.4, maxOutputTokens: 2048 }
+  } };
 }
 
 export function requestScreenAnalysis({ imageBase64, mimeType, prompt, history = [], installId, fetchImpl = fetch, apiUrl = DEFAULT_API_URL }) {
