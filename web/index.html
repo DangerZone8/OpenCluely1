@@ -127,6 +127,14 @@
     .platform-link:hover{background:#2d372d;border-color:#c8e879}
     .platform-link .platform-name{font:600 15px var(--display)}
     .platform-link .platform-action{color:#c8e879;font:10px var(--mono);overflow-wrap:anywhere}
+    .platform-link[aria-disabled="true"]{opacity:.68;cursor:not-allowed}
+    .platform-link[aria-disabled="true"]:hover{background:transparent;border-color:#455044}
+    .mobile-downloads{margin-top:35px;padding-top:28px;border-top:1px solid rgba(226,255,170,.2)}
+    .mobile-downloads h3{margin:0 0 8px;font:600 24px var(--display);letter-spacing:-.04em}
+    .mobile-downloads>p{max-width:720px;color:#aab3a6;font-size:13px;line-height:1.65}
+    .mobile-download-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .mobile-download-grid .platform-link{min-height:104px}
+    .mobile-release-status{margin:12px 0 0;color:#c8cfc2;font:11px var(--mono);line-height:1.6}
     .platform-actions{display:flex;flex-direction:column;align-items:flex-end;gap:9px}
     .platform-actions a{text-decoration:none}.platform-actions a:hover{text-decoration:underline}
     .download-status{min-height:22px;margin:17px 0 0;color:#aab3a6;font:11px var(--mono)}
@@ -459,6 +467,15 @@
             <a class="platform-link" id="linux-download" href="#download"><span class="platform-name">Linux</span><span class="platform-action">CHECKING · APPIMAGE ↗</span></a>
           </div>
         </div>
+        <div class="mobile-downloads" id="mobile-downloads">
+          <h3>Take Slickly with you.</h3>
+          <p>Mobile downloads appear here when a signed, installable build has been published. Android debug builds and unsigned iOS simulator apps are not public release installers.</p>
+          <div class="mobile-download-grid">
+            <a class="platform-link" id="mobile-android-download" href="#mobile-downloads" aria-disabled="true"><span class="platform-name">Android</span><span class="platform-action">APK · NOT PUBLISHED</span></a>
+            <a class="platform-link" id="mobile-ios-download" href="#mobile-downloads" aria-disabled="true"><span class="platform-name">iPhone &amp; iPad</span><span class="platform-action">SIGNED BUILD · NOT PUBLISHED</span></a>
+          </div>
+          <p class="mobile-release-status" id="mobile-release-status" role="status" aria-live="polite">Checking the latest release for signed mobile installers…</p>
+        </div>
         <p class="download-status" id="release-status" role="status" aria-live="polite">Checking GitHub for the latest published release…</p>
         <p class="trust-note">Slickly can use its hosted AI service without requiring you to add a Gemini API key. You may also configure your own key. When you submit text, screen frames or audio, that content is sent to the Slickly service and Google Gemini over HTTPS. Do not submit passwords or other sensitive information. Follow the rules that apply to your school, assessment, interview or workplace.</p>
       </div>
@@ -499,6 +516,9 @@
       var macIntelLink = byId("mac-intel-download");
       var recommended = byId("recommended-download");
       var status = byId("release-status");
+      var mobileAndroid = byId("mobile-android-download");
+      var mobileIos = byId("mobile-ios-download");
+      var mobileStatus = byId("mobile-release-status");
       var version = byId("hero-release");
       var heroDownload = byId("hero-download");
       byId("year").textContent = new Date().getFullYear();
@@ -530,8 +550,22 @@
         }
         return null;
       }
+      function setMobileAsset(link, asset, label, extension) {
+        var action = link.querySelector(".platform-action");
+        if (!asset) {
+          link.href = "#mobile-downloads";
+          link.setAttribute("aria-disabled", "true");
+          action.textContent = extension + " · NOT PUBLISHED";
+          return false;
+        }
+        link.href = downloadUrl(asset);
+        link.removeAttribute("aria-disabled");
+        action.textContent = "DOWNLOAD " + extension + " ↗";
+        return true;
+      }
       function showFailure() {
         status.textContent = "The latest release could not be loaded. You can still inspect all published builds on GitHub.";
+        mobileStatus.textContent = "Mobile release status unavailable. No mobile download has been verified.";
         version.textContent = "Release lookup unavailable";
         recommended.href = fallback;
         recommended.textContent = "View releases ↗";
@@ -550,6 +584,14 @@
           var macArm = findAsset(assets, [/arm64.*\.dmg$/i, /arm64.*\.zip$/i]);
           var macIntel = findAsset(assets, [/^Slickly\.AI-.*\.dmg$/i, /^(?!.*arm64).*\.zip$/i]);
           var linux = findAsset(assets, [/\.AppImage$/i, /_amd64\.deb$/i, /\.deb$/i]);
+          var androidApk = findAsset(assets, [/\.apk$/i]);
+          var iosIpa = findAsset(assets, [/\.ipa$/i]);
+          setMobileAsset(mobileAndroid, androidApk, "Android", "APK");
+          setMobileAsset(mobileIos, iosIpa, "iPhone & iPad", "SIGNED IPA");
+          mobileStatus.textContent = [
+            androidApk ? "Android APK published: " + androidApk.name : "Android APK not published yet.",
+            iosIpa ? "iOS IPA published: " + iosIpa.name + " (device/profile restrictions may apply)." : "Signed iOS IPA not published yet."
+          ].join(" ");
           setLink(links.windows, windows, "Windows", "EXE");
           setLink(macArmLink, macArm, "macOS", "APPLE SILICON DMG");
           setLink(macIntelLink, macIntel, "macOS", "INTEL DMG");
