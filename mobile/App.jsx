@@ -162,7 +162,10 @@ export default function App() {
   }
 
   async function sendMessage() {
-    if (isListening) stopVoiceInput();
+    if (isListening) {
+      stopVoiceInput();
+      return;
+    }
     const text = draft.trim();
     if (!text || sending || !installId) return;
     const userMessage = { id: Crypto.randomUUID(), role: 'user', text };
@@ -225,6 +228,12 @@ export default function App() {
 
   function clearConversation() {
     if (sending) return;
+    if (isListening) {
+      try { ExpoSpeechRecognitionModule.abort(); } catch {}
+      setIsListening(false);
+    }
+    voiceDraftBase.current = '';
+    setDraft('');
     setMessages([]);
     setError('');
     setScreenReady(false);
