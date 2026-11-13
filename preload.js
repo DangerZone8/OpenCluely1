@@ -42,6 +42,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getGeminiStatus: () => ipcRenderer.invoke('get-gemini-status'),
   testGeminiConnection: () => ipcRenderer.invoke('test-gemini-connection'),
   
+  // Declarative cloud configuration (no remote code execution).
+  getCloudConfig: () => ipcRenderer.invoke('get-cloud-config'),
+  onCloudConfigUpdated: (callback) => {
+    if (typeof callback !== 'function') return;
+    ipcRenderer.on('cloud-config-updated', (_event, snapshot) => callback(snapshot));
+  },
+
   // Settings
   showSettings: () => ipcRenderer.invoke('show-settings'),
   hideSettings: () => ipcRenderer.invoke('hide-settings'),
