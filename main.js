@@ -284,6 +284,12 @@ class ApplicationController {
       this.setupPermissions();
       this.setupNetworkConfiguration();
 
+      // Cloud configuration is declarative only: it can change feature flags
+      // and presentation settings without downloading or executing code.
+      // A cached, validated snapshot keeps the app usable while offline.
+      this.startCloudConfiguration();
+
+
       // Small delay to ensure desktop/space detection is accurate
       await new Promise((resolve) => setTimeout(resolve, 200));
 
@@ -375,6 +381,30 @@ class ApplicationController {
         app.quit();
       }
     }
+  }
+
+
+  startCloudConfiguration() {
+    if (this.cloudConfigService) return;
+    const CloudConfigService = require("./src/services/cloud-config.service");
+    this.cloudConfigService = new CloudConfigService({
+      cachePath: path.join(app.getPath("userData"), "cloud-config.json"),
+      appVersion: app.getVersion(),
+      logger,
+    });
+    const refresh = async () => {
+      try {
+        const snapshot = await this.cloudConfigService.refresh();
+        windowManager.broadcastToAllWindows("cloud-config-updated", snapshot);
+      } catch (error) {
+        logger.warn("Slickly cloud configuration refresh failed; cached settings remain active", {
+          error: error.message,
+        });
+      }
+    };
+    refresh();
+    const timer = setInterval(refresh, 15 * 60 * 1000);
+    timer.unref?.();
   }
 
   startAutoUpdates() {
@@ -607,6 +637,11 @@ class ApplicationController {
   }
 
   setupIPCHandlers() {
+  ipcMain.handle("get-cloud-config", () => this.cloudConfigService
+    ? this.cloudConfigService.getSnapshot()
+    : null);
+
+
   ipcMain.on("move-chat-window", (event, movement = {}) => {
     const chatWindow = BrowserWindow.fromWebContents(event.sender);
     if (!chatWindow || chatWindow.isDestroyed()) return;
