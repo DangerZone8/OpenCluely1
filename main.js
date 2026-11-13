@@ -392,7 +392,6 @@ class ApplicationController {
       appVersion: app.getVersion(),
       logger,
     });
-    let refreshTimer = null;
     const refresh = async () => {
       try {
         const snapshot = await this.cloudConfigService.refresh();
@@ -401,13 +400,11 @@ class ApplicationController {
         logger.warn("Slickly cloud configuration refresh failed; cached settings remain active", {
           error: error.message,
         });
-      } finally {
-        const delay = this.cloudConfigService.getSnapshot().pollIntervalMs || 15 * 60 * 1000;
-        refreshTimer = setTimeout(refresh, delay);
-        refreshTimer.unref?.();
       }
     };
     refresh();
+    const timer = setInterval(refresh, 15 * 60 * 1000);
+    timer.unref?.();
   }
 
   startAutoUpdates() {
