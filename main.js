@@ -386,7 +386,7 @@ class ApplicationController {
 
   startCloudConfiguration() {
     if (this.cloudConfigService) return;
-    const CloudConfigService = require("./src/services/cloud-config.service");
+    const { CloudConfigService } = require("./src/services/cloud-config.service");
     this.cloudConfigService = new CloudConfigService({
       cachePath: path.join(app.getPath("userData"), "cloud-config.json"),
       appVersion: app.getVersion(),
@@ -400,11 +400,13 @@ class ApplicationController {
         logger.warn("Slickly cloud configuration refresh failed; cached settings remain active", {
           error: error.message,
         });
+      } finally {
+        const delay = this.cloudConfigService.getSnapshot().pollIntervalMs || 15 * 60 * 1000;
+        const timer = setTimeout(refresh, delay);
+        timer.unref?.();
       }
     };
     refresh();
-    const timer = setInterval(refresh, 15 * 60 * 1000);
-    timer.unref?.();
   }
 
   startAutoUpdates() {

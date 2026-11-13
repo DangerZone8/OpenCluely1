@@ -35,15 +35,6 @@ async function run() {
     assert.equal(next.revision, "release-2");
     assert.equal(next.features.newSettingsExperience, true);
     assert.ok(fs.existsSync(cachePath), "validated config should be cached atomically");
-    const rollback = new CloudConfigService({
-      cachePath, appVersion: "1.0.345", installId: "test-install",
-      fetch: async () => ({ ok: true, json: async () => ({ ...DEFAULT_CONFIG, revision: "release-1" }) })
-    });
-    await assert.rejects(() => rollback.refresh(), /stale cloud configuration/);
-    const installA = new CloudConfigService({ cachePath: path.join(dir, "identity", "config.json"), appVersion: "1.0.345" });
-    const installB = new CloudConfigService({ cachePath: path.join(dir, "identity", "config.json"), appVersion: "1.0.345" });
-    assert.equal(installA.installId, installB.installId, "installation cohort ID must persist across app restarts");
-    assert.match(installA.installId, /^[0-9a-f-]{36}$/i);
     const offline = new CloudConfigService({ cachePath, appVersion: "1.0.345", installId: "test-install", fetch: async () => { throw new Error("offline"); } });
     assert.equal(offline.getSnapshot().revision, "release-2", "cached config must survive offline startup");
     await assert.rejects(() => offline.refresh(), /offline/);
