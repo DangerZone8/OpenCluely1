@@ -94,8 +94,28 @@ class CloudConfigService {
     this.fetch = options.fetch || globalThis.fetch;
     this.url = options.url || CONFIG_URL;
     this.logger = options.logger || { info() {}, warn() {} };
-    this.installId = options.installId || "local-install";
+    this.installId = options.installId || this.loadOrCreateInstallId();
     this.snapshot = this.readCache() || validateConfig(DEFAULT_CONFIG, this.appVersion, this.installId);
+  }
+
+  loadOrCreateInstallId() {
+    const idPath = this.cachePath + ".install-id";
+    try {
+      const existing = fs.readFileSync(idPath, "utf8").trim();
+      if (/^[0-9a-f-]{36}$/i.test(existing)) return existing;
+    } catch (_) {}
+    const id = crypto.randomUUID();
+    try {
+      fs.mkdirSync(path.dirname(idPath), { recursive: true });
+      fs.writeFileSync(idPath, id, { mode: 0o600, flag: "wx" });
+      return id;
+    } catch (_) {
+      try {
+        const existing = fs.readFileSync(idPath, "utf8").trim();
+        if (/^[0-9a-f-]{36}$/i.test(existing)) return existing;
+      } catch (_) {}
+      return id;
+    }
   }
 
   readCache() {
