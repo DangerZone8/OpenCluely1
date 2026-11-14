@@ -110,23 +110,6 @@ async function main() {
   fs.writeFileSync(path.join(userData, '.env'), 'GEMINI_API_KEY=' + (process.env.GEMINI_API_KEY || '') + '\n', { mode: 0o600 });
   fs.writeFileSync(path.join(userData, '.opencluely-firstrun-completed'), new Date().toISOString());
 
-  // This UI test targets real Gemini responses, but does not have a real
-  // signed-in customer account. Stub only the authenticated credit-reservation
-  // endpoint; the dedicated account/credits tests cover its real server logic.
-  // All other fetch calls, especially the hosted AI request, remain untouched.
-  const creditFetchStub = path.join(userData, 'e2e-credit-fetch.cjs');
-  fs.writeFileSync(creditFetchStub, `
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = async (input, init = {}) => {
-      const url = typeof input === 'string' ? input : input && input.url;
-      if (url === 'https://slicklyai.vercel.app/api/credits' && init.method === 'POST') {
-        return new Response(JSON.stringify({ allowed: true, feature: 'screen_aware', remaining: 999, testOnly: true }), {
-          status: 200, headers: { 'content-type': 'application/json' }
-        });
-      }
-      return originalFetch(input, init);
-    };
-  `);
   // Match normal app startup so the branded system tray assets exist in CI.
   execFileSync(process.execPath, [path.join(root, 'scripts/generate-app-icons.js')], { cwd: root, stdio: 'inherit' });
 
@@ -144,7 +127,6 @@ async function main() {
     SLICKLY_E2E_AI_ENDPOINT: process.env.SLICKLY_E2E_AI_ENDPOINT || '',
     OPENCLUELY_AI_ENDPOINT: process.env.SLICKLY_E2E_AI_ENDPOINT || 'https://slicklyai.vercel.app/api/gemini',
     OPENCLUELY_AI_FALLBACK_ENDPOINT: process.env.SLICKLY_E2E_AI_ENDPOINT || process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT || 'https://cleverly-lime.vercel.app/api/gemini',
-    NODE_OPTIONS: [process.env.NODE_OPTIONS, '--require', creditFetchStub].filter(Boolean).join(' ')
   };
   delete env.ELECTRON_RUN_AS_NODE;
   child = spawn(electronPath, [
