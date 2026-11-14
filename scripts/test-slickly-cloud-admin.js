@@ -62,7 +62,7 @@ async function run() {
 
     const invalid=response();
     await admin({method:'PUT',headers:{authorization:'Bearer token'},body:{config:{schemaVersion:1,revision:'bad',minimumAppVersion:'x',pollIntervalMs:1,rolloutPercent:200,features:{},presentation:{}}}},invalid);
-    assert.equal(invalid.statusCode,503);
+    assert.equal(invalid.statusCode,400);
 
     const pub=response();
     global.fetch=async(url)=>({ok:true,json:async()=>[{config:stored}]});
