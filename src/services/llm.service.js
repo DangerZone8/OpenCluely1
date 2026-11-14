@@ -125,8 +125,8 @@ class LLMService {
     return id;
   }
 
-  async executeRemoteRequest(geminiRequest, modelName = this.model, onDelta = null) {
-    await this.consumeCreditForRequest(geminiRequest);
+  async executeRemoteRequest(geminiRequest, modelName = this.model, onDelta = null, featureOverride = null) {
+    await this.consumeCreditForRequest(geminiRequest, featureOverride);
     // One hard deadline for the whole request. Do not let a dead Vercel alias
     // multiply the normal timeout by every endpoint and transport fallback.
     // Gemini vision may legitimately take 10-15s; allow that once while still
@@ -2040,7 +2040,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
         const response = await this.executeRemoteRequest({
           contents: [{ role: 'user', parts: [{ text: 'Reply with OK.' }] }],
           generationConfig: this.getGenerationConfig({ temperature: 0, maxOutputTokens: 32 })
-        });
+        }, this.model, null, 'already_consumed');
         return { success: true, response, latency: Date.now() - startTime, model: this.model, provider: 'Slickly AI hosted AI service' };
       } catch (error) {
         return { success: false, error: error.message, provider: 'Slickly AI hosted AI service' };
