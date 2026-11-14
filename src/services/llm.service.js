@@ -853,7 +853,7 @@ class LLMService {
         if (typeof onDelta === 'function' && delta) {
           onDelta(delta);
         }
-      });
+      }, featureOverride);
 
       const finalResponse = programmingLanguage
         ? this.enforceProgrammingLanguage(fullText, programmingLanguage)
