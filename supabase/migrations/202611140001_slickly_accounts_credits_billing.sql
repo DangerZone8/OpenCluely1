@@ -104,7 +104,7 @@ begin
     where s.user_id = p_user_id
     for update;
   v_previous_event := coalesce(v_previous_event, 0);
-  if coalesce(p_event_created_at, 0) < v_previous_event then
+  if v_previous_event > 0 and coalesce(p_event_created_at, 0) <= v_previous_event then
     return jsonb_build_object('applied', false, 'stale', true);
   end if;
 
