@@ -7,6 +7,7 @@ create table if not exists public.slickly_subscriptions (
   status text not null default 'free' check (status in ('free','created','authenticated','active','pending','halted','paused','cancelled','completed','expired')),
   plan text not null default 'free' check (plan in ('free','pro')),
   current_period_end timestamptz,
+  provider_event_created_at bigint not null default 0,
   updated_at timestamptz not null default now()
 );
 
@@ -84,18 +85,28 @@ $$;
 
 create or replace function public.apply_slickly_razorpay_event(
   p_event_id text, p_user_id uuid, p_provider_subscription_id text,
-  p_event_type text, p_provider_status text, p_current_end timestamptz, p_payload jsonb
+  p_event_type text, p_provider_status text, p_current_end timestamptz, p_event_created_at bigint, p_payload jsonb
 ) returns jsonb
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_plan text;
   v_status text;
+  v_previous_event bigint := 0;
 begin
   if p_event_id is null or length(p_event_id) < 8 then raise exception 'invalid event id'; end if;
   insert into public.slickly_billing_events(event_id, user_id, event_type, provider_subscription_id)
   values (p_event_id, p_user_id, p_event_type, p_provider_subscription_id)
   on conflict (event_id) do nothing;
   if not found then return jsonb_build_object('applied', false, 'duplicate', true); end if;
+
+  select s.provider_event_created_at into v_previous_event
+    from public.slickly_subscriptions s
+    where s.user_id = p_user_id
+    for update;
+  v_previous_event := coalesce(v_previous_event, 0);
+  if coalesce(p_event_created_at, 0) < v_previous_event then
+    return jsonb_build_object('applied', false, 'stale', true);
+  end if;
 
   v_status := case p_provider_status
     when 'active' then 'active'
@@ -111,9 +122,9 @@ begin
   v_plan := case when v_status = 'active' then 'pro' else 'free' end;
 
   insert into public.slickly_subscriptions(
-    user_id, provider, provider_subscription_id, status, plan, current_period_end, updated_at
+    user_id, provider, provider_subscription_id, status, plan, current_period_end, provider_event_created_at, updated_at
   ) values (
-    p_user_id, 'razorpay', p_provider_subscription_id, v_status, v_plan, p_current_end, now()
+    p_user_id, 'razorpay', p_provider_subscription_id, v_status, v_plan, p_current_end, coalesce(p_event_created_at, 0), now()
   )
   on conflict (user_id) do update set
     provider = excluded.provider,
@@ -121,13 +132,15 @@ begin
     status = excluded.status,
     plan = excluded.plan,
     current_period_end = excluded.current_period_end,
-    updated_at = now();
+    provider_event_created_at = greatest(public.slickly_subscriptions.provider_event_created_at, excluded.provider_event_created_at),
+    updated_at = now()
+  where excluded.provider_event_created_at >= public.slickly_subscriptions.provider_event_created_at;
 
   return jsonb_build_object('applied', true, 'plan', v_plan, 'status', v_status);
 end;
 $$;
 
 revoke all on function public.consume_slickly_credit(uuid,text,integer,integer) from public, anon, authenticated;
-revoke all on function public.apply_slickly_razorpay_event(text,uuid,text,text,text,timestamptz,jsonb) from public, anon, authenticated;
+revoke all on function public.apply_slickly_razorpay_event(text,uuid,text,text,text,timestamptz,bigint,jsonb) from public, anon, authenticated;
 grant execute on function public.consume_slickly_credit(uuid,text,integer,integer) to service_role;
 grant execute on function public.apply_slickly_razorpay_event(text,uuid,text,text,text,timestamptz,jsonb) to service_role;
