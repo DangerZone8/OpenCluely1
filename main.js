@@ -123,6 +123,24 @@ process.on("uncaughtExceptionMonitor", (err, origin) => {
 // Screen capture (image-based)
 const captureService = require("./src/services/capture.service");
 const speechService = require("./src/services/speech.service");
+// The desktop UI E2E has no authenticated customer account. In that narrowly
+// scoped CI-only scenario, stub only credit reservations so the test can still
+// exercise real Gemini requests and actual renderer/main-process IPC. Billing
+// enforcement is covered separately by the API and credits integration tests.
+if (process.env.CI === "true" &&
+    process.env.CLEVERLY_E2E_SCREEN_CAPTURE === "1" &&
+    process.env.SLICKLY_E2E_STUB_CREDITS === "1") {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = typeof input === "string" ? input : input && input.url;
+    if (url === "https://slicklyai.vercel.app/api/credits" && init.method === "POST") {
+      return new Response(JSON.stringify({
+        allowed: true, feature: "screen_aware", remaining: 999, testOnly: true
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    return originalFetch(input, init);
+  };
+}
 const llmService = require("./src/services/llm.service");
 const SlicklyAccountSession = require("./src/services/account-session.service");
 const accountSessionService = new SlicklyAccountSession();
