@@ -27,7 +27,7 @@ class LLMService {
     this.accountAccessTokenProvider = typeof provider === 'function' ? provider : null;
   }
 
-  async consumeCreditForRequest(geminiRequest) {
+  async consumeCreditForRequest(geminiRequest, featureOverride = null) {
     if (!geminiRequest || typeof geminiRequest !== 'object') return;
     const existing = this.creditClaims.get(geminiRequest);
     if (existing) return existing;
@@ -37,7 +37,7 @@ class LLMService {
       return mime.toLowerCase().startsWith('audio/');
     });
     const image = parts.some(part => part && (part.inlineData || part.inline_data || part.fileData));
-    const feature = audio ? 'voice' : image ? 'screen_aware' : 'chat';
+    const feature = ['screen_aware','voice','screenshot','chat'].includes(featureOverride) ? featureOverride : (audio ? 'voice' : image ? 'screen_aware' : 'chat');
     const claim = (async () => {
       if (!this.accountAccessTokenProvider) throw new Error('Sign in to your Slickly account to use AI features and track your daily credits.');
       const token = await this.accountAccessTokenProvider();
@@ -517,7 +517,7 @@ class LLMService {
    * @param {string|null} programmingLanguage - optional language context for skills that need it
    * @returns {Promise<{response: string, metadata: object}>}
    */
-  async processImageWithSkill(imageBuffer, mimeType, activeSkill, sessionMemory = [], programmingLanguage = null) {
+  async processImageWithSkill(imageBuffer, mimeType, activeSkill, sessionMemory = [], programmingLanguage = null, featureOverride = 'screen_aware') {
     if (!this.isInitialized) {
       throw new Error('LLM service not initialized. Check Gemini API key configuration.');
     }
@@ -621,7 +621,7 @@ class LLMService {
     }
   }
 
-  async processImageWithSkillStream(imageBuffer, mimeType, activeSkill, sessionMemory = [], programmingLanguage = null, onDelta = null) {
+  async processImageWithSkillStream(imageBuffer, mimeType, activeSkill, sessionMemory = [], programmingLanguage = null, onDelta = null, featureOverride = 'screen_aware') {
     if (!this.isInitialized) {
       throw new Error('LLM service not initialized. Check Gemini API key configuration.');
     }
@@ -1287,8 +1287,8 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
     return `Context: ${activeSkill.toUpperCase()} analysis request\n\nText to analyze:\n${text}`;
   }
 
-  async executeRequest(geminiRequest) {
-    await this.consumeCreditForRequest(geminiRequest);
+  async executeRequest(geminiRequest, featureOverride = null) {
+    await this.consumeCreditForRequest(geminiRequest, featureOverride);
     const provider = getProvider();
     if (provider.id !== 'gemini') {
       const text = await executeProviderRequest(geminiRequest);
@@ -1550,8 +1550,8 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
    * as executeRequest. Accumulates and returns the full text; invokes onDelta
    * for each chunk.
    */
-  async executeStreamingRequest(geminiRequest, onDelta) {
-    await this.consumeCreditForRequest(geminiRequest);
+  async executeStreamingRequest(geminiRequest, onDelta, featureOverride = null) {
+    await this.consumeCreditForRequest(geminiRequest, featureOverride);
     const provider = getProvider();
     if (provider.id !== 'gemini') {
       const fullText = await this.executeRequest(geminiRequest);
