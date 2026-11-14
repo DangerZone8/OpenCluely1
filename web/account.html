@@ -71,8 +71,21 @@ button{width:100%;min-height:46px;border:1px solid var(--ink);border-radius:5px;
     if(!cfgRes.ok)throw new Error(cfg.error||'Account services are not configured.');
     if(!window.supabase?.createClient)throw new Error('Sign-in library did not load. Refresh and try again.');
     client=window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+    const syncDesktopSession=async(next)=>{
+      if(!window.slicklyDesktopAccount)return;
+      try{
+        if(next)await window.slicklyDesktopAccount.saveSession({
+          accessToken:next.access_token,refreshToken:next.refresh_token,
+          expiresAt:Number(next.expires_at||0)*1000||Date.now()+Number(next.expires_in||3600)*1000,
+          supabaseUrl:cfg.supabaseUrl,supabaseAnonKey:cfg.supabaseAnonKey,
+          user:{id:next.user?.id,email:next.user?.email}
+        });
+        else await window.slicklyDesktopAccount.clearSession();
+      }catch(error){status('Signed in, but desktop secure session sync failed: '+error.message);}
+    };
     const {data,error}=await client.auth.getSession();if(error)throw error;session=data.session;
-    const {data:authData}=client.auth.onAuthStateChange((_event,next)=>{session=next;render();});
+    if(session)await syncDesktopSession(session);
+    const {data:authData}=client.auth.onAuthStateChange((_event,next)=>{session=next;void syncDesktopSession(next);render();});
     window.__slicklyAuthSubscription=authData.subscription;
     $('google').onclick=async()=>{status('Opening Google sign-in…');const {error}=await client.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});if(error)status(error.message);};
     $('emailSignIn').onclick=async()=>{const email=$('email').value.trim();if(!email){status('Enter your email address first.');return;}status('Sending a secure sign-in link…');const {error}=await client.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname,shouldCreateUser:true}});status(error?error.message:'Check your inbox for the sign-in link.');};
