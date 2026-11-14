@@ -144,7 +144,18 @@ if (process.env.CI === "true" &&
 const llmService = require("./src/services/llm.service");
 const SlicklyAccountSession = require("./src/services/account-session.service");
 const accountSessionService = new SlicklyAccountSession();
-llmService.setAccountAccessTokenProvider(() => accountSessionService.getAccessToken());
+llmService.setAccountAccessTokenProvider(() => {
+  // The desktop Screen AI E2E runs without a real customer account. Supply a
+  // synthetic bearer only in the same explicitly gated CI harness that stubs
+  // the credit reservation endpoint; packaged and ordinary local launches
+  // always use the encrypted Supabase session.
+  if (process.env.CI === "true" &&
+      process.env.CLEVERLY_E2E_SCREEN_CAPTURE === "1" &&
+      process.env.SLICKLY_E2E_STUB_CREDITS === "1") {
+    return "slickly-desktop-e2e-test-token";
+  }
+  return accountSessionService.getAccessToken();
+});
 
 // Managers
 const windowManager = require("./src/managers/window.manager");
