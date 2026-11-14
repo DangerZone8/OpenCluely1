@@ -17,8 +17,47 @@ class LLMService {
     this.errorCount = 0;
     // Most recently observed screen summary, kept in memory for follow-up questions.
     this.lastScreenContext = null;
+    this.accountAccessTokenProvider = null;
+    this.creditClaims = new WeakMap();
     
     this.initializeClient();
+  }
+
+  setAccountAccessTokenProvider(provider) {
+    this.accountAccessTokenProvider = typeof provider === 'function' ? provider : null;
+  }
+
+  async consumeCreditForRequest(geminiRequest) {
+    if (!geminiRequest || typeof geminiRequest !== 'object') return;
+    const existing = this.creditClaims.get(geminiRequest);
+    if (existing) return existing;
+    const parts = (geminiRequest.contents || []).flatMap(message => Array.isArray(message?.parts) ? message.parts : []);
+    const audio = parts.some(part => {
+      const mime = String(part?.inlineData?.mimeType || part?.inline_data?.mime_type || '');
+      return mime.toLowerCase().startsWith('audio/');
+    });
+    const image = parts.some(part => part && (part.inlineData || part.inline_data || part.fileData));
+    const feature = audio ? 'voice' : image ? 'screen_aware' : 'chat';
+    const claim = (async () => {
+      if (!this.accountAccessTokenProvider) throw new Error('Sign in to your Slickly account to use AI features and track your daily credits.');
+      const token = await this.accountAccessTokenProvider();
+      if (!token) throw new Error('Your Slickly account session has expired. Open Account and sign in again.');
+      const response = await fetch('https://slicklyai.vercel.app/api/credits', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feature })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.allowed !== true) {
+        const error = new Error(data.error || 'Slickly could not verify your daily credits.');
+        error.code = data.code || 'CREDIT_CHECK_FAILED';
+        error.statusCode = response.status;
+        throw error;
+      }
+      return data;
+    })();
+    this.creditClaims.set(geminiRequest, claim);
+    return claim;
   }
 
   initializeClient() {
@@ -87,6 +126,7 @@ class LLMService {
   }
 
   async executeRemoteRequest(geminiRequest, modelName = this.model, onDelta = null) {
+    await this.consumeCreditForRequest(geminiRequest);
     // One hard deadline for the whole request. Do not let a dead Vercel alias
     // multiply the normal timeout by every endpoint and transport fallback.
     // Gemini vision may legitimately take 10-15s; allow that once while still
@@ -1248,6 +1288,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
   }
 
   async executeRequest(geminiRequest) {
+    await this.consumeCreditForRequest(geminiRequest);
     const provider = getProvider();
     if (provider.id !== 'gemini') {
       const text = await executeProviderRequest(geminiRequest);
@@ -1510,6 +1551,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
    * for each chunk.
    */
   async executeStreamingRequest(geminiRequest, onDelta) {
+    await this.consumeCreditForRequest(geminiRequest);
     const provider = getProvider();
     if (provider.id !== 'gemini') {
       const fullText = await this.executeRequest(geminiRequest);
@@ -2143,6 +2185,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
   }
 
   async executeAlternativeRequest(geminiRequest) {
+    await this.consumeCreditForRequest(geminiRequest);
     const https = require('https');
     const apiKey = config.getApiKey('GEMINI');
     const primaryModel = config.get('llm.gemini.model');
