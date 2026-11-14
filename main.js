@@ -124,6 +124,9 @@ process.on("uncaughtExceptionMonitor", (err, origin) => {
 const captureService = require("./src/services/capture.service");
 const speechService = require("./src/services/speech.service");
 const llmService = require("./src/services/llm.service");
+const SlicklyAccountSession = require("./src/services/account-session.service");
+const accountSessionService = new SlicklyAccountSession();
+llmService.setAccountAccessTokenProvider(() => accountSessionService.getAccessToken());
 
 // Managers
 const windowManager = require("./src/managers/window.manager");
@@ -133,6 +136,7 @@ class ApplicationController {
   constructor() {
     this.isReady = false;
     this.tray = null;
+    this.accountWindow = null;
     this.starting = false;
     this.activeSkill = "dsa";
   // Default to C++ so language is enforced from first run
@@ -639,6 +643,47 @@ class ApplicationController {
   }
 
   setupIPCHandlers() {
+  ipcMain.handle("open-slickly-account", async () => {
+    if (this.accountWindow && !this.accountWindow.isDestroyed()) {
+      this.accountWindow.focus();
+      return { opened: true };
+    }
+    const accountWindow = new BrowserWindow({
+      width: 500, height: 760, minWidth: 380, minHeight: 560,
+      title: "Slickly Account",
+      autoHideMenuBar: true,
+      webPreferences: {
+        preload: path.join(__dirname, "account-preload.js"),
+        contextIsolation: true, nodeIntegration: false, sandbox: true
+      }
+    });
+    this.accountWindow = accountWindow;
+    accountWindow.webContents.setWindowOpenHandler(({ url }) => {
+      try { if (new URL(url).origin === "https://slicklyai.vercel.app") return { action: "allow" }; } catch (_) {}
+      return { action: "deny" };
+    });
+    accountWindow.webContents.on("will-navigate", (event, url) => {
+      try { if (new URL(url).origin !== "https://slicklyai.vercel.app") event.preventDefault(); }
+      catch (_) { event.preventDefault(); }
+    });
+    accountWindow.on("closed", () => { if (this.accountWindow === accountWindow) this.accountWindow = null; });
+    await accountWindow.loadURL("https://slicklyai.vercel.app/account.html?desktop=1");
+    return { opened: true };
+  });
+
+  const isTrustedAccountSender = (event) => {
+    try { return new URL(event.senderFrame?.url || event.sender.getURL()).origin === "https://slicklyai.vercel.app"; }
+    catch (_) { return false; }
+  };
+  ipcMain.handle("slickly-account-save-session", (event, payload) => {
+    if (!isTrustedAccountSender(event)) throw new Error("Rejected account session from an untrusted page.");
+    return accountSessionService.save(payload);
+  });
+  ipcMain.handle("slickly-account-clear-session", (event) => {
+    if (!isTrustedAccountSender(event)) throw new Error("Rejected account sign-out from an untrusted page.");
+    return accountSessionService.clear();
+  });
+
   ipcMain.handle("get-cloud-config", () => this.cloudConfigService
     ? this.cloudConfigService.getSnapshot()
     : null);
