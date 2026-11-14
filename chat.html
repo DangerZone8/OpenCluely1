@@ -710,6 +710,16 @@
       }
       .header-title > i { color: var(--slickly-lime); }
       .header-actions { gap: 7px; }
+      .account-pro-button {
+        min-height: 34px; padding: 0 12px; display: inline-flex; align-items: center;
+        justify-content: center; gap: 7px; border-radius: 6px; cursor: pointer;
+        background: var(--slickly-lime); border: 1px solid var(--slickly-lime);
+        color: #171b18; font: 700 12px inherit; white-space: nowrap;
+      }
+      .account-pro-button:hover { filter: brightness(1.05); }
+      .account-pro-button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+      .account-pro-button:disabled { opacity: .6; cursor: wait; }
+      @media (max-width: 560px) { .account-pro-button { padding: 0 8px; font-size: 10px; } }
       .icon-button {
         width: 34px; height: 34px; padding: 0;
         display: inline-flex; align-items: center; justify-content: center;
@@ -802,6 +812,7 @@
           <div class="recording-indicator" id="recordingIndicator"></div>
         </div>
         <div class="header-actions">
+          <button class="account-pro-button" id="accountProButton" type="button" title="Sign in, view your daily credits, or upgrade to Slickly Pro"><i class="fas fa-user-circle" aria-hidden="true"></i><span>Account / Pro</span></button>
           <button class="icon-button" id="screenCaptureBtn" title="Capture screen and ask AI">
             <i class="fas fa-camera"></i>
           </button>
@@ -2035,6 +2046,25 @@
           micButton && micButton.click();
         }
       });
+
+      // Keep sign-in and subscription access visible in the primary desktop workspace.
+      const accountProButton = document.getElementById('accountProButton');
+      if (accountProButton) {
+        accountProButton.addEventListener('click', async () => {
+          accountProButton.disabled = true;
+          try {
+            if (!whysperAPI || typeof whysperAPI.openSlicklyAccount !== 'function') {
+              throw new Error('Account services are unavailable in this app build. Please update Slickly AI.');
+            }
+            await whysperAPI.openSlicklyAccount();
+          } catch (error) {
+            console.error('Could not open Slickly Account:', error);
+            addMessage('Could not open Account / Pro: ' + (error.message || String(error)), 'error');
+          } finally {
+            accountProButton.disabled = false;
+          }
+        });
+      }
 
       // Initialize
       if (!chatHistory || chatHistory.length === 0) {
