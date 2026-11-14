@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f3f2ec">
+<title>Slickly Account</title>
+<style>
+:root{color-scheme:light;--bg:#f3f2ec;--paper:#fbfaf6;--ink:#171916;--muted:#62675f;--line:rgba(23,25,22,.16);--accent:#d5f45b;--dark:#171b18;font-family:Inter,"DM Sans",system-ui,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);min-height:100vh;display:grid;place-items:center;padding:28px}
+main{width:min(100%,520px)}.brand{font-size:22px;font-weight:800;letter-spacing:-.06em;margin-bottom:24px}.card{background:var(--paper);border:1px solid var(--line);padding:30px;border-radius:8px;box-shadow:0 20px 60px #1719160c}
+h1{font-size:32px;letter-spacing:-.06em;margin:0 0 8px}.muted{color:var(--muted);line-height:1.55}.field{display:grid;gap:7px;margin:18px 0}.field label{font-size:13px;font-weight:700}.field input{width:100%;height:48px;padding:0 13px;border:1px solid var(--line);border-radius:5px;background:white;font:inherit}
+button{width:100%;min-height:48px;border:1px solid var(--ink);border-radius:5px;background:var(--dark);color:white;font:700 14px inherit;cursor:pointer;margin-top:10px}button.secondary{background:transparent;color:var(--ink)}button:disabled{opacity:.5;cursor:wait}
+.status{margin-top:16px;padding:12px;border-radius:5px;background:#eef0e8;color:#30372a;font-size:13px;line-height:1.5;white-space:pre-wrap}.hidden{display:none!important}.credits{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:20px 0}.credit{border:1px solid var(--line);padding:13px;border-radius:5px}.credit strong{display:block;font-size:24px;letter-spacing:-.04em}.credit span{font-size:12px;color:var(--muted)}.price{font-size:40px;font-weight:800;letter-spacing:-.06em;margin:18px 0}.price small{font-size:14px;color:var(--muted);font-weight:500;letter-spacing:0}
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">Slickly<span style="color:#718b25">.</span></div>
+  <section class="card" id="auth">
+    <h1>Your account.</h1>
+    <p class="muted">Sign in once. Your Slickly Pro subscription belongs to your account, so you can restore it on a replacement laptop.</p>
+    <button id="google">Continue with Google</button>
+    <div class="field"><label for="email">Email address</label><input id="email" type="email" autocomplete="email" placeholder="you@example.com"></div>
+    <button class="secondary" id="emailSignIn">Email me a secure sign-in link</button>
+    <p class="muted" style="font-size:12px;margin:16px 0 0">Email sign-in uses a one-time link. Never share it with anyone.</p>
+  </section>
+  <section class="card hidden" id="dashboard">
+    <h1>Welcome back.</h1>
+    <p class="muted" id="identity"></p>
+    <div class="price">₹399 <small>/ month · Slickly Pro</small></div>
+    <p class="muted">More daily AI capacity, with limits designed to keep the service reliable.</p>
+    <button id="upgrade">Get Slickly Pro</button>
+    <h2 style="font-size:17px;margin:28px 0 0">Today's credits</h2>
+    <div class="credits" id="credits"></div>
+    <p class="muted" id="plan"></p>
+    <button class="secondary" id="signOut">Sign out</button>
+  </section>
+  <div class="status" id="status" role="status">Loading account services…</div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(async function(){
+  const $=id=>document.getElementById(id);
+  const status=(message)=>{$('status').textContent=message;$('status').classList.remove('hidden')};
+  let client=null,session=null;
+  try{
+    const cfgRes=await fetch('/api/public-config',{cache:'no-store'});
+    const cfg=await cfgRes.json();
+    if(!cfgRes.ok)throw new Error(cfg.error||'Account services are not configured.');
+    if(!window.supabase?.createClient)throw new Error('Sign-in library did not load. Refresh and try again.');
+    client=window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+    const {data,error}=await client.auth.getSession();
+    if(error)throw error;
+    session=data.session;
+    const {data:authData}=await client.auth.onAuthStateChange((_event,next)=>{session=next;render();});
+    window.__slicklyAuthSubscription=authData.subscription;
+    $('google').onclick=async()=>{status('Opening Google sign-in…');const {error}=await client.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});if(error)status(error.message);};
+    $('emailSignIn').onclick=async()=>{const email=$('email').value.trim();if(!email){status('Enter your email address first.');return;}status('Sending a secure sign-in link…');const {error}=await client.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname,shouldCreateUser:true}});status(error?error.message:'Check your inbox for the sign-in link.');};
+    $('signOut').onclick=async()=>{const {error}=await client.auth.signOut();if(error)status(error.message);else status('Signed out.');};
+    $('upgrade').onclick=async()=>{if(!session?.access_token)return status('Sign in again before checkout.');$('upgrade').disabled=true;try{const r=await fetch('/api/billing/checkout',{method:'POST',headers:{Authorization:'Bearer '+session.access_token}});const d=await r.json();if(!r.ok)throw new Error(d.error||'Checkout could not start.');location.href=d.checkoutUrl;}catch(e){status(e.message);}finally{$('upgrade').disabled=false;}};
+    async function render(){
+      $('auth').classList.toggle('hidden',!!session);
+      $('dashboard').classList.toggle('hidden',!session);
+      if(!session){status('Sign in with Google or your verified email.');return;}
+      $('identity').textContent=session.user.email||'Signed in to Slickly';
+      try{
+        const r=await fetch('/api/account/me',{headers:{Authorization:'Bearer '+session.access_token},cache:'no-store'});
+        const d=await r.json();if(!r.ok)throw new Error(d.error||'Could not load credits.');
+        $('plan').textContent='Current plan: '+d.plan.toUpperCase()+' · Daily credits reset at '+new Date(d.resetsAt).toLocaleTimeString();
+        const labels={screen_aware:'Screen Aware AI',voice:'Voice',screenshot:'Screenshot',chat:'Chat'};
+        $('credits').innerHTML=Object.entries(d.credits).map(([key,value])=>'<div class="credit"><strong>'+value.remaining+' / '+value.limit+'</strong><span>'+labels[key]+'</span></div>').join('');
+        status('Account verified. Your subscription and credits are linked to this account.');
+      }catch(e){status(e.message);}
+    }
+    await render();
+  }catch(e){status(e.message||'Account services are unavailable.');}
+})();
+</script>
+</body>
+</html>
