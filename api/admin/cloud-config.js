@@ -42,7 +42,9 @@ module.exports = async function adminCloudConfig(req, res) {
       if (typeof body === 'string') {
         try { body = JSON.parse(body); } catch { return json(res, 400, { error: 'Invalid JSON.' }); }
       }
-      const next = sanitizeConfig(body?.config);
+      let next;
+      try { next = sanitizeConfig(body?.config); }
+      catch (error) { error.statusCode = 400; throw error; }
       // Always move the revision forward, even if an admin reuses a label.
       const existing = await fetch(url + '?select=revision_number&id=eq.true&limit=1', { headers });
       if (!existing.ok) throw new Error('Could not read the current cloud revision.');
