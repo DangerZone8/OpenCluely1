@@ -127,6 +127,7 @@ async function main() {
     SLICKLY_E2E_AI_ENDPOINT: process.env.SLICKLY_E2E_AI_ENDPOINT || '',
     OPENCLUELY_AI_ENDPOINT: process.env.SLICKLY_E2E_AI_ENDPOINT || 'https://slicklyai.vercel.app/api/gemini',
     OPENCLUELY_AI_FALLBACK_ENDPOINT: process.env.SLICKLY_E2E_AI_ENDPOINT || process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT || 'https://cleverly-lime.vercel.app/api/gemini',
+    SLICKLY_E2E_STUB_CREDITS: '1',
   };
   delete env.ELECTRON_RUN_AS_NODE;
   child = spawn(electronPath, [
