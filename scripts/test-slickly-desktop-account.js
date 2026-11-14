@@ -8,6 +8,7 @@ const service=fs.readFileSync(path.join(__dirname,'../src/services/account-sessi
 const llm=fs.readFileSync(path.join(__dirname,'../src/services/llm.service.js'),'utf8');
 const account=fs.readFileSync(path.join(__dirname,'../web/account.html'),'utf8');
 const settings=fs.readFileSync(path.join(__dirname,'../settings.html'),'utf8');
+const chat=fs.readFileSync(path.join(__dirname,'../chat.html'),'utf8');
 assert.match(main,/new SlicklyAccountSession\(\)/);
 assert.match(main,/setAccountAccessTokenProvider/);
 assert.match(main,/open-slickly-account/);
@@ -26,4 +27,6 @@ assert.match(llm,/chat/);
 assert.match(account,/slicklyDesktopAccount\.saveSession/);
 assert.match(account,/slicklyDesktopAccount\.clearSession/);
 assert.match(settings,/openSlicklyAccount/);
+assert.match(chat,/id="accountProButton"/,'primary chat workspace must expose Account / Pro');
+assert.match(chat,/whysperAPI\.openSlicklyAccount\(\)/,'Account / Pro button must open the trusted account window');
 console.log('Slickly desktop account integration checks passed: trusted account window, encrypted refresh-token storage, desktop session sync and AI feature credit metering.');
