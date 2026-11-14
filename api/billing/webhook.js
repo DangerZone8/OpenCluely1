@@ -3,11 +3,19 @@
 const crypto = require('node:crypto');
 const { json, getConfig, rpc, safeError } = require('../_lib/slickly-auth');
 
-function rawBody(req) {
+async function rawBody(req) {
   if (Buffer.isBuffer(req.body)) return req.body;
   if (typeof req.body === 'string') return Buffer.from(req.body);
-  if (req.body && typeof req.body === 'object') return Buffer.from(JSON.stringify(req.body));
-  return Buffer.alloc(0);
+  // Razorpay signatures cover the exact bytes sent by the provider. Re-serializing
+  // Vercel's parsed JSON body changes whitespace/key ordering and breaks verification.
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > 1024 * 1024) throw Object.assign(new Error('Webhook payload is too large.'), { statusCode: 413 });
+    chunks.push(Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
 }
 
 module.exports = async function webhook(req, res) {
@@ -18,7 +26,7 @@ module.exports = async function webhook(req, res) {
   try {
     const secret = String(process.env.RAZORPAY_WEBHOOK_SECRET || '');
     if (!secret) return json(res, 503, { error: 'Billing webhook is not configured.' });
-    const raw = rawBody(req);
+    const raw = await rawBody(req);
     const supplied = String(req.headers['x-razorpay-signature'] || '');
     const expected = crypto.createHmac('sha256', secret).update(raw).digest('hex');
     const a = Buffer.from(supplied, 'hex');
@@ -57,6 +65,7 @@ module.exports = async function webhook(req, res) {
       p_event_type: String(event.event),
       p_provider_status: String(subscription.status || 'unknown'),
       p_current_end: subscription.current_end ? new Date(subscription.current_end * 1000).toISOString() : null,
+      p_event_created_at: Number.isSafeInteger(event.created_at) ? event.created_at : 0,
       p_payload: { event: event.event, subscription_id: subscription.id, status: subscription.status || 'unknown' }
     });
     return json(res, 200, { received: true, applied: Boolean(result?.applied ?? result) });
@@ -64,3 +73,5 @@ module.exports = async function webhook(req, res) {
     return safeError(res, error);
   }
 };
+
+module.exports.config = { api: { bodyParser: false } };
