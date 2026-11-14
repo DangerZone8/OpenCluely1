@@ -16,8 +16,8 @@ assert.match(admin, /discountType === 'fixed'.*discountValue < 1.*discountValue 
 assert.match(admin, /monthly_price_paise: price/);
 assert.match(admin, /period: 'monthly', interval: 1/);
 assert.match(validate, /authenticate\(req\)/);
-assert.match(validate, /status=eq\\.redeemed/);
-assert.match(validate, /status=eq\\.pending/);
+assert.match(validate, /status=eq\.redeemed/);
+assert.match(validate, /status=eq\.pending/);
 assert.match(validate, /created_at=gt/);
 assert.match(migration, /for update/);
 assert.match(migration, /max_redemptions/);
