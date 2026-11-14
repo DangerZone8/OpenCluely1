@@ -20,9 +20,14 @@ module.exports = async function validateReferral(req, res) {
     if (!item || !item.is_active || (item.expires_at && Date.parse(item.expires_at) <= Date.now()) || (item.max_redemptions !== null && item.redemption_count >= item.max_redemptions)) {
       return json(res, 404, { error: 'That referral code is invalid, expired or fully redeemed.' });
     }
-    const already = await fetch(config.supabaseUrl + '/rest/v1/slickly_referral_redemptions?select=id,status&user_id=eq.' + encodeURIComponent(user.id) + '&status=in.(pending,redeemed)&limit=1', { headers: { apikey: config.serviceRoleKey, Authorization: 'Bearer ' + config.serviceRoleKey } });
-    if (!already.ok) throw new Error('Could not check referral eligibility.');
-    if ((await already.json()).length) return json(res, 409, { error: 'A referral code has already been applied to this account.' });
+    const redemptionHeaders = { apikey: config.serviceRoleKey, Authorization: 'Bearer ' + config.serviceRoleKey };
+    const pendingAfter = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const [redeemed, pending] = await Promise.all([
+      fetch(config.supabaseUrl + '/rest/v1/slickly_referral_redemptions?select=id&user_id=eq.' + encodeURIComponent(user.id) + '&status=eq.redeemed&limit=1', { headers: redemptionHeaders }),
+      fetch(config.supabaseUrl + '/rest/v1/slickly_referral_redemptions?select=id&user_id=eq.' + encodeURIComponent(user.id) + '&status=eq.pending&created_at=gt.' + encodeURIComponent(pendingAfter) + '&limit=1', { headers: redemptionHeaders })
+    ]);
+    if (!redeemed.ok || !pending.ok) throw new Error('Could not check referral eligibility.');
+    if ((await redeemed.json()).length || (await pending.json()).length) return json(res, 409, { error: 'A referral code has already been applied to this account.' });
     return json(res, 200, {
       code: item.code, discountType: item.discount_type, discountValue: item.discount_value,
       monthlyPricePaise: item.monthly_price_paise,
