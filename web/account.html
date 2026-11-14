@@ -33,6 +33,7 @@ button{width:100%;min-height:46px;border:1px solid var(--ink);border-radius:5px;
     <p class="muted">More daily AI capacity, with limits designed to keep the service reliable.</p>
     <div class="field"><label for="referralCode">Referral / discount code</label><input id="referralCode" maxlength="24" autocomplete="off" placeholder="Enter a code"></div>
     <div class="inline"><button class="secondary" id="applyReferral">Apply code</button><button id="upgrade">Get Slickly Pro</button></div>
+    <button class="secondary hidden" id="cancelPro">Schedule Pro cancellation at period end</button>
     <p class="muted" id="referralStatus" aria-live="polite"></p>
     <h2>Today's credits</h2>
     <div class="credits" id="credits"></div>
@@ -98,6 +99,12 @@ button{width:100%;min-height:46px;border:1px solid var(--ink);border-radius:5px;
       catch(e){appliedReferralCode='';$('referralStatus').textContent=e.message;}
       finally{$('applyReferral').disabled=false;}
     };
+    $('cancelPro').onclick=async()=>{
+      const button=$('cancelPro');button.disabled=true;
+      try{const r=await fetch('/api/billing/cancel',{method:'POST',headers:authHeaders(),body:'{}'});const d=await r.json();if(!r.ok)throw new Error(d.error||'Cancellation could not be scheduled.');$('referralStatus').textContent='Cancellation scheduled for the end of your current billing period.';button.textContent='Cancellation scheduled';}
+      catch(e){$('referralStatus').textContent=e.message;}
+      finally{button.disabled=false;}
+    };
     $('upgrade').onclick=async()=>{
       if(!session?.access_token)return status('Sign in again before checkout.');
       $('upgrade').disabled=true;
@@ -135,6 +142,8 @@ button{width:100%;min-height:46px;border:1px solid var(--ink);border-radius:5px;
       try{
         const r=await fetch('/api/account/me',{headers:authHeaders(),cache:'no-store'});const d=await r.json();if(!r.ok)throw new Error(d.error||'Could not load credits.');
         $('plan').textContent='Current plan: '+d.plan.toUpperCase()+' · Daily credits reset at '+new Date(d.resetsAt).toLocaleTimeString();
+        $('cancelPro').classList.toggle('hidden',!(d.plan==='pro' && d.subscription?.status==='active'));
+        $('upgrade').classList.toggle('hidden',d.plan==='pro');
         const labels={screen_aware:'Screen Aware AI',voice:'Voice',screenshot:'Screenshot',chat:'Chat'};
         $('credits').replaceChildren();
         for(const [key,value] of Object.entries(d.credits)){const tile=document.createElement('div');tile.className='credit';const amount=document.createElement('strong');amount.textContent=value.remaining+' / '+value.limit;const label=document.createElement('span');label.textContent=labels[key]||key;tile.append(amount,label);$('credits').append(tile);}
