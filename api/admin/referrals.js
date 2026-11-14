@@ -52,6 +52,10 @@ module.exports = async function referrals(req, res) {
       if (maxRedemptions !== null && (!Number.isInteger(maxRedemptions) || maxRedemptions < 1 || maxRedemptions > 100000)) return json(res, 400, { error: 'Maximum redemptions must be between 1 and 100,000.' });
       if (expiresAt && (!Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.now())) return json(res, 400, { error: 'Expiry must be a future date.' });
 
+      const existing = await fetch(base + '?select=id&code=eq.' + encodeURIComponent(code) + '&limit=1', { headers });
+      if (!existing.ok) throw new Error('Could not check whether that referral code already exists.');
+      if ((await existing.json()).length) return json(res, 409, { error: 'That referral code already exists.' });
+
       const price = discountType === 'percent'
         ? Math.round(39900 * (100 - discountValue) / 100)
         : 39900 - discountValue * 100;
