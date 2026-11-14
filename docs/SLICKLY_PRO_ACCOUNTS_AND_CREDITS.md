@@ -87,3 +87,18 @@ The dashboard stores a validated cloud configuration snapshot in `slickly_cloud_
 Automated offline checks include `scripts/test-slickly-cloud-admin.js` and `scripts/test-slickly-referral-e2e.js`. The referral E2E test simulates code creation, price-plan creation, customer validation, checkout reservation and a signed activation webhook against mocked provider/database responses. It is not a live Razorpay/Supabase sandbox test; real sandbox credentials and the three applied migrations are still required before enabling production billing.
 
 The requested hostname `admin.vercel.app` is not a path this repository can claim or provision. The admin page is deployed with the Slickly project at `https://slicklyai.vercel.app/admin`. A custom hostname requires a domain owned/verified by the Vercel team and DNS configuration.
+
+## Desktop Pro integration status
+
+The desktop Settings window now opens the trusted Slickly Account page in a dedicated Electron window with a minimal preload bridge. After sign-in, the account page sends the Supabase session to the main process; the desktop encrypts the refresh token/session with Electron safeStorage in the OS user-data directory and refreshes access tokens server-side from the main process. Sign-out clears that encrypted session. The account page only syncs a desktop session when opened from the desktop app.
+
+The desktop LLM service now requests an atomic account credit before invoking hosted Gemini or configured BYOK providers. Request classification is: typed chat → `chat`, audio payload → `voice`, live screen/image analysis → `screen_aware`, screenshot hotkey workflow → `screenshot`. Provider connection checks do not consume credits. The credit gate is applied at the common request methods so local/BYOK provider paths are metered too. A signed-in account is required in packaged desktop builds.
+
+The account page supports scheduling Razorpay Pro cancellation at the end of the current billing period. Entitlement remains active until the provider webhook updates the subscription status.
+
+Offline regression coverage now includes:
+- `scripts/test-slickly-desktop-account.js` for trusted desktop account handoff, encrypted storage, refresh-token plumbing and feature credit gating;
+- `scripts/test-slickly-cloud-admin.js` for admin allowlisting, config validation and propagation;
+- `scripts/test-slickly-referral-e2e.js` for the mocked referral-to-activation journey.
+
+These are code-level/mock tests. They do not replace a live staging run with the real Supabase schema, Google OAuth configuration, Razorpay test credentials, webhook delivery and installed desktop builds. Do not enable live checkout until an authorised adult/business operator has completed those checks.
