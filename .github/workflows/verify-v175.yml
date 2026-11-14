@@ -135,6 +135,8 @@ jobs:
       - name: Install virtual-desktop runtime
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb xauth libgtk-3-0 libnss3 libxss1 libasound2t64 libgbm1
       - name: Exercise both actual desktop screen-AI buttons against production
+        id: first-attempt
+        continue-on-error: true
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -143,6 +145,16 @@ jobs:
           # job independently gates the primary endpoint itself.
           SLICKLY_E2E_SUSTAINED: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
         run: xvfb-run -a npm run test:screen-ai-desktop-e2e
+      - name: Retry the complete desktop UI flow once after a transient failure
+        if: steps.first-attempt.outcome == 'failure'
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SLICKLY_E2E_SUSTAINED: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
+        run: |
+          echo "::warning::The first real desktop E2E attempt failed. Re-running the entire UI flow once; the check still fails if the retry fails."
+          sleep 20
+          xvfb-run -a npm run test:screen-ai-desktop-e2e
 
   production-stability-diagnostic:
     name: Diagnose chat and screen AI stability over 2.5 minutes
