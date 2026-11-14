@@ -1435,7 +1435,8 @@ class ApplicationController {
             messageId,
             delta
           });
-        }
+        },
+        'screenshot'
       );
       llmResult.metadata = { ...llmResult.metadata, messageId };
 
