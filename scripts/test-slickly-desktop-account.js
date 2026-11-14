@@ -42,5 +42,6 @@ assert.ok(pricing.includes('200 / day'));
 assert.ok(pricing.includes('href="/account.html?plan=pro"'),'Pro CTA must lead to the shared account flow');
 assert.ok(account.includes("fetch('/api/public-config'"),'website account must load the configured shared Supabase project');
 assert.ok(account.includes('window.supabase.createClient'),'website and desktop account page must use the shared Supabase auth client');
+assert.ok(account.includes('href="/pricing.html"'),'account page must link back to public pricing');
 assert.ok(main.includes('https://slicklyai.vercel.app/account.html?desktop=1'),'desktop app must open the same hosted account page');
 console.log('Slickly desktop account integration checks passed: trusted account window, encrypted refresh-token storage, desktop session sync and AI feature credit metering.');
