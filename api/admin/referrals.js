@@ -44,7 +44,12 @@ module.exports = async function referrals(req, res) {
       const discountType = String(body.discountType || '');
       const discountValue = Number(body.discountValue);
       const maxRedemptions = body.maxRedemptions === '' || body.maxRedemptions == null ? null : Number(body.maxRedemptions);
-      const expiresAt = body.expiresAt ? new Date(body.expiresAt).toISOString() : null;
+      let expiresAt = null;
+      if (body.expiresAt) {
+        const expiryMs = Date.parse(body.expiresAt);
+        if (!Number.isFinite(expiryMs) || expiryMs <= Date.now()) return json(res, 400, { error: 'Expiry must be a valid future date.' });
+        expiresAt = new Date(expiryMs).toISOString();
+      }
       if (!/^[A-Z0-9][A-Z0-9-]{2,23}$/.test(code)) return json(res, 400, { error: 'Code must be 3–24 characters: letters, numbers or hyphens.' });
       if (!['percent', 'fixed'].includes(discountType) || !Number.isInteger(discountValue)) return json(res, 400, { error: 'Choose a valid discount type and whole-number value.' });
       if (discountType === 'percent' && (discountValue < 1 || discountValue > 90)) return json(res, 400, { error: 'Percentage discounts must be between 1% and 90%.' });
