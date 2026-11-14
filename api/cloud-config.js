@@ -57,22 +57,22 @@ module.exports = async function cloudConfig(req, res) {
   // a safe bootstrap fallback for deployments that have not applied migration 3.
   if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
-      const url = String(process.env.SUPABASE_URL).replace(/\\/$/, '') + '/rest/v1/slickly_cloud_config?select=config&id=eq.true&limit=1';
+      const url = String(process.env.SUPABASE_URL).replace(/\/$/, "") + "/rest/v1/slickly_cloud_config?select=config&id=eq.true&limit=1";
       const response = await fetch(url, { headers: {
         apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY
+        Authorization: "Bearer " + process.env.SUPABASE_SERVICE_ROLE_KEY
       } });
       if (response.ok) {
         const rows = await response.json();
         if (Array.isArray(rows) && rows[0]?.config) config = sanitizeConfig(rows[0].config);
       } else if (response.status !== 404) {
-        throw new Error('Cloud configuration database request failed.');
+        throw new Error("Cloud configuration database request failed.");
       }
     } catch (error) {
-      console.error('Slickly cloud config database read failed:', error.message);
+      console.error("Slickly cloud config database read failed:", error.message);
       res.statusCode = 503;
-      res.setHeader('Cache-Control', 'no-store');
-      return res.end('Cloud configuration is temporarily unavailable.');
+      res.setHeader("Cache-Control", "no-store");
+      return res.end("Cloud configuration is temporarily unavailable.");
     }
   }
   if (config === DEFAULT_CONFIG && process.env.SLICKLY_CLOUD_CONFIG_JSON) {
