@@ -3,8 +3,8 @@
 const { json, authenticate, getConfig, safeError } = require('../_lib/slickly-auth');
 
 function isAdmin(user) {
-  const allowed = String(process.env.SLICKLY_REFERRAL_ADMIN_EMAILS || '')
-    .split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
+  const allowed = [process.env.SLICKLY_REFERRAL_ADMIN_EMAILS || '', process.env.SLICKLY_ADMIN_EMAILS || '']
+    .join(',').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
   return Boolean(user?.email && allowed.includes(String(user.email).toLowerCase()));
 }
 function razorpayAuth() {
