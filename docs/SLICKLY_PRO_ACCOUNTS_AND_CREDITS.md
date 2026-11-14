@@ -74,3 +74,16 @@ The admin page supports:
 Each code creates a Razorpay monthly plan at the discounted price. Razorpay plans are immutable, so changing a code's discount means disabling the old code and creating a new one. The discount applies to every recurring cycle of that subscription. A code can be used once per customer account; a customer cannot stack codes. Referral discounts are only effective after the verified subscription webhook confirms activation.
 
 This is still a staging implementation until an adult/business representative configures the Supabase and Razorpay projects, applies both migrations, configures the admin allowlist and webhook, and completes sandbox tests. The account portal and referral endpoints must be deployed together.
+
+## Slickly Cloud Admin
+
+The admin dashboard is served at `/admin` (the static source is `web/admin.html`). It requires a verified Supabase account whose email appears in the server-side `SLICKLY_ADMIN_EMAILS` allowlist. The referral manager also accepts `SLICKLY_REFERRAL_ADMIN_EMAILS`; keep these allowlists server-side and restrict them to authorised adult/business operators.
+
+Apply the third migration after the accounts and referral migrations:
+3. `supabase/migrations/202611140003_slickly_cloud_config.sql`
+
+The dashboard stores a validated cloud configuration snapshot in `slickly_cloud_config`. Compatible desktop clients already poll `/api/cloud-config`; changes to feature flags, rollout percentage, minimum supported version, polling interval and announcements therefore propagate without reinstalling. This is declarative configuration only: it does not download or execute arbitrary JavaScript/native code. Desktop binary releases continue through electron-updater and the GitHub release feed.
+
+Automated offline checks include `scripts/test-slickly-cloud-admin.js` and `scripts/test-slickly-referral-e2e.js`. The referral E2E test simulates code creation, price-plan creation, customer validation, checkout reservation and a signed activation webhook against mocked provider/database responses. It is not a live Razorpay/Supabase sandbox test; real sandbox credentials and the three applied migrations are still required before enabling production billing.
+
+The requested hostname `admin.vercel.app` is not a path this repository can claim or provision. The admin page is deployed with the Slickly project at `https://slicklyai.vercel.app/admin`. A custom hostname requires a domain owned/verified by the Vercel team and DNS configuration.
