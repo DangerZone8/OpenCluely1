@@ -59,3 +59,18 @@ The checkout endpoint never accepts a client-supplied amount or plan. Entitlemen
 - Run real staging integration tests on Windows, macOS, Linux and supported mobile devices.
 
 Until those items pass, the API foundation should not be advertised as a complete sign-in or paid product.
+## Referral and discount-code administration
+
+The second migration, `supabase/migrations/202611140002_slickly_referral_codes.sql`, creates the referral code and redemption tables. Apply it after the accounts/credits migration.
+
+An authorised adult/business account administrator can manage codes from the account portal at `/account.html`. Configure the server-only Vercel environment variable `SLICKLY_REFERRAL_ADMIN_EMAILS` as a comma-separated allowlist of administrator email addresses. Only those verified Supabase accounts can view or change codes. Do not put this list or any payment credentials in client-side code.
+
+The admin page supports:
+- percentage discounts from 1% to 90%, or fixed discounts from ₹1 to ₹398;
+- optional maximum redemption count and expiry date;
+- enabling/disabling existing codes;
+- redemption counts and the resulting recurring monthly Pro price.
+
+Each code creates a Razorpay monthly plan at the discounted price. Razorpay plans are immutable, so changing a code's discount means disabling the old code and creating a new one. The discount applies to every recurring cycle of that subscription. A code can be used once per customer account; a customer cannot stack codes. Referral discounts are only effective after the verified subscription webhook confirms activation.
+
+This is still a staging implementation until an adult/business representative configures the Supabase and Razorpay projects, applies both migrations, configures the admin allowlist and webhook, and completes sandbox tests. The account portal and referral endpoints must be deployed together.
