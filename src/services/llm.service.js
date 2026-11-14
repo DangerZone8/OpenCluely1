@@ -658,7 +658,7 @@ class LLMService {
         if (typeof onDelta === 'function' && delta) {
           onDelta(delta);
         }
-      });
+      }, featureOverride);
 
       const finalResponse = programmingLanguage
         ? this.enforceProgrammingLanguage(fullText, programmingLanguage)
@@ -689,7 +689,7 @@ class LLMService {
         error: error.message,
         requestId: this.requestCount
       });
-      return this.processImageWithSkill(imageBuffer, mimeType, activeSkill, sessionMemory, programmingLanguage);
+      return this.processImageWithSkill(imageBuffer, mimeType, activeSkill, sessionMemory, programmingLanguage, featureOverride);
     }
   }
 
