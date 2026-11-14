@@ -28,7 +28,8 @@ class LLMService {
   }
 
   async consumeCreditForRequest(geminiRequest, featureOverride = null) {
-    if (!geminiRequest || typeof geminiRequest !== 'object') return;
+    if (!geminiRequest || typeof geminiRequest !== 'object' || featureOverride === 'already_consumed') return;
+    if (!this.accountAccessTokenProvider) return;
     const existing = this.creditClaims.get(geminiRequest);
     if (existing) return existing;
     const parts = (geminiRequest.contents || []).flatMap(message => Array.isArray(message?.parts) ? message.parts : []);
@@ -39,7 +40,6 @@ class LLMService {
     const image = parts.some(part => part && (part.inlineData || part.inline_data || part.fileData));
     const feature = ['screen_aware','voice','screenshot','chat'].includes(featureOverride) ? featureOverride : (audio ? 'voice' : image ? 'screen_aware' : 'chat');
     const claim = (async () => {
-      if (!this.accountAccessTokenProvider) throw new Error('Sign in to your Slickly account to use AI features and track your daily credits.');
       const token = await this.accountAccessTokenProvider();
       if (!token) throw new Error('Your Slickly account session has expired. Open Account and sign in again.');
       const response = await fetch('https://slicklyai.vercel.app/api/credits', {
@@ -689,7 +689,7 @@ class LLMService {
         error: error.message,
         requestId: this.requestCount
       });
-      return this.processImageWithSkill(imageBuffer, mimeType, activeSkill, sessionMemory, programmingLanguage, featureOverride);
+      return this.processImageWithSkill(imageBuffer, mimeType, activeSkill, sessionMemory, programmingLanguage, 'already_consumed');
     }
   }
 
