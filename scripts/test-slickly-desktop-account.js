@@ -9,6 +9,8 @@ const llm=fs.readFileSync(path.join(__dirname,'../src/services/llm.service.js'),
 const account=fs.readFileSync(path.join(__dirname,'../web/account.html'),'utf8');
 const settings=fs.readFileSync(path.join(__dirname,'../settings.html'),'utf8');
 const chat=fs.readFileSync(path.join(__dirname,'../chat.html'),'utf8');
+const website=fs.readFileSync(path.join(__dirname,'../web/index.html'),'utf8');
+const pricing=fs.readFileSync(path.join(__dirname,'../web/pricing.html'),'utf8');
 assert.match(main,/new SlicklyAccountSession\(\)/);
 assert.match(main,/setAccountAccessTokenProvider/);
 assert.match(main,/open-slickly-account/);
@@ -29,4 +31,16 @@ assert.match(account,/slicklyDesktopAccount\.clearSession/);
 assert.match(settings,/openSlicklyAccount/);
 assert.match(chat,/id="accountProButton"/,'primary chat workspace must expose Account / Pro');
 assert.match(chat,/whysperAPI\.openSlicklyAccount\(\)/,'Account / Pro button must open the trusted account window');
+
+assert.match(website,/href="\\/pricing\\.html">Pricing/,'website navigation must expose pricing');
+assert.match(website,/href="\\/account\\.html">Log in/,'website navigation must expose login');
+assert.match(website,/class="nav-cta" href="\\/pricing\\.html">Get Pro/,'website primary CTA must lead to Pro plans');
+assert.match(pricing,/Slickly Pro/);
+assert.match(pricing,/₹399/);
+assert.match(pricing,/60 \\/ day/);
+assert.match(pricing,/200 \\/ day/);
+assert.match(pricing,/href="\\/account\\.html\\?plan=pro"/,'Pro CTA must lead to the shared account flow');
+assert.match(account,/fetch\\('\\/api\\/public-config'/,'website account must load the configured shared Supabase project');
+assert.match(account,/window\\.supabase\\.createClient/,'website and desktop account page must use the shared Supabase auth client');
+assert.match(main,/https:\\/\\/slicklyai\\.vercel\\.app\\/account\\.html\\?desktop=1/,'desktop app must open the same hosted account page');
 console.log('Slickly desktop account integration checks passed: trusted account window, encrypted refresh-token storage, desktop session sync and AI feature credit metering.');
