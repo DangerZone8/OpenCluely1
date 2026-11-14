@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawn } = require('node:child_process');
+const { spawn, execFileSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
 const port = 9317;
@@ -110,6 +110,9 @@ async function main() {
   fs.writeFileSync(path.join(userData, '.env'), 'GEMINI_API_KEY=' + (process.env.GEMINI_API_KEY || '') + '\n', { mode: 0o600 });
   fs.writeFileSync(path.join(userData, '.opencluely-firstrun-completed'), new Date().toISOString());
 
+  // Match normal app startup so the branded system tray assets exist in CI.
+  execFileSync(process.execPath, [path.join(root, 'scripts/generate-app-icons.js')], { cwd: root, stdio: 'inherit' });
+
   const electronPath = require('electron');
   const log = fs.openSync(logPath, 'a');
   const env = {
@@ -123,7 +126,8 @@ async function main() {
     GEMINI_API_KEY: '',
     SLICKLY_E2E_AI_ENDPOINT: process.env.SLICKLY_E2E_AI_ENDPOINT || '',
     OPENCLUELY_AI_ENDPOINT: process.env.SLICKLY_E2E_AI_ENDPOINT || 'https://slicklyai.vercel.app/api/gemini',
-    OPENCLUELY_AI_FALLBACK_ENDPOINT: process.env.SLICKLY_E2E_AI_ENDPOINT || process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT || 'https://cleverly-lime.vercel.app/api/gemini'
+    OPENCLUELY_AI_FALLBACK_ENDPOINT: process.env.SLICKLY_E2E_AI_ENDPOINT || process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT || 'https://cleverly-lime.vercel.app/api/gemini',
+    SLICKLY_E2E_STUB_CREDITS: '1',
   };
   delete env.ELECTRON_RUN_AS_NODE;
   child = spawn(electronPath, [

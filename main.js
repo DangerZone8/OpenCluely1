@@ -123,7 +123,39 @@ process.on("uncaughtExceptionMonitor", (err, origin) => {
 // Screen capture (image-based)
 const captureService = require("./src/services/capture.service");
 const speechService = require("./src/services/speech.service");
+// The desktop UI E2E has no authenticated customer account. In that narrowly
+// scoped CI-only scenario, stub only credit reservations so the test can still
+// exercise real Gemini requests and actual renderer/main-process IPC. Billing
+// enforcement is covered separately by the API and credits integration tests.
+if (process.env.CI === "true" &&
+    process.env.CLEVERLY_E2E_SCREEN_CAPTURE === "1" &&
+    process.env.SLICKLY_E2E_STUB_CREDITS === "1") {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = typeof input === "string" ? input : input && input.url;
+    if (url === "https://slicklyai.vercel.app/api/credits" && init.method === "POST") {
+      return new Response(JSON.stringify({
+        allowed: true, feature: "screen_aware", remaining: 999, testOnly: true
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    return originalFetch(input, init);
+  };
+}
 const llmService = require("./src/services/llm.service");
+const SlicklyAccountSession = require("./src/services/account-session.service");
+const accountSessionService = new SlicklyAccountSession();
+llmService.setAccountAccessTokenProvider(() => {
+  // The desktop Screen AI E2E runs without a real customer account. Supply a
+  // synthetic bearer only in the same explicitly gated CI harness that stubs
+  // the credit reservation endpoint; packaged and ordinary local launches
+  // always use the encrypted Supabase session.
+  if (process.env.CI === "true" &&
+      process.env.CLEVERLY_E2E_SCREEN_CAPTURE === "1" &&
+      process.env.SLICKLY_E2E_STUB_CREDITS === "1") {
+    return "slickly-desktop-e2e-test-token";
+  }
+  return accountSessionService.getAccessToken();
+});
 
 // Managers
 const windowManager = require("./src/managers/window.manager");
@@ -133,6 +165,7 @@ class ApplicationController {
   constructor() {
     this.isReady = false;
     this.tray = null;
+    this.accountWindow = null;
     this.starting = false;
     this.activeSkill = "dsa";
   // Default to C++ so language is enforced from first run
@@ -639,6 +672,47 @@ class ApplicationController {
   }
 
   setupIPCHandlers() {
+  ipcMain.handle("open-slickly-account", async () => {
+    if (this.accountWindow && !this.accountWindow.isDestroyed()) {
+      this.accountWindow.focus();
+      return { opened: true };
+    }
+    const accountWindow = new BrowserWindow({
+      width: 500, height: 760, minWidth: 380, minHeight: 560,
+      title: "Slickly Account",
+      autoHideMenuBar: true,
+      webPreferences: {
+        preload: path.join(__dirname, "account-preload.js"),
+        contextIsolation: true, nodeIntegration: false, sandbox: true
+      }
+    });
+    this.accountWindow = accountWindow;
+    accountWindow.webContents.setWindowOpenHandler(({ url }) => {
+      try { if (new URL(url).origin === "https://slicklyai.vercel.app") return { action: "allow" }; } catch (_) {}
+      return { action: "deny" };
+    });
+    accountWindow.webContents.on("will-navigate", (event, url) => {
+      try { if (new URL(url).origin !== "https://slicklyai.vercel.app") event.preventDefault(); }
+      catch (_) { event.preventDefault(); }
+    });
+    accountWindow.on("closed", () => { if (this.accountWindow === accountWindow) this.accountWindow = null; });
+    await accountWindow.loadURL("https://slicklyai.vercel.app/account.html?desktop=1");
+    return { opened: true };
+  });
+
+  const isTrustedAccountSender = (event) => {
+    try { return new URL(event.senderFrame?.url || event.sender.getURL()).origin === "https://slicklyai.vercel.app"; }
+    catch (_) { return false; }
+  };
+  ipcMain.handle("slickly-account-save-session", (event, payload) => {
+    if (!isTrustedAccountSender(event)) throw new Error("Rejected account session from an untrusted page.");
+    return accountSessionService.save(payload);
+  });
+  ipcMain.handle("slickly-account-clear-session", (event) => {
+    if (!isTrustedAccountSender(event)) throw new Error("Rejected account sign-out from an untrusted page.");
+    return accountSessionService.clear();
+  });
+
   ipcMain.handle("get-cloud-config", () => this.cloudConfigService
     ? this.cloudConfigService.getSnapshot()
     : null);
@@ -1390,7 +1464,8 @@ class ApplicationController {
             messageId,
             delta
           });
-        }
+        },
+        'screenshot'
       );
       llmResult.metadata = { ...llmResult.metadata, messageId };
 

@@ -280,6 +280,7 @@
                 Settings
             </div>
             <div class="header-actions">
+                <button class="btn" id="openAccountButton"><i class="fas fa-user"></i> Account / Pro</button>
                 <button class="btn btn-quit" id="quitButton">
                     <i class="fas fa-power-off"></i>
                     Quit
@@ -532,5 +533,14 @@
     </div>
 
     <script src="./src/ui/settings-window.js"></script>
+<script>
+document.getElementById('openAccountButton')?.addEventListener('click', async () => {
+  const button = document.getElementById('openAccountButton');
+  button.disabled = true;
+  try { await window.electronAPI.openSlicklyAccount(); }
+  catch (error) { console.error('Could not open Slickly Account:', error); }
+  finally { button.disabled = false; }
+});
+</script>
 </body>
 </html>

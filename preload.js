@@ -42,6 +42,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getGeminiStatus: () => ipcRenderer.invoke('get-gemini-status'),
   testGeminiConnection: () => ipcRenderer.invoke('test-gemini-connection'),
   
+  openSlicklyAccount: () => ipcRenderer.invoke("open-slickly-account"),
+
   // Declarative cloud configuration (no remote code execution).
   getCloudConfig: () => ipcRenderer.invoke('get-cloud-config'),
   onCloudConfigUpdated: (callback) => {

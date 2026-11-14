@@ -17,8 +17,47 @@ class LLMService {
     this.errorCount = 0;
     // Most recently observed screen summary, kept in memory for follow-up questions.
     this.lastScreenContext = null;
+    this.accountAccessTokenProvider = null;
+    this.creditClaims = new WeakMap();
     
     this.initializeClient();
+  }
+
+  setAccountAccessTokenProvider(provider) {
+    this.accountAccessTokenProvider = typeof provider === 'function' ? provider : null;
+  }
+
+  async consumeCreditForRequest(geminiRequest, featureOverride = null) {
+    if (!geminiRequest || typeof geminiRequest !== 'object' || featureOverride === 'already_consumed') return;
+    if (!this.accountAccessTokenProvider) return;
+    const existing = this.creditClaims.get(geminiRequest);
+    if (existing) return existing;
+    const parts = (geminiRequest.contents || []).flatMap(message => Array.isArray(message?.parts) ? message.parts : []);
+    const audio = parts.some(part => {
+      const mime = String(part?.inlineData?.mimeType || part?.inline_data?.mime_type || '');
+      return mime.toLowerCase().startsWith('audio/');
+    });
+    const image = parts.some(part => part && (part.inlineData || part.inline_data || part.fileData));
+    const feature = ['screen_aware','voice','screenshot','chat'].includes(featureOverride) ? featureOverride : (audio ? 'voice' : image ? 'screen_aware' : 'chat');
+    const claim = (async () => {
+      const token = await this.accountAccessTokenProvider();
+      if (!token) throw new Error('Your Slickly account session has expired. Open Account and sign in again.');
+      const response = await fetch('https://slicklyai.vercel.app/api/credits', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feature })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.allowed !== true) {
+        const error = new Error(data.error || 'Slickly could not verify your daily credits.');
+        error.code = data.code || 'CREDIT_CHECK_FAILED';
+        error.statusCode = response.status;
+        throw error;
+      }
+      return data;
+    })();
+    this.creditClaims.set(geminiRequest, claim);
+    return claim;
   }
 
   initializeClient() {
@@ -86,7 +125,8 @@ class LLMService {
     return id;
   }
 
-  async executeRemoteRequest(geminiRequest, modelName = this.model, onDelta = null) {
+  async executeRemoteRequest(geminiRequest, modelName = this.model, onDelta = null, featureOverride = null) {
+    await this.consumeCreditForRequest(geminiRequest, featureOverride);
     // One hard deadline for the whole request. Do not let a dead Vercel alias
     // multiply the normal timeout by every endpoint and transport fallback.
     // Gemini vision may legitimately take 10-15s; allow that once while still
@@ -477,7 +517,7 @@ class LLMService {
    * @param {string|null} programmingLanguage - optional language context for skills that need it
    * @returns {Promise<{response: string, metadata: object}>}
    */
-  async processImageWithSkill(imageBuffer, mimeType, activeSkill, sessionMemory = [], programmingLanguage = null) {
+  async processImageWithSkill(imageBuffer, mimeType, activeSkill, sessionMemory = [], programmingLanguage = null, featureOverride = 'screen_aware') {
     if (!this.isInitialized) {
       throw new Error('LLM service not initialized. Check Gemini API key configuration.');
     }
@@ -581,7 +621,7 @@ class LLMService {
     }
   }
 
-  async processImageWithSkillStream(imageBuffer, mimeType, activeSkill, sessionMemory = [], programmingLanguage = null, onDelta = null) {
+  async processImageWithSkillStream(imageBuffer, mimeType, activeSkill, sessionMemory = [], programmingLanguage = null, onDelta = null, featureOverride = 'screen_aware') {
     if (!this.isInitialized) {
       throw new Error('LLM service not initialized. Check Gemini API key configuration.');
     }
@@ -618,7 +658,7 @@ class LLMService {
         if (typeof onDelta === 'function' && delta) {
           onDelta(delta);
         }
-      });
+      }, featureOverride);
 
       const finalResponse = programmingLanguage
         ? this.enforceProgrammingLanguage(fullText, programmingLanguage)
@@ -649,7 +689,7 @@ class LLMService {
         error: error.message,
         requestId: this.requestCount
       });
-      return this.processImageWithSkill(imageBuffer, mimeType, activeSkill, sessionMemory, programmingLanguage);
+      return this.processImageWithSkill(imageBuffer, mimeType, activeSkill, sessionMemory, programmingLanguage, 'already_consumed');
     }
   }
 
@@ -813,7 +853,7 @@ class LLMService {
         if (typeof onDelta === 'function' && delta) {
           onDelta(delta);
         }
-      });
+      }, featureOverride);
 
       const finalResponse = programmingLanguage
         ? this.enforceProgrammingLanguage(fullText, programmingLanguage)
@@ -1247,7 +1287,8 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
     return `Context: ${activeSkill.toUpperCase()} analysis request\n\nText to analyze:\n${text}`;
   }
 
-  async executeRequest(geminiRequest) {
+  async executeRequest(geminiRequest, featureOverride = null) {
+    await this.consumeCreditForRequest(geminiRequest, featureOverride);
     const provider = getProvider();
     if (provider.id !== 'gemini') {
       const text = await executeProviderRequest(geminiRequest);
@@ -1509,7 +1550,8 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
    * as executeRequest. Accumulates and returns the full text; invokes onDelta
    * for each chunk.
    */
-  async executeStreamingRequest(geminiRequest, onDelta) {
+  async executeStreamingRequest(geminiRequest, onDelta, featureOverride = null) {
+    await this.consumeCreditForRequest(geminiRequest, featureOverride);
     const provider = getProvider();
     if (provider.id !== 'gemini') {
       const fullText = await this.executeRequest(geminiRequest);
@@ -1998,7 +2040,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
         const response = await this.executeRemoteRequest({
           contents: [{ role: 'user', parts: [{ text: 'Reply with OK.' }] }],
           generationConfig: this.getGenerationConfig({ temperature: 0, maxOutputTokens: 32 })
-        });
+        }, this.model, null, 'already_consumed');
         return { success: true, response, latency: Date.now() - startTime, model: this.model, provider: 'Slickly AI hosted AI service' };
       } catch (error) {
         return { success: false, error: error.message, provider: 'Slickly AI hosted AI service' };
@@ -2143,6 +2185,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
   }
 
   async executeAlternativeRequest(geminiRequest) {
+    await this.consumeCreditForRequest(geminiRequest);
     const https = require('https');
     const apiKey = config.getApiKey('GEMINI');
     const primaryModel = config.get('llm.gemini.model');
