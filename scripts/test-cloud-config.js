@@ -64,6 +64,18 @@ async function run() {
     const invalid = response();
     api({ method: "GET" }, invalid);
     assert.equal(invalid.statusCode, 503, "invalid remote config must fail closed");
+    process.env.SLICKLY_CLOUD_CONFIG_JSON = JSON.stringify({ ...DEFAULT_CONFIG, pollIntervalMs: 59999 });
+    const invalidInterval = response();
+    api({ method: "GET" }, invalidInterval);
+    assert.equal(invalidInterval.statusCode, 503, "server must reject polling intervals below one minute");
+    process.env.SLICKLY_CLOUD_CONFIG_JSON = JSON.stringify({ ...DEFAULT_CONFIG, pollIntervalMs: 86400001 });
+    const excessiveInterval = response();
+    api({ method: "GET" }, excessiveInterval);
+    assert.equal(excessiveInterval.statusCode, 503, "server must reject polling intervals above one day");
+    process.env.SLICKLY_CLOUD_CONFIG_JSON = JSON.stringify({ ...DEFAULT_CONFIG, pollIntervalMs: 60000 });
+    const minimumInterval = response();
+    api({ method: "GET" }, minimumInterval);
+    assert.equal(minimumInterval.statusCode, 200, "server must accept the minimum valid polling interval");
   } finally {
     if (oldEnv === undefined) delete process.env.SLICKLY_CLOUD_CONFIG_JSON;
     else process.env.SLICKLY_CLOUD_CONFIG_JSON = oldEnv;

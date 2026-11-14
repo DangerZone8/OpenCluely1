@@ -27,7 +27,7 @@ function sanitizeConfig(candidate) {
     candidate.pollIntervalMs >= 60000 && candidate.pollIntervalMs <= 86400000 ? candidate.pollIntervalMs : null;
   const rolloutPercent = Number.isInteger(candidate.rolloutPercent) &&
     candidate.rolloutPercent >= 0 && candidate.rolloutPercent <= 100 ? candidate.rolloutPercent : null;
-  if (!revision || !minimumAppVersion || !pollIntervalMs === null || rolloutPercent === null) {
+  if (!revision || !minimumAppVersion || pollIntervalMs === null || rolloutPercent === null) {
     throw new Error("Configuration metadata is invalid.");
   }
   if (!candidate.features || typeof candidate.features !== "object" || Array.isArray(candidate.features)) {
