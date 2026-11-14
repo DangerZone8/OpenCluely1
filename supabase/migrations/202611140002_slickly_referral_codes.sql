@@ -40,6 +40,8 @@ declare
   v_redemption_id uuid;
   v_count integer;
 begin
+  update public.slickly_referral_redemptions set status='failed'
+    where status='pending' and created_at < now() - interval '30 minutes';
   select * into v_code from public.slickly_referral_codes
    where code = upper(trim(p_code)) for update;
   if not found or not v_code.is_active or (v_code.expires_at is not null and v_code.expires_at <= now()) then
