@@ -50,7 +50,7 @@ begin
   end if;
 
   select case when s.plan = 'pro' and s.status = 'active'
-                   and (s.current_period_end is null or s.current_period_end > now())
+                   and s.current_period_end is not null and s.current_period_end > now()
               then 'pro' else 'free' end
     into v_plan
     from public.slickly_subscriptions s where s.user_id = p_user_id;
@@ -143,4 +143,4 @@ $$;
 revoke all on function public.consume_slickly_credit(uuid,text,integer,integer) from public, anon, authenticated;
 revoke all on function public.apply_slickly_razorpay_event(text,uuid,text,text,text,timestamptz,bigint,jsonb) from public, anon, authenticated;
 grant execute on function public.consume_slickly_credit(uuid,text,integer,integer) to service_role;
-grant execute on function public.apply_slickly_razorpay_event(text,uuid,text,text,text,timestamptz,jsonb) to service_role;
+grant execute on function public.apply_slickly_razorpay_event(text,uuid,text,text,text,timestamptz,bigint,jsonb) to service_role;
