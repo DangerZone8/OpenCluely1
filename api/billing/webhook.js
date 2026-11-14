@@ -68,6 +68,12 @@ module.exports = async function webhook(req, res) {
       p_event_created_at: Number.isSafeInteger(event.created_at) ? event.created_at : 0,
       p_payload: { event: event.event, subscription_id: subscription.id, status: subscription.status || 'unknown' }
     });
+    if (subscription.notes?.referral_redemption_id && ['subscription.activated', 'subscription.charged'].includes(String(event.event))) {
+      await rpc(config, 'redeem_slickly_referral', {
+        p_redemption_id: String(subscription.notes.referral_redemption_id),
+        p_provider_subscription_id: subscription.id
+      });
+    }
     return json(res, 200, { received: true, applied: Boolean(result?.applied ?? result) });
   } catch (error) {
     return safeError(res, error);
