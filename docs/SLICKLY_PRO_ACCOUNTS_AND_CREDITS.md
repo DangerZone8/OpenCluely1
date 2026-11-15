@@ -129,3 +129,13 @@ Do not advertise Pro quotas as guaranteed capacity until:
 5. The adult/business merchant owner confirms live KYC, payout-bank verification, applicable tax/refund/privacy/support terms and production environment configuration.
 
 The repository tests can verify implementation and mocked integrations. They cannot independently verify a merchant's bank account, complete KYC, or prove real-world model quality without authorised provider credentials and representative test data.
+## Hosted model selection (server-side)
+
+The shared hosted AI endpoint remains on Gemini by default. An authorised operator can route hosted chat and screen-vision requests through the QwenCloud or DeepSeek adapter by setting server-only Vercel Production variables:
+- `SLICKLY_HOSTED_AI_PROVIDER=qwencloud` or `deepseek`.
+- For QwenCloud: `SLICKLY_QWENCLOUD_API_KEY`, optional `SLICKLY_QWENCLOUD_MODEL` (default `qwen3.8-max`) and optional `SLICKLY_QWENCLOUD_BASE_URL` (default Singapore pay-as-you-go endpoint). To benchmark a compatible Kimi model, set the model ID only if it is available in the account's model list.
+- For DeepSeek: `SLICKLY_DEEPSEEK_API_KEY` and optional `SLICKLY_DEEPSEEK_MODEL` (default `deepseek-flash`).
+
+Keep provider credentials exclusively in the Vercel server environment. Never set these values in the browser or packaged desktop app. Test in a Preview deployment with approved test credentials before changing Production. The hosted router preserves the existing JSON response for vision and SSE framing for streamed chat. Raw audio is rejected for these providers and should be transcribed through Slickly's speech pipeline first. Reverting `SLICKLY_HOSTED_AI_PROVIDER` to `gemini` restores the existing Gemini route.
+
+Automated mocked routing coverage is in `scripts/test-hosted-provider-routing.js`; it verifies request conversion and response contracts, not live provider availability, real-world quality, billing, or jailbreak resistance.
