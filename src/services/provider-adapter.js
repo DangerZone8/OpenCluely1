@@ -117,7 +117,7 @@ async function executeProviderRequest(request, env = process.env, fetchImpl = fe
   const baseUrls = {
     openai: 'https://api.openai.com/v1/chat/completions',
     xai: 'https://api.x.ai/v1/chat/completions',
-    qwencloud: String(env.QWENCLOUD_BASE_URL || 'https://ap-southeast-1.maas.qwencloudapi.com/compatible-mode/v1').replace(/\\/$/, '') + '/chat/completions',
+    qwencloud: String(env.QWENCLOUD_BASE_URL || 'https://ap-southeast-1.maas.qwencloudapi.com/compatible-mode/v1').replace(/\/$/, '') + '/chat/completions',
     deepseek: 'https://api.deepseek.com/chat/completions'
   };
   const baseUrl = baseUrls[provider.id] || 'https://api.openai.com/v1/chat/completions';
