@@ -112,7 +112,8 @@ An authorised adult/business representative must complete merchant KYC and regis
 ## Model-provider evaluation and configuration
 
 The desktop BYOK adapter supports:
-- QwenCloud OpenAI-compatible endpoint: `QWENCLOUD_API_KEY`, optional `QWENCLOUD_BASE_URL` (default Singapore endpoint), `QWENCLOUD_MODEL` (default `qwen3.8-max`). QwenCloud supports Qwen and compatible Kimi models; a model such as `kimi-k3.1-pro` can be selected only if enabled for the account/region.
+- QwenCloud OpenAI-compatible endpoint: `QWENCLOUD_API_KEY`, optional `QWENCLOUD_BASE_URL`, `QWENCLOUD_MODEL` (default `qwen3.8-max`). Qwen3.8-Max supports image/video understanding on supported Model Studio regions.
+- Direct Moonshot Kimi API: `MOONSHOT_API_KEY`, optional `MOONSHOT_BASE_URL` (default `https://api.moonshot.ai/v1`), `MOONSHOT_MODEL` (default `kimi-k3`; `kimi-k2.6` is another documented multimodal option).
 - Direct DeepSeek API: `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL` (default `deepseek-flash`).
 
 Use QwenCloud pay-as-you-go keys for a custom application backend. Some QwenCloud Token Plan credentials are restricted to approved programming tools and must not be used by a custom app. Provider model IDs and regions change; verify availability and pricing in the provider console before configuration.
