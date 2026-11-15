@@ -140,7 +140,7 @@ module.exports = async function handler(req, res) {
       const { getProvider, executeProviderRequest } = require('../src/services/provider-adapter');
       const provider = getProvider(providerEnv);
       const hasAudio = request.contents.some(item => Array.isArray(item?.parts) &&
-        item.parts.some(part => part?.inlineData?.data && /^audio\\//i.test(part.inlineData.mimeType || '')));
+        item.parts.some(part => part?.inlineData?.data && /^audio\//i.test(part.inlineData.mimeType || '')));
       if (hasAudio && !['openai'].includes(provider.id)) {
         return respond(res, 422, { error: 'This hosted model does not accept raw audio. Use Slickly speech recognition to transcribe audio first.' });
       }
@@ -153,7 +153,7 @@ module.exports = async function handler(req, res) {
         res.setHeader('X-Accel-Buffering', 'no');
         res.setHeader('X-Content-Type-Options', 'nosniff');
         res.setHeader('X-OpenCluely-API-Revision', 'v177-hosted-multiprovider-2026-11-15-a');
-        res.write('data: ' + JSON.stringify({ text }) + '\\n\\n');
+        res.write('data: ' + JSON.stringify({ text }) + '\n\n');
         res.write('data: [DONE]\\n\\n');
         return res.end();
       }
