@@ -49,7 +49,7 @@ async function invoke(feature, stream, fetchImpl) {
   let qwenCalls = 0;
   const qwen = await invoke('chat', true, async (url, options) => {
     qwenCalls += 1;
-    assert.equal(url, 'https://ap-southeast-1.maas.qwencloudapi.com/compatible-mode/v1/chat/completions');
+    assert.equal(url, 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions');
     assert.equal(options.headers.authorization, 'Bearer test-qwen-key');
     const payload = JSON.parse(options.body);
     assert.equal(payload.model, 'qwen3.8-max');
