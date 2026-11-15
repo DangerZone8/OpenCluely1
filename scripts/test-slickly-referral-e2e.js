@@ -11,7 +11,7 @@ function response(){return{statusCode:200,headers:{},body:'',setHeader(k,v){this
 function rpcResponse(value){return{ok:true,text:async()=>JSON.stringify(value)};}
 
 async function run(){
- const keys=['SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','SLICKLY_REFERRAL_ADMIN_EMAILS','RAZORPAY_KEY_ID','RAZORPAY_KEY_SECRET','RAZORPAY_PRO_PLAN_ID','RAZORPAY_WEBHOOK_SECRET'];
+ const keys=['SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','SLICKLY_REFERRAL_ADMIN_EMAILS','RAZORPAY_KEY_ID','RAZORPAY_KEY_SECRET','RAZORPAY_PRO_PLAN_ID','RAZORPAY_WEBHOOK_SECRET','SLICKLY_BILLING_ENABLED'];
  const saved=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
  const oldFetch=global.fetch;
  let savedCode=null, subscriptionNotes=null, reserved=false, redeemed=false, applied=false;
@@ -23,6 +23,7 @@ async function run(){
   process.env.RAZORPAY_KEY_SECRET='razorpay-test-secret';
   process.env.RAZORPAY_PRO_PLAN_ID='plan_base';
   process.env.RAZORPAY_WEBHOOK_SECRET='webhook-test-secret';
+  process.env.SLICKLY_BILLING_ENABLED='true';
 
   global.fetch=async(url,options={})=>{
    const u=String(url);
