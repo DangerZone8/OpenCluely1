@@ -141,3 +141,6 @@ Keep provider credentials exclusively in the Vercel server environment. Never se
 Automated mocked routing coverage is in `scripts/test-hosted-provider-routing.js`; it verifies request conversion and response contracts, not live provider availability, real-world quality, billing, or jailbreak resistance.
 
 Run `npm run benchmark:providers` locally after configuring authorised provider API keys in your environment. The benchmark compares QwenCloud Qwen, Kimi (when enabled), and DeepSeek models on reasoning, simple coding, and a prompt-injection regression task. It records latency and provider-reported token usage. It does not upload keys, and it does not prove overall safety or vision quality; run a separate representative screenshot suite before changing production defaults.
+
+
+Live checkout is additionally protected by the server-side feature flag `SLICKLY_BILLING_ENABLED`. It must remain unset/false while merchant onboarding, payout-bank verification, migrations and sandbox tests are incomplete. Only an authorised adult/business operator should set it to `true` after all readiness gates have passed. The checkout endpoint returns HTTP 503 and does not contact Razorpay while the flag is off. The automated guard test is `scripts/test-slickly-billing-guard.js`.
