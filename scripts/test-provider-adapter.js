@@ -48,7 +48,7 @@ function jsonResponse(body, status = 200) {
       { choices: [{ message: { content: 'Grok test answer' } }] }],
     ['anthropic', 'ANTHROPIC_API_KEY', 'ANTHROPIC_MODEL', 'https://api.anthropic.com/v1/messages',
       { content: [{ type: 'text', text: 'Claude test answer' }] }],
-    ['qwencloud', 'QWENCLOUD_API_KEY', 'QWENCLOUD_MODEL', 'https://ap-southeast-1.maas.qwencloudapi.com/compatible-mode/v1/chat/completions',
+    ['qwencloud', 'QWENCLOUD_API_KEY', 'QWENCLOUD_MODEL', 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions',
       { choices: [{ message: { content: 'QwenCloud test answer' } }] }],
     ['kimi', 'MOONSHOT_API_KEY', 'MOONSHOT_MODEL', 'https://api.moonshot.ai/v1/chat/completions',
       { choices: [{ message: { content: 'Kimi test answer' } }] }],
