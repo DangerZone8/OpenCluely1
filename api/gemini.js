@@ -21,7 +21,7 @@ function respond(res, status, body) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   // Fingerprint the deployed handler so production-alias drift is observable in E2E logs.
-  res.setHeader('X-OpenCluely-API-Revision', 'v175-fast-chat-2026-10-27-n');
+  res.setHeader('X-OpenCluely-API-Revision', 'v177-hosted-multiprovider-2026-11-15-a');
   res.end(JSON.stringify(body));
 }
 
@@ -77,19 +77,6 @@ module.exports = async function handler(req, res) {
     .filter(entry => entry.value)
     .filter((entry, index, all) => all.findIndex(candidate => candidate.value === entry.value) === index);
   const keys = keyEntries.map(entry => entry.value);
-  if (!keys.length) {
-    // Safe diagnostics: report only whether supported names exist, never values.
-    return respond(res, 503, {
-      error: 'The Slickly AI service is not configured in this deployment. Verify the Production environment variables and redeploy.',
-      configuredNames: {
-        GEMINI_API_KEY: Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()),
-        GOOGLE_API_KEY: Boolean(process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY.trim()),
-        GOOGLE_GENAI_API_KEY: Boolean(process.env.GOOGLE_GENAI_API_KEY && process.env.GOOGLE_GENAI_API_KEY.trim()),
-        GOOGLE_GENERATIVE_AI_API_KEY: Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY && process.env.GOOGLE_GENERATIVE_AI_API_KEY.trim())
-      }
-    });
-  }
-
   const declaredLength = Number(req.headers['content-length'] || 0);
   if (declaredLength > MAX_BODY_BYTES) {
     return respond(res, 413, { error: 'Request is too large. Capture a smaller screen frame or shorter audio segment.' });
@@ -135,6 +122,69 @@ module.exports = async function handler(req, res) {
   const isVisionRequest = request.contents.some(item =>
     Array.isArray(item?.parts) && item.parts.some(part => part && (part.inlineData || part.fileData))
   );
+
+  // Optional hosted-provider routing. The default remains Gemini until an
+  // authorised operator configures a provider and its server-only API key.
+  // Provider keys are never accepted from the request body or returned to clients.
+  const hostedProviderId = String(process.env.SLICKLY_HOSTED_AI_PROVIDER || 'gemini').trim().toLowerCase();
+  if (hostedProviderId !== 'gemini') {
+    try {
+      const providerEnv = {
+        AI_PROVIDER: hostedProviderId,
+        QWENCLOUD_API_KEY: process.env.SLICKLY_QWENCLOUD_API_KEY || process.env.QWENCLOUD_API_KEY || '',
+        QWENCLOUD_MODEL: process.env.SLICKLY_QWENCLOUD_MODEL || process.env.QWENCLOUD_MODEL || 'qwen3.8-max',
+        QWENCLOUD_BASE_URL: process.env.SLICKLY_QWENCLOUD_BASE_URL || process.env.QWENCLOUD_BASE_URL || '',
+        DEEPSEEK_API_KEY: process.env.SLICKLY_DEEPSEEK_API_KEY || process.env.DEEPSEEK_API_KEY || '',
+        DEEPSEEK_MODEL: process.env.SLICKLY_DEEPSEEK_MODEL || process.env.DEEPSEEK_MODEL || 'deepseek-flash'
+      };
+      const { getProvider, executeProviderRequest } = require('../src/services/provider-adapter');
+      const provider = getProvider(providerEnv);
+      const hasAudio = request.contents.some(item => Array.isArray(item?.parts) &&
+        item.parts.some(part => part?.inlineData?.data && /^audio\\//i.test(part.inlineData.mimeType || '')));
+      if (hasAudio && !['openai'].includes(provider.id)) {
+        return respond(res, 422, { error: 'This hosted model does not accept raw audio. Use Slickly speech recognition to transcribe audio first.' });
+      }
+      const text = await executeProviderRequest(request, providerEnv);
+      if (!text) return respond(res, 502, { error: 'The hosted AI provider returned no response.' });
+      if (req.headers['x-opencluely-stream'] === '1' && !isVisionRequest) {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-cache, no-transform');
+        res.setHeader('X-Accel-Buffering', 'no');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('X-OpenCluely-API-Revision', 'v177-hosted-multiprovider-2026-11-15-a');
+        res.write('data: ' + JSON.stringify({ text }) + '\\n\\n');
+        res.write('data: [DONE]\\n\\n');
+        return res.end();
+      }
+      return respond(res, 200, { text, model: provider.model, provider: provider.id });
+    } catch (error) {
+      const message = String(error?.message || error);
+      console.error('[Slickly hosted provider error]', JSON.stringify({
+        provider: hostedProviderId,
+        message: message.slice(0, 180)
+      }));
+      const missingKey = /API key/i.test(message) && /Add a/i.test(message);
+      return respond(res, missingKey ? 503 : 502, {
+        error: missingKey
+          ? 'The selected hosted AI provider is not configured. Add its server-only API key and redeploy.'
+          : 'The selected hosted AI provider could not complete this request.',
+        provider: hostedProviderId
+      });
+    }
+  }
+
+  if (!keys.length) {
+    return respond(res, 503, {
+      error: 'The Slickly AI service is not configured in this deployment. Verify the Production environment variables and redeploy.',
+      configuredNames: {
+        GEMINI_API_KEY: Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()),
+        GOOGLE_API_KEY: Boolean(process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY.trim()),
+        GOOGLE_GENAI_API_KEY: Boolean(process.env.GOOGLE_GENAI_API_KEY && process.env.GOOGLE_GENAI_API_KEY.trim()),
+        GOOGLE_GENERATIVE_AI_API_KEY: Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY && process.env.GOOGLE_GENERATIVE_AI_API_KEY.trim())
+      }
+    });
+  }
   // Typed chat requests opt into SSE so the desktop can render the first
   // generated tokens immediately instead of waiting for the entire answer.
   // Screen vision keeps its existing JSON response contract.
