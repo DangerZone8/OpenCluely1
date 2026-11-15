@@ -39,6 +39,7 @@ Use Supabase Auth for Google OAuth and verified email sign-in. Native desktop in
 3. Set server-only Vercel variables RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, and RAZORPAY_WEBHOOK_SECRET.
 4. Configure the webhook URL /api/billing/webhook for subscription lifecycle events.
 5. Test activation, renewal, cancellation, failed payment, duplicate delivery and out-of-order delivery in sandbox. Live checkout must remain disabled until legal, tax, privacy, refund and support terms are reviewed.
+6. From a protected operator environment, run `npm run test:razorpay-sandbox` with Razorpay **test-mode** `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and `RAZORPAY_PRO_PLAN_ID`. This read-only check verifies API authentication and that the plan is ₹399 INR/month; it does not create a subscription or charge a customer. It refuses non-test key IDs. Do not place credentials in source control, chat, or client-side settings.
 
 The checkout endpoint never accepts a client-supplied amount or plan. Entitlements are granted only from a signature-verified webhook. Webhook event IDs are idempotent and older events cannot overwrite newer subscription state.
 
