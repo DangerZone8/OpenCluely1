@@ -2097,13 +2097,13 @@ class ApplicationController {
         envUpdates.WHISPER_SEGMENT_MS = String(settings.whisperSegmentMs);
       }
       if (settings.geminiKey !== undefined) envUpdates.GEMINI_API_KEY = settings.geminiKey;
-      if (["gemini", "openai", "xai", "anthropic", "qwencloud", "deepseek"].includes(settings.aiProvider)) {
+      if (["gemini", "openai", "xai", "anthropic", "qwencloud", "kimi", "deepseek"].includes(settings.aiProvider)) {
         envUpdates.AI_PROVIDER = settings.aiProvider;
       }
       if (settings.aiModel !== undefined) {
         const selectedProvider = ["gemini", "openai", "xai", "anthropic", "qwencloud", "kimi", "deepseek"].includes(settings.aiProvider)
           ? settings.aiProvider : (process.env.AI_PROVIDER || "gemini");
-        const modelEnv = { gemini: "GEMINI_MODEL", openai: "OPENAI_MODEL", xai: "XAI_MODEL", anthropic: "ANTHROPIC_MODEL", qwencloud: "QWENCLOUD_MODEL", deepseek: "DEEPSEEK_MODEL" }[selectedProvider];
+        const modelEnv = { gemini: "GEMINI_MODEL", openai: "OPENAI_MODEL", xai: "XAI_MODEL", anthropic: "ANTHROPIC_MODEL", qwencloud: "QWENCLOUD_MODEL", kimi: "MOONSHOT_MODEL", deepseek: "DEEPSEEK_MODEL" }[selectedProvider];
         if (modelEnv) envUpdates[modelEnv] = String(settings.aiModel || "").trim();
       }
       if (settings.openaiKey !== undefined) envUpdates.OPENAI_API_KEY = settings.openaiKey;
