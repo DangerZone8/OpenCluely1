@@ -77,6 +77,18 @@ module.exports = async function handler(req, res) {
     .filter(entry => entry.value)
     .filter((entry, index, all) => all.findIndex(candidate => candidate.value === entry.value) === index);
   const keys = keyEntries.map(entry => entry.value);
+  const hostedProviderId = String(process.env.SLICKLY_HOSTED_AI_PROVIDER || 'gemini').trim().toLowerCase();
+  if (!keys.length && hostedProviderId === 'gemini') {
+    return respond(res, 503, {
+      error: 'The Slickly AI service is not configured in this deployment. Verify the Production environment variables and redeploy.',
+      configuredNames: {
+        GEMINI_API_KEY: Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()),
+        GOOGLE_API_KEY: Boolean(process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY.trim()),
+        GOOGLE_GENAI_API_KEY: Boolean(process.env.GOOGLE_GENAI_API_KEY && process.env.GOOGLE_GENAI_API_KEY.trim()),
+        GOOGLE_GENERATIVE_AI_API_KEY: Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY && process.env.GOOGLE_GENERATIVE_AI_API_KEY.trim())
+      }
+    });
+  }
   const declaredLength = Number(req.headers['content-length'] || 0);
   if (declaredLength > MAX_BODY_BYTES) {
     return respond(res, 413, { error: 'Request is too large. Capture a smaller screen frame or shorter audio segment.' });
@@ -126,7 +138,6 @@ module.exports = async function handler(req, res) {
   // Optional hosted-provider routing. The default remains Gemini until an
   // authorised operator configures a provider and its server-only API key.
   // Provider keys are never accepted from the request body or returned to clients.
-  const hostedProviderId = String(process.env.SLICKLY_HOSTED_AI_PROVIDER || 'gemini').trim().toLowerCase();
   if (hostedProviderId !== 'gemini') {
     try {
       const providerEnv = {
@@ -174,17 +185,7 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  if (!keys.length) {
-    return respond(res, 503, {
-      error: 'The Slickly AI service is not configured in this deployment. Verify the Production environment variables and redeploy.',
-      configuredNames: {
-        GEMINI_API_KEY: Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()),
-        GOOGLE_API_KEY: Boolean(process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY.trim()),
-        GOOGLE_GENAI_API_KEY: Boolean(process.env.GOOGLE_GENAI_API_KEY && process.env.GOOGLE_GENAI_API_KEY.trim()),
-        GOOGLE_GENERATIVE_AI_API_KEY: Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY && process.env.GOOGLE_GENERATIVE_AI_API_KEY.trim())
-      }
-    });
-  }
+
   // Typed chat requests opt into SSE so the desktop can render the first
   // generated tokens immediately instead of waiting for the entire answer.
   // Screen vision keeps its existing JSON response contract.
