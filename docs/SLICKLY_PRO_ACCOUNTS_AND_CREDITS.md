@@ -112,7 +112,7 @@ An authorised adult/business representative must complete merchant KYC and regis
 ## Model-provider evaluation and configuration
 
 The desktop BYOK adapter supports:
-- QwenCloud OpenAI-compatible endpoint: `QWENCLOUD_API_KEY`, optional `QWENCLOUD_BASE_URL`, `QWENCLOUD_MODEL` (default `qwen3.8-max`). Qwen3.8-Max supports image/video understanding on supported Model Studio regions.
+- Alibaba Cloud Model Studio (Qwen) OpenAI-compatible endpoint: `QWENCLOUD_API_KEY`, optional `QWENCLOUD_BASE_URL` (defaults to the official Singapore DashScope endpoint `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`; a workspace-specific endpoint may be configured for production), `QWENCLOUD_MODEL` (default `qwen3.8-max`). The API key and endpoint must belong to the same region. Qwen3.8-Max supports image/video understanding on supported Model Studio regions.
 - Direct Moonshot Kimi API: `MOONSHOT_API_KEY`, optional `MOONSHOT_BASE_URL` (default `https://api.moonshot.ai/v1`), `MOONSHOT_MODEL` (default `kimi-k3`; `kimi-k2.6` is another documented multimodal option).
 - Direct DeepSeek API: `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL` (default `deepseek-flash`).
 
