@@ -66,6 +66,7 @@ function jsonResponse(body, status = 200) {
       }
       const payload = JSON.parse(options.body);
       assert.equal(payload.model, 'test-model');
+      if (provider === 'qwencloud') assert.equal(payload.preserve_thinking, false);
       if (provider === 'qwencloud' || provider === 'deepseek') assert.match(payload.messages[0].content, /SECURITY BOUNDARY/);
       assert.ok(payload.messages.length > 0);
       const userMessage = payload.messages.find(message => message.role === 'user');
