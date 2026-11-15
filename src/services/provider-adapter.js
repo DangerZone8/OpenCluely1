@@ -41,7 +41,7 @@ function extractParts(request) {
   return messages;
 }
 
-async function executeProviderRequest(request, env = process.env, fetchImpl = fetch) {
+async function executeProviderRequest(request, env = process.env, fetchImpl = fetch, onMetrics = null) {
   const provider = getProvider(env);
   if (provider.id === 'gemini') return null;
   if (!provider.apiKey) throw new Error('Add a ' + provider.label + ' API key in Settings or select a provider with a configured key.');
@@ -111,6 +111,7 @@ async function executeProviderRequest(request, env = process.env, fetchImpl = fe
       body: JSON.stringify({ model: provider.model, max_tokens: maxTokens, ...(system ? { system } : {}), messages: anthropicMessages })
     });
     const data = await response.json().catch(() => ({}));
+    if (typeof onMetrics === 'function' && data.usage) onMetrics({ provider: provider.id, model: provider.model, usage: data.usage });
     if (!response.ok) throw new Error('Anthropic API HTTP ' + response.status + ': ' + (data.error?.message || 'request failed'));
     return (data.content || []).filter(part => part.type === 'text').map(part => part.text).join('\n').trim();
   }
@@ -132,6 +133,7 @@ async function executeProviderRequest(request, env = process.env, fetchImpl = fe
     })
   });
   const data = await response.json().catch(() => ({}));
+  if (typeof onMetrics === 'function' && data.usage) onMetrics({ provider: provider.id, model: provider.model, usage: data.usage });
   if (!response.ok) throw new Error(provider.label + ' API HTTP ' + response.status + ': ' + (data.error?.message || data.error || 'request failed'));
   const text = data.choices?.[0]?.message?.content;
   if (typeof text !== 'string' || !text.trim()) throw new Error(provider.label + ' returned an empty response.');
