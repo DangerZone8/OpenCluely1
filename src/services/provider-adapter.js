@@ -129,6 +129,7 @@ async function executeProviderRequest(request, env = process.env, fetchImpl = fe
       model: provider.model,
       messages,
       max_tokens: maxTokens,
+      ...(provider.id === 'qwencloud' ? { preserve_thinking: false } : {}),
       ...(request.generationConfig?.temperature !== undefined ? { temperature: request.generationConfig.temperature } : {})
     })
   });
