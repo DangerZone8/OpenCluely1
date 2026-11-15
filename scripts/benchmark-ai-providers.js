@@ -1,13 +1,15 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 const { executeProviderRequest } = require('../src/services/provider-adapter');
 
 const candidates = [
-  { provider: 'qwencloud', model: 'qwen3.8-max', key: process.env.QWENCLOUD_API_KEY },
-  { provider: 'qwencloud', model: 'kimi-k3.1-pro', key: process.env.QWENCLOUD_API_KEY },
-  { provider: 'deepseek', model: 'deepseek-flash', key: process.env.DEEPSEEK_API_KEY },
-  { provider: 'deepseek', model: 'deepseek-v4-pro', key: process.env.DEEPSEEK_API_KEY }
+  { provider: 'qwencloud', model: 'qwen3.8-max', key: process.env.QWENCLOUD_API_KEY, vision: true },
+  { provider: 'qwencloud', model: 'kimi-k3.1-pro', key: process.env.QWENCLOUD_API_KEY, vision: true },
+  { provider: 'deepseek', model: 'deepseek-flash', key: process.env.DEEPSEEK_API_KEY, vision: true },
+  { provider: 'deepseek', model: 'deepseek-v4-pro', key: process.env.DEEPSEEK_API_KEY, vision: false }
 ].filter(candidate => candidate.key);
 
 const tasks = [
@@ -57,8 +59,28 @@ async function main() {
     return;
   }
 
+  const imagePath = String(process.env.SLICKLY_BENCHMARK_IMAGE_PATH || '').trim();
+  const expectedVisionText = String(process.env.SLICKLY_BENCHMARK_VISION_EXPECTED || '').trim();
+  let visionTask = null;
+  if (imagePath) {
+    if (!expectedVisionText) throw new Error('Set SLICKLY_BENCHMARK_VISION_EXPECTED to a short phrase that must appear in the screenshot description.');
+    const extension = path.extname(imagePath).toLowerCase();
+    const mimeType = ({ '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif' })[extension];
+    if (!mimeType) throw new Error('Benchmark screenshot must be PNG, JPEG, WebP or GIF.');
+    const imageData = fs.readFileSync(imagePath).toString('base64');
+    visionTask = {
+      id: 'screen-vision',
+      request: { contents: [{ role: 'user', parts: [
+        { text: 'Describe the important visible content in this screenshot. Include the exact visible text where readable.' },
+        { inlineData: { mimeType, data: imageData } }
+      ] }] },
+      pass: text => text.toLowerCase().includes(expectedVisionText.toLowerCase())
+    };
+  }
+
   const report = [];
   for (const candidate of candidates) {
+    const candidateTasks = visionTask && candidate.vision ? [...tasks, visionTask] : tasks;
     const env = candidate.provider === 'qwencloud'
       ? { AI_PROVIDER: 'qwencloud', QWENCLOUD_API_KEY: candidate.key, QWENCLOUD_MODEL: candidate.model }
       : { AI_PROVIDER: 'deepseek', DEEPSEEK_API_KEY: candidate.key, DEEPSEEK_MODEL: candidate.model };
@@ -66,14 +88,14 @@ async function main() {
       provider: candidate.provider,
       model: candidate.model,
       passed: 0,
-      total: tasks.length,
+      total: candidateTasks.length,
       averageLatencyMs: 0,
       inputTokens: 0,
       outputTokens: 0,
       tests: []
     };
     let latencyTotal = 0;
-    for (const task of tasks) {
+    for (const task of candidateTasks) {
       const prepared = task.makeRequest ? task.makeRequest() : { request: task.request };
       let metrics = null;
       const started = Date.now();
@@ -95,7 +117,7 @@ async function main() {
         result.tests.push({ id: task.id, passed: false, latencyMs: elapsed, error: String(error.message || error).slice(0, 180) });
       }
     }
-    result.averageLatencyMs = Math.round(latencyTotal / tasks.length);
+    result.averageLatencyMs = Math.round(latencyTotal / candidateTasks.length);
     result.passRate = Math.round((result.passed / result.total) * 100);
     report.push(result);
   }
@@ -103,7 +125,7 @@ async function main() {
   report.sort((a, b) => b.passRate - a.passRate || a.averageLatencyMs - b.averageLatencyMs);
   console.log(JSON.stringify({
     generatedAt: new Date().toISOString(),
-    note: 'This is a small regression benchmark, not a universal model ranking. Run repeatedly with representative screenshots and real user tasks before choosing production defaults. Token counts are provider-reported; cost must be calculated using current regional pricing.',
+    note: 'This is a small regression benchmark, not a universal model ranking. Run repeatedly with representative screenshots and real user tasks before choosing production defaults. To include screen vision, set SLICKLY_BENCHMARK_IMAGE_PATH and SLICKLY_BENCHMARK_VISION_EXPECTED. Token counts are provider-reported; cost must be calculated using current regional pricing.',
     results: report
   }, null, 2));
   if (report.every(result => result.passed === 0)) process.exitCode = 1;
