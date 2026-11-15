@@ -5,7 +5,7 @@ const PROVIDERS = {
   openai: { label: 'OpenAI', keyEnv: 'OPENAI_API_KEY', modelEnv: 'OPENAI_MODEL', defaultModel: 'gpt-4.1-mini' },
   xai: { label: 'xAI', keyEnv: 'XAI_API_KEY', modelEnv: 'XAI_MODEL', defaultModel: 'grok-3-mini' },
   anthropic: { label: 'Anthropic Claude', keyEnv: 'ANTHROPIC_API_KEY', modelEnv: 'ANTHROPIC_MODEL', defaultModel: 'claude-3-5-haiku-latest' },
-  qwencloud: { label: 'QwenCloud (Qwen)', keyEnv: 'QWENCLOUD_API_KEY', modelEnv: 'QWENCLOUD_MODEL', defaultModel: 'qwen3.8-max' },
+  qwencloud: { label: 'Alibaba Cloud Model Studio (Qwen)', keyEnv: 'QWENCLOUD_API_KEY', modelEnv: 'QWENCLOUD_MODEL', defaultModel: 'qwen3.8-max' },
   kimi: { label: 'Moonshot Kimi', keyEnv: 'MOONSHOT_API_KEY', modelEnv: 'MOONSHOT_MODEL', defaultModel: 'kimi-k3' },
   deepseek: { label: 'DeepSeek', keyEnv: 'DEEPSEEK_API_KEY', modelEnv: 'DEEPSEEK_MODEL', defaultModel: 'deepseek-flash' }
 };
