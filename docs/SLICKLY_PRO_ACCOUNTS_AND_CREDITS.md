@@ -102,3 +102,30 @@ Offline regression coverage now includes:
 - `scripts/test-slickly-referral-e2e.js` for the mocked referral-to-activation journey.
 
 These are code-level/mock tests. They do not replace a live staging run with the real Supabase schema, Google OAuth configuration, Razorpay test credentials, webhook delivery and installed desktop builds. Do not enable live checkout until an authorised adult/business operator has completed those checks.
+
+## Payment methods and payout settlement
+
+Razorpay Subscription payment methods are controlled in the merchant dashboard under **Subscriptions → Settings**. Depending on account activation, supported geography, bank and UPI eligibility, the merchant can enable Cards, UPI Autopay and eMandate (eNACH / netbanking). The hosted subscription checkout displays only methods enabled and eligible for that account; the app must not promise that every customer will see every method. Google Pay is accessed as a supported UPI app where UPI Autopay is available and enabled; it is not a separate card processor.
+
+An authorised adult/business representative must complete merchant KYC and register/verify the business bank account in Razorpay's merchant dashboard. This repository cannot securely link a bank account or complete KYC through the public subscription API. After sandbox tests, verify settlement status and the destination account in the merchant dashboard before enabling live billing. Never put bank account details, Razorpay secrets, or Supabase service-role keys in source control or chat.
+
+## Model-provider evaluation and configuration
+
+The desktop BYOK adapter supports:
+- QwenCloud OpenAI-compatible endpoint: `QWENCLOUD_API_KEY`, optional `QWENCLOUD_BASE_URL` (default Singapore endpoint), `QWENCLOUD_MODEL` (default `qwen3.8-max`). QwenCloud supports Qwen and compatible Kimi models; a model such as `kimi-k3.1-pro` can be selected only if enabled for the account/region.
+- Direct DeepSeek API: `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL` (default `deepseek-flash`).
+
+Use QwenCloud pay-as-you-go keys for a custom application backend. Some QwenCloud Token Plan credentials are restricted to approved programming tools and must not be used by a custom app. Provider model IDs and regions change; verify availability and pricing in the provider console before configuration.
+
+These adapters preserve image payloads for vision-capable models. Raw audio is not universally supported; Slickly's speech recognition/transcription pipeline remains separate. The adapters add a system-level instruction boundary against prompt injection, but this is defense-in-depth, not a guarantee that jailbreaks cannot succeed.
+
+## Pro readiness gates
+
+Do not advertise Pro quotas as guaranteed capacity until:
+1. Provider benchmarks measure task success, screenshot understanding, latency, token cost and reliability for representative Free/Pro workflows.
+2. Jailbreak/prompt-injection regression tests cover text, screenshots and document content.
+3. Server-side durable usage accounting and provider spend limits are verified under concurrency.
+4. Razorpay sandbox subscriptions, webhook signatures/idempotency, cancellations and settlement reconciliation pass.
+5. The adult/business merchant owner confirms live KYC, payout-bank verification, applicable tax/refund/privacy/support terms and production environment configuration.
+
+The repository tests can verify implementation and mocked integrations. They cannot independently verify a merchant's bank account, complete KYC, or prove real-world model quality without authorised provider credentials and representative test data.
