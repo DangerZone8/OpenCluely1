@@ -14,10 +14,11 @@ function jsonResponse(body, status = 200) {
     ['xai', 'grok-test'],
     ['anthropic', 'claude-test'],
     ['qwencloud', 'qwen3.8-max'],
+    ['kimi', 'kimi-k3'],
     ['deepseek', 'deepseek-flash']
   ];
   for (const [id, expectedModel] of providers) {
-    const modelEnv = { gemini: 'GEMINI_MODEL', openai: 'OPENAI_MODEL', xai: 'XAI_MODEL', anthropic: 'ANTHROPIC_MODEL', qwencloud: 'QWENCLOUD_MODEL', deepseek: 'DEEPSEEK_MODEL' }[id];
+    const modelEnv = { gemini: 'GEMINI_MODEL', openai: 'OPENAI_MODEL', xai: 'XAI_MODEL', anthropic: 'ANTHROPIC_MODEL', qwencloud: 'QWENCLOUD_MODEL', kimi: 'MOONSHOT_MODEL', deepseek: 'DEEPSEEK_MODEL' }[id];
     const config = getProvider({ AI_PROVIDER: id, [modelEnv]: id === 'gemini' ? '' : expectedModel });
     assert.equal(config.id, id, id + ' provider selection');
     assert.equal(config.model, expectedModel, id + ' model selection');
@@ -49,6 +50,8 @@ function jsonResponse(body, status = 200) {
       { content: [{ type: 'text', text: 'Claude test answer' }] }],
     ['qwencloud', 'QWENCLOUD_API_KEY', 'QWENCLOUD_MODEL', 'https://ap-southeast-1.maas.qwencloudapi.com/compatible-mode/v1/chat/completions',
       { choices: [{ message: { content: 'QwenCloud test answer' } }] }],
+    ['kimi', 'MOONSHOT_API_KEY', 'MOONSHOT_MODEL', 'https://api.moonshot.ai/v1/chat/completions',
+      { choices: [{ message: { content: 'Kimi test answer' } }] }],
     ['deepseek', 'DEEPSEEK_API_KEY', 'DEEPSEEK_MODEL', 'https://api.deepseek.com/chat/completions',
       { choices: [{ message: { content: 'DeepSeek test answer' } }] }]
   ];
@@ -130,7 +133,7 @@ function jsonResponse(body, status = 200) {
     /Raw audio analysis is not supported/
   );
 
-  console.log('PASS: Gemini/OpenAI/xAI/Anthropic/QwenCloud/DeepSeek selection; compatible-provider auth and text+vision payloads; security boundary; OpenAI audio transcription; missing-key, provider-error, empty-response, and unsupported-audio paths.');
+  console.log('PASS: Gemini/OpenAI/xAI/Anthropic/QwenCloud/Kimi/DeepSeek selection; compatible-provider auth and text+vision payloads; security boundary; OpenAI audio transcription; missing-key, provider-error, empty-response, and unsupported-audio paths.');
 })().catch(error => {
   console.error('PROVIDER ADAPTER TEST FAILED:', error);
   process.exitCode = 1;
