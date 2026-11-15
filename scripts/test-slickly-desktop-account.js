@@ -29,6 +29,12 @@ assert.match(llm,/chat/);
 assert.match(account,/slicklyDesktopAccount\.saveSession/);
 assert.match(account,/slicklyDesktopAccount\.clearSession/);
 assert.match(settings,/openSlicklyAccount/);
+assert.match(settings,/value="qwencloud"/,'Settings must expose QwenCloud for model evaluation');
+assert.match(settings,/value="deepseek"/,'Settings must expose DeepSeek for model evaluation');
+assert.match(settings,/id="qwencloudKey"/,'QwenCloud API key field must be available');
+assert.match(settings,/id="deepseekKey"/,'DeepSeek API key field must be available');
+assert.match(main,/QWENCLOUD_API_KEY/,'QwenCloud key must persist in desktop settings');
+assert.match(main,/DEEPSEEK_API_KEY/,'DeepSeek key must persist in desktop settings');
 assert.match(chat,/id="accountProButton"/,'primary chat workspace must expose Account / Pro');
 assert.match(chat,/whysperAPI\.openSlicklyAccount\(\)/,'Account / Pro button must open the trusted account window');
 
@@ -37,6 +43,11 @@ assert.ok(website.includes('href="/account.html">Log in'),'website navigation mu
 assert.ok(website.includes('class="nav-cta" href="/pricing.html">Get Pro'),'website primary CTA must lead to Pro plans');
 assert.ok(pricing.includes('Slickly Pro'));
 assert.ok(pricing.includes('₹399'));
+assert.match(pricing,/credit\/debit cards/,'pricing must explain card payment methods');
+assert.match(pricing,/UPI Autopay/,'pricing must explain recurring UPI options');
+assert.match(pricing,/Google Pay/,'pricing must mention Google Pay only as an eligible UPI app');
+assert.match(account,/Continue to secure payment/,'account checkout CTA must clearly describe the next step');
+assert.match(account,/Payment details are entered only on the provider checkout/,'card and bank details must remain on hosted checkout');
 assert.ok(pricing.includes('60 / day'));
 assert.ok(pricing.includes('200 / day'));
 assert.ok(pricing.includes('href="/account.html?plan=pro"'),'Pro CTA must lead to the shared account flow');
@@ -44,4 +55,4 @@ assert.ok(account.includes("fetch('/api/public-config'"),'website account must l
 assert.ok(account.includes('window.supabase.createClient'),'website and desktop account page must use the shared Supabase auth client');
 assert.ok(account.includes('href="/pricing.html"'),'account page must link back to public pricing');
 assert.ok(main.includes('https://slicklyai.vercel.app/account.html?desktop=1'),'desktop app must open the same hosted account page');
-console.log('Slickly desktop account integration checks passed: trusted account window, encrypted refresh-token storage, desktop session sync and AI feature credit metering.');
+console.log('Slickly account checks passed: trusted account window, encrypted session storage, account credit metering, explicit recurring payment-method guidance, and QwenCloud/DeepSeek provider settings.');
