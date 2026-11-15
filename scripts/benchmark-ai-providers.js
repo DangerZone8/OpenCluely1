@@ -7,7 +7,7 @@ const { executeProviderRequest } = require('../src/services/provider-adapter');
 
 const candidates = [
   { provider: 'qwencloud', model: 'qwen3.8-max', key: process.env.QWENCLOUD_API_KEY, vision: true },
-  { provider: 'qwencloud', model: 'kimi-k3.1-pro', key: process.env.QWENCLOUD_API_KEY, vision: true },
+  { provider: 'kimi', model: process.env.MOONSHOT_MODEL || 'kimi-k3', key: process.env.MOONSHOT_API_KEY, vision: true },
   { provider: 'deepseek', model: 'deepseek-flash', key: process.env.DEEPSEEK_API_KEY, vision: true },
   { provider: 'deepseek', model: 'deepseek-v4-pro', key: process.env.DEEPSEEK_API_KEY, vision: false }
 ].filter(candidate => candidate.key);
@@ -54,7 +54,7 @@ function usageTotals(metrics) {
 
 async function main() {
   if (!candidates.length) {
-    console.error('No benchmark API keys configured. Set QWENCLOUD_API_KEY and/or DEEPSEEK_API_KEY in the local environment. Keys are never printed or uploaded.');
+    console.error('No benchmark API keys configured. Set QWENCLOUD_API_KEY, MOONSHOT_API_KEY and/or DEEPSEEK_API_KEY in the local environment. Keys are never printed or uploaded.');
     process.exitCode = 2;
     return;
   }
@@ -83,7 +83,9 @@ async function main() {
     const candidateTasks = visionTask && candidate.vision ? [...tasks, visionTask] : tasks;
     const env = candidate.provider === 'qwencloud'
       ? { AI_PROVIDER: 'qwencloud', QWENCLOUD_API_KEY: candidate.key, QWENCLOUD_MODEL: candidate.model }
-      : { AI_PROVIDER: 'deepseek', DEEPSEEK_API_KEY: candidate.key, DEEPSEEK_MODEL: candidate.model };
+      : candidate.provider === 'kimi'
+        ? { AI_PROVIDER: 'kimi', MOONSHOT_API_KEY: candidate.key, MOONSHOT_MODEL: candidate.model }
+        : { AI_PROVIDER: 'deepseek', DEEPSEEK_API_KEY: candidate.key, DEEPSEEK_MODEL: candidate.model };
     const result = {
       provider: candidate.provider,
       model: candidate.model,
