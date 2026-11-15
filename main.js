@@ -2020,11 +2020,13 @@ class ApplicationController {
       whisperResponseTarget: process.env.WHISPER_RESPONSE_TARGET || "both",
       whisperSegmentMs: process.env.WHISPER_SEGMENT_MS || "4000",
       aiProvider: process.env.AI_PROVIDER || "gemini",
-      aiModel: process.env[({ gemini: "GEMINI_MODEL", openai: "OPENAI_MODEL", xai: "XAI_MODEL", anthropic: "ANTHROPIC_MODEL" }[process.env.AI_PROVIDER || "gemini"])] || "",
+      aiModel: process.env[({ gemini: "GEMINI_MODEL", openai: "OPENAI_MODEL", xai: "XAI_MODEL", anthropic: "ANTHROPIC_MODEL", qwencloud: "QWENCLOUD_MODEL", deepseek: "DEEPSEEK_MODEL" }[process.env.AI_PROVIDER || "gemini"])] || "",
       geminiKey: process.env.GEMINI_API_KEY || "",
       openaiKey: process.env.OPENAI_API_KEY || "",
       xaiKey: process.env.XAI_API_KEY || "",
       anthropicKey: process.env.ANTHROPIC_API_KEY || "",
+      qwencloudKey: process.env.QWENCLOUD_API_KEY || "",
+      deepseekKey: process.env.DEEPSEEK_API_KEY || "",
 
       azureConfigured: !!process.env.AZURE_SPEECH_KEY && !!process.env.AZURE_SPEECH_REGION,
       speechAvailable: this.speechAvailable
@@ -2094,18 +2096,20 @@ class ApplicationController {
         envUpdates.WHISPER_SEGMENT_MS = String(settings.whisperSegmentMs);
       }
       if (settings.geminiKey !== undefined) envUpdates.GEMINI_API_KEY = settings.geminiKey;
-      if (["gemini", "openai", "xai", "anthropic"].includes(settings.aiProvider)) {
+      if (["gemini", "openai", "xai", "anthropic", "qwencloud", "deepseek"].includes(settings.aiProvider)) {
         envUpdates.AI_PROVIDER = settings.aiProvider;
       }
       if (settings.aiModel !== undefined) {
         const selectedProvider = ["gemini", "openai", "xai", "anthropic"].includes(settings.aiProvider)
           ? settings.aiProvider : (process.env.AI_PROVIDER || "gemini");
-        const modelEnv = { gemini: "GEMINI_MODEL", openai: "OPENAI_MODEL", xai: "XAI_MODEL", anthropic: "ANTHROPIC_MODEL" }[selectedProvider];
+        const modelEnv = { gemini: "GEMINI_MODEL", openai: "OPENAI_MODEL", xai: "XAI_MODEL", anthropic: "ANTHROPIC_MODEL", qwencloud: "QWENCLOUD_MODEL", deepseek: "DEEPSEEK_MODEL" }[selectedProvider];
         if (modelEnv) envUpdates[modelEnv] = String(settings.aiModel || "").trim();
       }
       if (settings.openaiKey !== undefined) envUpdates.OPENAI_API_KEY = settings.openaiKey;
       if (settings.xaiKey !== undefined) envUpdates.XAI_API_KEY = settings.xaiKey;
       if (settings.anthropicKey !== undefined) envUpdates.ANTHROPIC_API_KEY = settings.anthropicKey;
+      if (settings.qwencloudKey !== undefined) envUpdates.QWENCLOUD_API_KEY = settings.qwencloudKey;
+      if (settings.deepseekKey !== undefined) envUpdates.DEEPSEEK_API_KEY = settings.deepseekKey;
 
       // Capture the previous whisper command BEFORE persisting — persistEnvUpdates
       // mutates process.env in place, so comparing afterwards would always read
@@ -2120,7 +2124,7 @@ class ApplicationController {
       // connection button in the onboarding wizard fails with
       // "Service not initialized" because the client was first created
       // at app startup, before any key was set.
-      const aiSettingsChanged = ["geminiKey", "openaiKey", "xaiKey", "anthropicKey", "aiProvider", "aiModel"]
+      const aiSettingsChanged = ["geminiKey", "openaiKey", "xaiKey", "anthropicKey", "qwencloudKey", "deepseekKey", "aiProvider", "aiModel"]
         .some(key => settings[key] !== undefined);
       if (aiSettingsChanged) {
         try {
