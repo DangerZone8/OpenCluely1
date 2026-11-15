@@ -7,7 +7,8 @@ const envNames = [
   'GEMINI_API_KEY','GEMINI_API_KEYS','GEMINI_API_KEY_2','GEMINI_API_KEY_3',
   'GOOGLE_API_KEY','GOOGLE_GENAI_API_KEY','GOOGLE_GENERATIVE_AI_API_KEY',
   'SLICKLY_HOSTED_AI_PROVIDER','SLICKLY_QWENCLOUD_API_KEY','SLICKLY_QWENCLOUD_MODEL',
-  'SLICKLY_QWENCLOUD_BASE_URL','SLICKLY_DEEPSEEK_API_KEY','SLICKLY_DEEPSEEK_MODEL'
+  'SLICKLY_QWENCLOUD_BASE_URL','SLICKLY_DEEPSEEK_API_KEY','SLICKLY_DEEPSEEK_MODEL',
+  'SLICKLY_MOONSHOT_API_KEY','SLICKLY_MOONSHOT_MODEL','SLICKLY_MOONSHOT_BASE_URL'
 ];
 const originalEnv = Object.fromEntries(envNames.map(name => [name, process.env[name]]));
 const originalFetch = global.fetch;
@@ -78,6 +79,19 @@ async function invoke(feature, stream, fetchImpl) {
     text: 'DEEPSEEK_VISION_OK', model: 'deepseek-flash', provider: 'deepseek'
   });
 
+  process.env.SLICKLY_HOSTED_AI_PROVIDER = 'kimi';
+  process.env.SLICKLY_MOONSHOT_API_KEY = 'test-kimi-key';
+  process.env.SLICKLY_MOONSHOT_MODEL = 'kimi-k3';
+  const kimi = await invoke('chat', false, async (url, options) => {
+    assert.equal(url, 'https://api.moonshot.ai/v1/chat/completions');
+    assert.equal(options.headers.authorization, 'Bearer test-kimi-key');
+    assert.equal(JSON.parse(options.body).model, 'kimi-k3');
+    return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'KIMI_HOSTED_OK' } }] }) };
+  });
+  assert.equal(kimi.statusCode, 200);
+  assert.equal(JSON.parse(kimi.body).provider, 'kimi');
+  assert.equal(JSON.parse(kimi.body).text, 'KIMI_HOSTED_OK');
+
   process.env.SLICKLY_HOSTED_AI_PROVIDER = 'qwencloud';
   delete process.env.SLICKLY_QWENCLOUD_API_KEY;
   const missingKey = await invoke('chat', false, async () => {
@@ -86,7 +100,7 @@ async function invoke(feature, stream, fetchImpl) {
   assert.equal(missingKey.statusCode, 503);
   assert.match(JSON.parse(missingKey.body).error, /not configured/);
 
-  console.log('PASS: hosted QwenCloud chat streaming, DeepSeek screen vision, server-only provider keys, and missing-key handling.');
+  console.log('PASS: hosted QwenCloud chat streaming, Moonshot Kimi chat, DeepSeek screen vision, server-only provider keys, and missing-key handling.');
 })().catch(error => {
   console.error('HOSTED PROVIDER ROUTING TEST FAILED:', error);
   process.exitCode = 1;
