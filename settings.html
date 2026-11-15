@@ -473,7 +473,8 @@
                             <option value="openai">OpenAI</option>
                             <option value="xai">xAI (Grok)</option>
                             <option value="anthropic">Anthropic (Claude)</option>
-                            <option value="qwencloud">QwenCloud (Qwen / Kimi)</option>
+                            <option value="qwencloud">QwenCloud (Qwen)</option>
+                            <option value="kimi">Moonshot Kimi</option>
                             <option value="deepseek">DeepSeek</option>
                         </select>
                     </div>
@@ -519,6 +520,13 @@
                         </div>
                         <input type="password" class="input-field" id="qwencloudKey" placeholder="Enter QwenCloud API key" autocomplete="off">
                     </div>
+                    <div class="settings-item ai-key-field" data-provider="kimi">
+                        <div>
+                            <div class="settings-item-label">Moonshot Kimi API Key</div>
+                            <div class="settings-item-description">Direct Kimi API for long-context reasoning, coding and vision</div>
+                        </div>
+                        <input type="password" class="input-field" id="kimiKey" placeholder="Enter Moonshot API key" autocomplete="off">
+                    </div>
                     <div class="settings-item ai-key-field" data-provider="deepseek">
                         <div>
                             <div class="settings-item-label">DeepSeek API Key</div>
@@ -526,7 +534,7 @@
                         </div>
                         <input type="password" class="input-field" id="deepseekKey" placeholder="Enter DeepSeek API key" autocomplete="off">
                     </div>
-                    <div class="settings-note">Suggested model IDs: QwenCloud <code>qwen3.8-max</code>, Kimi via QwenCloud <code>kimi-k3.1-pro</code>, and DeepSeek <code>deepseek-flash</code>. Availability depends on provider account and region. Never paste keys into chat or commit them to Git.</div>
+                    <div class="settings-note">Suggested model IDs: QwenCloud <code>qwen3.8-max</code>, Moonshot Kimi <code>kimi-k3</code> or <code>kimi-k2.6</code>, and DeepSeek <code>deepseek-flash</code>. Availability depends on provider account and region. Never paste keys into chat or commit them to Git.</div>
                     <div class="settings-note">Provider keys are used locally by the desktop app. Use a model supported by your provider account. Raw audio analysis may require Gemini or the configured Speech Recognition provider; provider capabilities are not interchangeable.</div>
                 </div>
             </div>
