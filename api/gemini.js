@@ -146,7 +146,10 @@ module.exports = async function handler(req, res) {
         QWENCLOUD_MODEL: process.env.SLICKLY_QWENCLOUD_MODEL || process.env.QWENCLOUD_MODEL || 'qwen3.8-max',
         QWENCLOUD_BASE_URL: process.env.SLICKLY_QWENCLOUD_BASE_URL || process.env.QWENCLOUD_BASE_URL || '',
         DEEPSEEK_API_KEY: process.env.SLICKLY_DEEPSEEK_API_KEY || process.env.DEEPSEEK_API_KEY || '',
-        DEEPSEEK_MODEL: process.env.SLICKLY_DEEPSEEK_MODEL || process.env.DEEPSEEK_MODEL || 'deepseek-flash'
+        DEEPSEEK_MODEL: process.env.SLICKLY_DEEPSEEK_MODEL || process.env.DEEPSEEK_MODEL || 'deepseek-flash',
+        MOONSHOT_API_KEY: process.env.SLICKLY_MOONSHOT_API_KEY || process.env.MOONSHOT_API_KEY || '',
+        MOONSHOT_MODEL: process.env.SLICKLY_MOONSHOT_MODEL || process.env.MOONSHOT_MODEL || 'kimi-k3',
+        MOONSHOT_BASE_URL: process.env.SLICKLY_MOONSHOT_BASE_URL || process.env.MOONSHOT_BASE_URL || ''
       };
       const { getProvider, executeProviderRequest } = require('../src/services/provider-adapter');
       const provider = getProvider(providerEnv);
