@@ -66,13 +66,24 @@ button{width:100%;min-height:46px;border:1px solid var(--ink);border-radius:5px;
   const $=id=>document.getElementById(id);
   const status=(message)=>{$('status').textContent=message;$('status').classList.remove('hidden')};
   let client=null,session=null,appliedReferralCode='';
-  const authHeaders=()=>({Authorization:'Bearer '+session.access_token,'Content-Type':'application/json'});
+  const authHeaders=async()=>{
+    let accessToken=session?.access_token;
+    // In the desktop app the encrypted main-process session is the sole
+    // refresh-token owner. The renderer asks it for a fresh access token rather
+    // than independently rotating the same single-use Supabase refresh token.
+    if(window.slicklyDesktopAccount){
+      const current=await window.slicklyDesktopAccount.getAccessToken();
+      accessToken=current?.accessToken;
+    }
+    if(!accessToken)throw new Error('Your Slickly account session has expired. Please sign in again.');
+    return {Authorization:'Bearer '+accessToken,'Content-Type':'application/json'};
+  };
   try{
     const cfgRes=await fetch('/api/public-config',{cache:'no-store'});
     const cfg=await cfgRes.json();
     if(!cfgRes.ok)throw new Error(cfg.error||'Account services are not configured.');
     if(!window.supabase?.createClient)throw new Error('Sign-in library did not load. Refresh and try again.');
-    client=window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+    client=window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:!window.slicklyDesktopAccount,detectSessionInUrl:true}});
     const syncDesktopSession=async(next)=>{
       if(!window.slicklyDesktopAccount)return;
       try{
@@ -96,20 +107,20 @@ button{width:100%;min-height:46px;border:1px solid var(--ink);border-radius:5px;
     $('applyReferral').onclick=async()=>{
       const code=$('referralCode').value.trim().toUpperCase();if(!code){$('referralStatus').textContent='Enter a code first.';return;}
       $('applyReferral').disabled=true;
-      try{const r=await fetch('/api/referrals/validate',{method:'POST',headers:authHeaders(),body:JSON.stringify({code})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Code could not be applied.');appliedReferralCode=d.code;$('referralCode').value=d.code;$('referralStatus').textContent='Applied '+d.code+' · discounted Pro price '+d.monthlyPriceDisplay+' on each monthly renewal.';}
+      try{const r=await fetch('/api/referrals/validate',{method:'POST',headers:await authHeaders(),body:JSON.stringify({code})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Code could not be applied.');appliedReferralCode=d.code;$('referralCode').value=d.code;$('referralStatus').textContent='Applied '+d.code+' · discounted Pro price '+d.monthlyPriceDisplay+' on each monthly renewal.';}
       catch(e){appliedReferralCode='';$('referralStatus').textContent=e.message;}
       finally{$('applyReferral').disabled=false;}
     };
     $('cancelPro').onclick=async()=>{
       const button=$('cancelPro');button.disabled=true;
-      try{const r=await fetch('/api/billing/cancel',{method:'POST',headers:authHeaders(),body:'{}'});const d=await r.json();if(!r.ok)throw new Error(d.error||'Cancellation could not be scheduled.');$('referralStatus').textContent='Cancellation scheduled for the end of your current billing period.';button.textContent='Cancellation scheduled';}
+      try{const r=await fetch('/api/billing/cancel',{method:'POST',headers:await authHeaders(),body:'{}'});const d=await r.json();if(!r.ok)throw new Error(d.error||'Cancellation could not be scheduled.');$('referralStatus').textContent='Cancellation scheduled for the end of your current billing period.';button.textContent='Cancellation scheduled';}
       catch(e){$('referralStatus').textContent=e.message;}
       finally{button.disabled=false;}
     };
     $('upgrade').onclick=async()=>{
       if(!session?.access_token)return status('Sign in again before checkout.');
       $('upgrade').disabled=true;
-      try{const r=await fetch('/api/billing/checkout',{method:'POST',headers:authHeaders(),body:JSON.stringify({referralCode:appliedReferralCode||undefined})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Checkout could not start.');location.href=d.checkoutUrl;}
+      try{const r=await fetch('/api/billing/checkout',{method:'POST',headers:await authHeaders(),body:JSON.stringify({referralCode:appliedReferralCode||undefined})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Checkout could not start.');location.href=d.checkoutUrl;}
       catch(e){status(e.message);}
       finally{$('upgrade').disabled=false;}
     };
@@ -118,19 +129,19 @@ button{width:100%;min-height:46px;border:1px solid var(--ink);border-radius:5px;
       const button=$('createReferral');button.disabled=true;$('adminStatus').textContent='Creating discounted monthly plan and code…';
       try{
         const body={code:$('newCode').value.trim(),discountType:$('discountType').value,discountValue:Number($('discountValue').value),maxRedemptions:$('maxRedemptions').value||null,expiresAt:$('expiresAt').value?new Date($('expiresAt').value+'T23:59:59').toISOString():null};
-        const r=await fetch('/api/admin/referrals',{method:'POST',headers:authHeaders(),body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw new Error(d.error||'Could not create code.');
+        const r=await fetch('/api/admin/referrals',{method:'POST',headers:await authHeaders(),body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw new Error(d.error||'Could not create code.');
         $('adminStatus').textContent='Created '+d.code.code+' · '+d.priceDisplay+'.';$('newCode').value='';await loadReferralCodes();
       }catch(e){$('adminStatus').textContent=e.message;}
       finally{button.disabled=false;}
     };
     async function loadReferralCodes(){
-      const r=await fetch('/api/admin/referrals',{headers:authHeaders(),cache:'no-store'});const d=await r.json();if(!r.ok)throw new Error(d.error||'Could not load referral codes.');
+      const r=await fetch('/api/admin/referrals',{headers:await authHeaders(),cache:'no-store'});const d=await r.json();if(!r.ok)throw new Error(d.error||'Could not load referral codes.');
       const root=$('referralCodes');root.replaceChildren();
       for(const code of d.codes||[]){
         const row=document.createElement('div');row.className='code-row';
         const info=document.createElement('div');const name=document.createElement('strong');name.textContent=code.code;
         const details=document.createElement('small');details.textContent=(code.discount_type==='percent'?code.discount_value+'% off':'₹'+code.discount_value+' off')+' · ₹'+(code.monthly_price_paise/100).toFixed(2)+'/month · '+code.redemption_count+' redeemed'+(code.max_redemptions===null?'':' / '+code.max_redemptions)+(code.expires_at?' · expires '+new Date(code.expires_at).toLocaleDateString():'');
-        info.append(name,details);const toggle=document.createElement('button');toggle.className='secondary';toggle.textContent=code.is_active?'Disable':'Enable';toggle.onclick=async()=>{toggle.disabled=true;try{const response=await fetch('/api/admin/referrals',{method:'PATCH',headers:authHeaders(),body:JSON.stringify({id:code.id,isActive:!code.is_active})});const result=await response.json();if(!response.ok)throw new Error(result.error||'Could not update code.');await loadReferralCodes();}catch(e){$('adminStatus').textContent=e.message;}finally{toggle.disabled=false;}};
+        info.append(name,details);const toggle=document.createElement('button');toggle.className='secondary';toggle.textContent=code.is_active?'Disable':'Enable';toggle.onclick=async()=>{toggle.disabled=true;try{const response=await fetch('/api/admin/referrals',{method:'PATCH',headers:await authHeaders(),body:JSON.stringify({id:code.id,isActive:!code.is_active})});const result=await response.json();if(!response.ok)throw new Error(result.error||'Could not update code.');await loadReferralCodes();}catch(e){$('adminStatus').textContent=e.message;}finally{toggle.disabled=false;}};
         row.append(info,toggle);root.append(row);
       }
       if(!d.codes?.length)root.textContent='No referral codes created yet.';
@@ -141,7 +152,7 @@ button{width:100%;min-height:46px;border:1px solid var(--ink);border-radius:5px;
       if(!session){status('Sign in with Google or your verified email.');return;}
       $('identity').textContent=session.user.email||'Signed in to Slickly';
       try{
-        const r=await fetch('/api/account/me',{headers:authHeaders(),cache:'no-store'});const d=await r.json();if(!r.ok)throw new Error(d.error||'Could not load credits.');
+        const r=await fetch('/api/account/me',{headers:await authHeaders(),cache:'no-store'});const d=await r.json();if(!r.ok)throw new Error(d.error||'Could not load credits.');
         $('plan').textContent='Current plan: '+d.plan.toUpperCase()+' · Daily credits reset at '+new Date(d.resetsAt).toLocaleTimeString();
         $('cancelPro').classList.toggle('hidden',!(d.plan==='pro' && d.subscription?.status==='active'));
         $('upgrade').classList.toggle('hidden',d.plan==='pro');
