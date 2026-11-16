@@ -704,6 +704,12 @@ class ApplicationController {
     try { return new URL(event.senderFrame?.url || event.sender.getURL()).origin === "https://slicklyai.vercel.app"; }
     catch (_) { return false; }
   };
+  ipcMain.handle("slickly-account-get-access-token", async (event) => {
+    if (!isTrustedAccountSender(event)) throw new Error("Rejected account token request from an untrusted page.");
+    const accessToken = await accountSessionService.getAccessToken();
+    if (!accessToken) throw new Error("Your Slickly account session has expired. Please sign in again.");
+    return { accessToken };
+  });
   ipcMain.handle("slickly-account-save-session", (event, payload) => {
     if (!isTrustedAccountSender(event)) throw new Error("Rejected account session from an untrusted page.");
     return accountSessionService.save(payload);
