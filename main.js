@@ -1,7 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const { fileURLToPath } = require("url");
-const { app, BrowserWindow, globalShortcut, session, ipcMain, dialog, desktopCapturer, Tray, Menu } = require("electron");
+const { app, BrowserWindow, globalShortcut, session, ipcMain, dialog, desktopCapturer, Tray, Menu, shell } = require("electron");
 const { autoUpdater } = require("electron-updater");
 
 // ── Resolve a stable .env location ──
@@ -166,6 +166,7 @@ class ApplicationController {
     this.isReady = false;
     this.tray = null;
     this.accountWindow = null;
+    this.pendingSlicklyOAuthCode = null;
     this.starting = false;
     this.activeSkill = "dsa";
   // Default to C++ so language is enforced from first run
@@ -253,6 +254,7 @@ class ApplicationController {
         windowManager.showChatWindow();
       }
     });
+    app.on("open-url", (event, url) => { event.preventDefault(); this.handleOAuthCallback(url); });
     app.on("window-all-closed", () => this.onWindowAllClosed());
     app.on("activate", () => this.onActivate());
     app.on("will-quit", () => this.onWillQuit());
@@ -261,7 +263,31 @@ class ApplicationController {
     this.setupServiceEventHandlers();
   }
 
-  handleSecondInstance() {
+  handleOAuthCallback(rawUrl) {
+    try {
+      const callback = new URL(String(rawUrl || ""));
+      if (callback.protocol !== "slickly:" || callback.hostname !== "auth" || callback.pathname !== "/callback") return false;
+      const code = callback.searchParams.get("code");
+      if (!code || code.length > 4096) return false;
+      this.pendingSlicklyOAuthCode = code;
+      if (this.accountWindow && !this.accountWindow.isDestroyed()) {
+        this.accountWindow.webContents.send("slickly-oauth-code", code);
+        this.pendingSlicklyOAuthCode = null;
+      }
+      logger.info("Received Slickly Google OAuth callback");
+      return true;
+    } catch (error) {
+      logger.warn("Rejected malformed Slickly OAuth callback", { error: error.message });
+      return false;
+    }
+  }
+
+  handleSecondInstance(commandLine = []) {
+    for (const argument of commandLine) {
+      if (typeof argument === "string" && argument.startsWith("slickly://")) {
+        this.handleOAuthCallback(argument);
+      }
+    }
     logger.info("Second instance launch detected; focusing existing windows");
 
     const focusExistingWindows = () => {
@@ -697,6 +723,10 @@ class ApplicationController {
     });
     accountWindow.on("closed", () => { if (this.accountWindow === accountWindow) this.accountWindow = null; });
     await accountWindow.loadURL("https://slicklyai.vercel.app/account.html?desktop=1");
+    if (this.pendingSlicklyOAuthCode) {
+      accountWindow.webContents.send("slickly-oauth-code", this.pendingSlicklyOAuthCode);
+      this.pendingSlicklyOAuthCode = null;
+    }
     return { opened: true };
   });
 
@@ -704,6 +734,18 @@ class ApplicationController {
     try { return new URL(event.senderFrame?.url || event.sender.getURL()).origin === "https://slicklyai.vercel.app"; }
     catch (_) { return false; }
   };
+  ipcMain.handle("slickly-account-open-oauth", async (event, rawUrl) => {
+    if (!isTrustedAccountSender(event)) throw new Error("Rejected OAuth request from an untrusted page.");
+    let authUrl;
+    try { authUrl = new URL(String(rawUrl || "")); } catch (_) { throw new Error("Invalid Google authorization URL."); }
+    const allowedHost = /^([a-z0-9-]+)\\.supabase\\.co$/i.test(authUrl.hostname);
+    if (authUrl.protocol !== "https:" || !allowedHost || authUrl.pathname !== "/auth/v1/authorize" ||
+        authUrl.searchParams.get("provider") !== "google") {
+      throw new Error("Only this Slickly project's Google OAuth authorization URL can be opened.");
+    }
+    await shell.openExternal(authUrl.toString());
+    return { opened: true };
+  });
   ipcMain.handle("slickly-account-get-access-token", async (event) => {
     if (!isTrustedAccountSender(event)) throw new Error("Rejected account token request from an untrusted page.");
     const accessToken = await accountSessionService.getAccessToken();
@@ -2379,5 +2421,9 @@ if (!gotSingleInstanceLock) {
   app.quit();
 } else {
   const controller = new ApplicationController();
-  app.on("second-instance", () => controller.handleSecondInstance());
+  app.setAsDefaultProtocolClient("slickly");
+  app.on("second-instance", (_event, commandLine) => controller.handleSecondInstance(commandLine));
+  for (const argument of process.argv) {
+    if (typeof argument === "string" && argument.startsWith("slickly://")) controller.handleOAuthCallback(argument);
+  }
 }
