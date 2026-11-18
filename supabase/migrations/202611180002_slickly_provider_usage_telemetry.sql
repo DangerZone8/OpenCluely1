@@ -33,7 +33,9 @@ set search_path = public, pg_temp
 as $$
 begin
   if p_user_id is null
+     or p_feature is null
      or p_feature not in ('screen_aware','voice','screenshot','chat')
+     or p_provider is null
      or p_provider not in ('gemini','qwencloud','deepseek','moonshot','openai')
      or p_model is null or length(p_model) < 1 or length(p_model) > 128
      or p_prompt_tokens is null or p_prompt_tokens < 0
