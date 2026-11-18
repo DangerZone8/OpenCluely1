@@ -4,7 +4,7 @@ const { authenticate, rpc, safeError } = require('./_lib/slickly-auth');
 
 const FREE_DAILY_LIMITS = Object.freeze({ screen_aware: 2, voice: 2, screenshot: 3, chat: 7 });
 const PRO_DAILY_LIMITS = Object.freeze({ screen_aware: 20, voice: 6, screenshot: 10, chat: 40 });
-const PRO_MONTHLY_BUDGET = 1000;
+const PRO_MONTHLY_BUDGET = 1500;
 
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
 const MAX_PROMPT_TEXT_CHARS = 20000;
@@ -109,7 +109,8 @@ module.exports = async function handler(req, res) {
     .filter(entry => entry.value)
     .filter((entry, index, all) => all.findIndex(candidate => candidate.value === entry.value) === index);
   const keys = keyEntries.map(entry => entry.value);
-  const hostedProviderId = String(process.env.SLICKLY_HOSTED_AI_PROVIDER || 'gemini').trim().toLowerCase();
+  const hostedProviderOverride = String(process.env.SLICKLY_HOSTED_AI_PROVIDER || '').trim().toLowerCase();
+  let hostedProviderId = 'gemini';
   if (!keys.length && hostedProviderId === 'gemini') {
     return respond(res, 503, {
       error: 'The Slickly AI service is not configured in this deployment. Verify the Production environment variables and redeploy.',
@@ -227,11 +228,22 @@ module.exports = async function handler(req, res) {
     if (!row || typeof row.allowed !== 'boolean') {
       return respond(res, 503, { error: 'Slickly could not verify your AI allowance. No provider request was made.' });
     }
+    // Keep Free on economical Gemini. Pro may use a separately configured premium model.
+    // Missing premium credentials safely fall back to Gemini instead of breaking requests.
+    const premiumProvider = String(process.env.SLICKLY_PRO_HOSTED_AI_PROVIDER || 'qwencloud').trim().toLowerCase();
+    const premiumKeyAvailable = premiumProvider === 'qwencloud'
+      ? Boolean(process.env.SLICKLY_QWENCLOUD_API_KEY || process.env.QWENCLOUD_API_KEY)
+      : premiumProvider === 'deepseek'
+        ? Boolean(process.env.SLICKLY_DEEPSEEK_API_KEY || process.env.DEEPSEEK_API_KEY)
+        : premiumProvider === 'kimi'
+          ? Boolean(process.env.SLICKLY_MOONSHOT_API_KEY || process.env.MOONSHOT_API_KEY)
+          : false;
+    hostedProviderId = hostedProviderOverride || (row.plan === 'pro' && premiumKeyAvailable ? premiumProvider : 'gemini');
     if (!row.allowed) {
       const monthlyExhausted = row.limit_reason === 'monthly_budget';
       return respond(res, 429, {
         error: monthlyExhausted
-          ? 'Your 1,000 monthly Pro credits are used up. They reset at the start of next month.'
+          ? 'Your 1,500 monthly Pro credits are used up. They reset at the start of next month.'
           : 'You have used today’s ' + feature.replace('_', ' ') + ' credits.',
         code: monthlyExhausted ? 'MONTHLY_BUDGET_EXHAUSTED' : 'DAILY_CREDITS_EXHAUSTED',
         feature,
