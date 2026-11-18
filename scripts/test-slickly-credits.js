@@ -10,13 +10,13 @@ assert.deepEqual(credits.FREE_DAILY_LIMITS, {
   chat: 7
 });
 assert.deepEqual(credits.PRO_DAILY_LIMITS, {
-  screen_aware: 10,
-  voice: 3,
-  screenshot: 5,
-  chat: 20
+  screen_aware: 20,
+  voice: 6,
+  screenshot: 10,
+  chat: 40
 });
 assert.deepEqual(credits.FEATURE_UNITS, { screen_aware: 3, voice: 4, screenshot: 3, chat: 1 });
-assert.equal(credits.PRO_MONTHLY_BUDGET, 500);
+assert.equal(credits.PRO_MONTHLY_BUDGET, 1000);
 
 function response() {
   return {
@@ -51,7 +51,7 @@ async function run() {
     assert.equal(rpcArgs.p_free_daily_limit, 2);
     assert.equal(rpcArgs.p_pro_daily_limit, 10);
     assert.equal(rpcArgs.p_feature_units, 3);
-    assert.equal(rpcArgs.p_pro_monthly_budget, 500);
+    assert.equal(rpcArgs.p_pro_monthly_budget, 1000);
     assert.equal(JSON.parse(res.body).monthly, null);
 
     const invalid = response();
@@ -67,9 +67,9 @@ async function run() {
         return { ok: true, json: async () => ({ id: '123e4567-e89b-42d3-a456-426614174000' }) };
       }
       return { ok: true, text: async () => JSON.stringify({
-        allowed: false, used: 1, remaining: 9, daily_limit: 10,
+        allowed: false, used: 1, remaining: 19, daily_limit: 20,
         resets_at: '2026-12-01T00:00:00Z', plan: 'pro',
-        monthly_used: 499, monthly_remaining: 1, monthly_limit: 500,
+        monthly_used: 999, monthly_remaining: 1, monthly_limit: 1000,
         limit_reason: 'monthly_budget'
       }) };
     };
