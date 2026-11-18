@@ -25,7 +25,7 @@ const FEATURE_UNITS = Object.freeze({
   screenshot: 3,
   chat: 1
 });
-const PRO_MONTHLY_BUDGET = 1000;
+const PRO_MONTHLY_BUDGET = 1500;
 
 module.exports = async function credits(req, res) {
   if (req.method !== 'POST') {
@@ -67,7 +67,7 @@ module.exports = async function credits(req, res) {
       const monthlyExhausted = row.limit_reason === 'monthly_budget';
       return json(res, 429, {
         error: monthlyExhausted
-          ? 'Your 1,000 monthly Pro credits are used up. They reset at the start of next month.'
+          ? 'Your 1,500 monthly Pro credits are used up. They reset at the start of next month.'
           : 'You have used today’s ' + feature.replace('_', ' ') + ' credits.',
         code: monthlyExhausted ? 'MONTHLY_BUDGET_EXHAUSTED' : 'DAILY_CREDITS_EXHAUSTED',
         feature,
