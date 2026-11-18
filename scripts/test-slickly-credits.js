@@ -61,6 +61,23 @@ async function run() {
     const unauthenticated = response();
     await credits({ method: 'POST', headers: {}, body: { feature: 'chat' } }, unauthenticated);
     assert.equal(unauthenticated.statusCode, 401);
+
+    global.fetch = async (url, options) => {
+      if (url.endsWith('/auth/v1/user')) {
+        return { ok: true, json: async () => ({ id: '123e4567-e89b-42d3-a456-426614174000' }) };
+      }
+      return { ok: true, text: async () => JSON.stringify({
+        allowed: false, used: 1, remaining: 9, daily_limit: 10,
+        resets_at: '2026-12-01T00:00:00Z', plan: 'pro',
+        monthly_used: 499, monthly_remaining: 1, monthly_limit: 500,
+        limit_reason: 'monthly_budget'
+      }) };
+    };
+    const exhausted = response();
+    await credits({ method: 'POST', headers: { authorization: 'Bearer valid-access-token' }, body: { feature: 'screen_aware' } }, exhausted);
+    assert.equal(exhausted.statusCode, 429);
+    assert.equal(JSON.parse(exhausted.body).code, 'MONTHLY_BUDGET_EXHAUSTED');
+    assert.equal(JSON.parse(exhausted.body).monthly.remaining, 1);
   } finally {
     global.fetch = oldFetch;
     if (oldUrl === undefined) delete process.env.SUPABASE_URL; else process.env.SUPABASE_URL = oldUrl;
