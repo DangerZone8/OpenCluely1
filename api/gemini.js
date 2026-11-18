@@ -1,6 +1,10 @@
 'use strict';
 
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
+const MAX_PROMPT_TEXT_CHARS = 20000;
+const MAX_INLINE_MEDIA_CHARS = 1500000;
+const MAX_CONTENT_MESSAGES = 20;
+const MAX_OUTPUT_TOKENS = 512;
 const WINDOW_MS = 60 * 1000;
 const MAX_PER_WINDOW = 10;
 // A single live-screen session sends about 9 frames/minute at the 6.5s UI interval.
@@ -130,6 +134,28 @@ module.exports = async function handler(req, res) {
   if (!request || typeof request !== 'object' || !Array.isArray(request.contents) || request.contents.length === 0) {
     return respond(res, 400, { error: 'AI request is missing content.' });
   }
+  if (request.contents.length > MAX_CONTENT_MESSAGES) {
+    return respond(res, 413, { error: 'This request contains too much conversation history. Start a new chat or shorten the context.' });
+  }
+  const promptTextChars = request.contents.reduce((total, item) =>
+    total + (Array.isArray(item?.parts) ? item.parts.reduce((sum, part) => sum + (typeof part?.text === 'string' ? part.text.length : 0), 0) : 0), 0) +
+    (typeof request.systemInstruction === 'string' ? request.systemInstruction.length : 0);
+  if (promptTextChars > MAX_PROMPT_TEXT_CHARS) {
+    return respond(res, 413, { error: 'The request context is too long. Shorten the conversation or send a more focused question.' });
+  }
+  const inlineMediaChars = request.contents.reduce((total, item) =>
+    total + (Array.isArray(item?.parts) ? item.parts.reduce((sum, part) =>
+      sum + (typeof part?.inlineData?.data === 'string' ? part.inlineData.data.length : 0), 0) : 0), 0);
+  if (inlineMediaChars > MAX_INLINE_MEDIA_CHARS) {
+    return respond(res, 413, { error: 'The attached image or audio is too large. Capture a smaller frame or shorter clip.' });
+  }
+  const requestedOutputTokens = Number(request.generationConfig?.maxOutputTokens);
+  request.generationConfig = {
+    ...(request.generationConfig && typeof request.generationConfig === 'object' ? request.generationConfig : {}),
+    maxOutputTokens: Number.isFinite(requestedOutputTokens) && requestedOutputTokens > 0
+      ? Math.min(Math.floor(requestedOutputTokens), MAX_OUTPUT_TOKENS)
+      : MAX_OUTPUT_TOKENS
+  };
 
   const isVisionRequest = request.contents.some(item =>
     Array.isArray(item?.parts) && item.parts.some(part => part && (part.inlineData || part.fileData))
@@ -372,7 +398,15 @@ module.exports = async function handler(req, res) {
             .filter(Boolean)
             .join('\\n')
             .trim();
-          if (text) return respond(res, 200, { text, model });
+          if (text) {
+            const usage = result.usageMetadata && typeof result.usageMetadata === 'object' ? {
+              promptTokens: Number(result.usageMetadata.promptTokenCount) || 0,
+              outputTokens: Number(result.usageMetadata.candidatesTokenCount) || 0,
+              totalTokens: Number(result.usageMetadata.totalTokenCount) || 0
+            } : null;
+            if (usage) console.info('[Slickly Gemini usage]', JSON.stringify({ model, ...usage }));
+            return respond(res, 200, { text, model, ...(usage ? { usage } : {}) });
+          }
           lastFailure = { status: 502, code: 'EMPTY_RESPONSE', message: 'The model returned no text.' };
           break;
         }
