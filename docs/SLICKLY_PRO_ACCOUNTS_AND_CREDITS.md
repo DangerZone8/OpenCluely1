@@ -81,20 +81,22 @@ The checkout endpoint never accepts a client-supplied amount or plan. Entitlemen
 
 ## Remaining integration before release
 
-- Complete desktop/mobile Google + verified-email sign-in and secure cross-device session restoration.
-- Store tokens in OS secure storage; add sign-out, session revocation, account recovery, export and deletion.
-- Attach the account access token to every hosted AI request.
-- Consume credits before Screen Aware, voice, screenshot and chat operations; prevent direct bypass of the credit gate.
-- Add a server-side idempotent credit refund for provider failures/timeouts.
-- Add account UI showing daily balances, plan, billing status and subscription management.
-- Run real staging integration tests on Windows, macOS, Linux and supported mobile devices.
+- An authorised project owner must add `SUPABASE_URL`, `SUPABASE_ANON_KEY` and server-only `SUPABASE_SERVICE_ROLE_KEY` to the Slickly Vercel project.
+- Configure Supabase Email confirmation off and complete Google OAuth provider setup and redirect allowlisting as described above.
+- Apply the monthly Pro budget migration after the existing account, referral and cloud-config migrations.
+- Complete live Google OAuth tests in the browser and installed desktop app using the project owner's OAuth credentials.
+- Mobile-native account integration remains deferred; this branch covers the shared website account and desktop app.
+- Add server-side idempotent credit refunds for provider failures/timeouts and durable per-account provider token/cost aggregation.
+- Verify hosted AI authorization and monthly usage enforcement against direct API requests, not only the desktop UI.
+- Run real staging tests for sign-up/sign-in, refresh, sign-out, subscription activation/renewal/cancellation, refunds and monthly budget concurrency.
 
-Until those items pass, the API foundation should not be advertised as a complete sign-in or paid product.
+Do not advertise Pro as a complete paid product until the staging gates pass. Live Razorpay billing remains disabled.
+
 ## Referral and discount-code administration
 
 The second migration, `supabase/migrations/202611140002_slickly_referral_codes.sql`, creates the referral code and redemption tables. Apply it after the accounts/credits migration.
 
-An authorised adult/business account administrator can manage codes from the account portal at `/account.html`. Configure the server-only Vercel environment variable `SLICKLY_REFERRAL_ADMIN_EMAILS` as a comma-separated allowlist of administrator email addresses. Only those verified Supabase accounts can view or change codes. Do not put this list or any payment credentials in client-side code.
+An authorised adult/business account administrator can manage codes from the account portal at `/account.html`. Configure the server-only Vercel environment variable `SLICKLY_REFERRAL_ADMIN_EMAILS` as a comma-separated allowlist of administrator email addresses. Only accounts with a Google OAuth identity and an email on this allowlist can view or change codes. Email/password accounts cannot administer discounts because email confirmation is disabled for ordinary sign-up. Do not put this list or any payment credentials in client-side code.
 
 The admin page supports:
 - percentage discounts from 1% to 90%, or fixed discounts from ₹1 to ₹398;
@@ -108,7 +110,7 @@ This is still a staging implementation until an adult/business representative co
 
 ## Slickly Cloud Admin
 
-The admin dashboard is served at `/admin` (the static source is `web/admin.html`). It requires a verified Supabase account whose email appears in the server-side `SLICKLY_ADMIN_EMAILS` allowlist. The referral manager also accepts `SLICKLY_REFERRAL_ADMIN_EMAILS`; keep these allowlists server-side and restrict them to authorised adult/business operators.
+The admin dashboard is served at `/admin` (the static source is `web/admin.html`). It requires a Google-authenticated Supabase account whose email appears in the server-side `SLICKLY_ADMIN_EMAILS` allowlist. Email/password-only accounts are deliberately not trusted for admin access because email confirmation is disabled. The referral manager also accepts `SLICKLY_REFERRAL_ADMIN_EMAILS`; keep these allowlists server-side and restrict them to authorised adult/business operators.
 
 Apply the third migration after the accounts and referral migrations:
 3. `supabase/migrations/202611140003_slickly_cloud_config.sql`
