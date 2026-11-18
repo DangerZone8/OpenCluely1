@@ -102,6 +102,8 @@ async function testProxyHandler() {
   const originalKey2 = process.env.GEMINI_API_KEY_2;
   const originalKeys = process.env.GEMINI_API_KEYS;
   const originalGoogleKey = process.env.GOOGLE_API_KEY;
+  const originalSupabaseUrl = process.env.SUPABASE_URL;
+  const originalServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const originalFetch = global.fetch;
   const installId = '2f78a8d0-9913-4ab5-a2e3-cc3c02e5d601';
 
@@ -123,9 +125,21 @@ async function testProxyHandler() {
     assert.equal(response.statusCode, 503, 'Proxy must fail closed when server secret is not configured');
 
     process.env.GEMINI_API_KEY = 'test-server-secret-not-a-real-key';
+    process.env.SUPABASE_URL = 'https://slickly-test.supabase.co';
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
     delete process.env.GEMINI_API_KEY_2;
     delete process.env.GEMINI_API_KEYS;
     global.fetch = async (url, options) => {
+      if (String(url).endsWith('/auth/v1/user')) {
+        assert.equal(options.headers.Authorization, 'Bearer test-slickly-session-token');
+        return { ok: true, json: async () => ({ id: '6f8f5771-9d3c-4d9b-8f1e-4c9a8b7d6e5f' }) };
+      }
+      if (String(url).includes('/rest/v1/rpc/consume_slickly_credit_v2')) {
+        return { ok: true, text: async () => JSON.stringify({ allowed: true, plan: 'free', remaining: 6 }) };
+      }
+      if (String(url).includes('/rest/v1/rpc/record_slickly_provider_usage')) {
+        return { ok: true, text: async () => 'null' };
+      }
       assert.match(url, /generativelanguage\.googleapis\.com/);
       assert.equal(options.headers['x-goog-api-key'], 'test-server-secret-not-a-real-key');
       return {
@@ -139,6 +153,7 @@ async function testProxyHandler() {
       method: 'POST',
       headers: {
         'content-length': '150',
+        authorization: 'Bearer test-slickly-session-token',
         'x-opencluely-install-id': installId,
         'x-forwarded-for': '198.51.100.42'
       },
@@ -152,6 +167,16 @@ async function testProxyHandler() {
     process.env.GEMINI_API_KEY_2 = 'backup-server-secret-not-a-real-key';
     const keyAttempts = [];
     global.fetch = async (url, options) => {
+      if (String(url).endsWith('/auth/v1/user')) {
+        assert.equal(options.headers.Authorization, 'Bearer test-slickly-session-token');
+        return { ok: true, json: async () => ({ id: '6f8f5771-9d3c-4d9b-8f1e-4c9a8b7d6e5f' }) };
+      }
+      if (String(url).includes('/rest/v1/rpc/consume_slickly_credit_v2')) {
+        return { ok: true, text: async () => JSON.stringify({ allowed: true, plan: 'free', remaining: 6 }) };
+      }
+      if (String(url).includes('/rest/v1/rpc/record_slickly_provider_usage')) {
+        return { ok: true, text: async () => 'null' };
+      }
       keyAttempts.push({ model: decodeURIComponent(String(url).split('/models/')[1].split(':')[0]), key: options.headers['x-goog-api-key'] });
       if (options.headers['x-goog-api-key'] === 'test-server-secret-not-a-real-key') {
         return {
@@ -171,6 +196,7 @@ async function testProxyHandler() {
       method: 'POST',
       headers: {
         'content-length': '150',
+        authorization: 'Bearer test-slickly-session-token',
         'x-opencluely-install-id': '3f78a8d0-9913-4ab5-a2e3-cc3c02e5d601',
         'x-forwarded-for': '198.51.100.43'
       },
@@ -192,6 +218,10 @@ async function testProxyHandler() {
     else process.env.GEMINI_API_KEYS = originalKeys;
     if (originalGoogleKey === undefined) delete process.env.GOOGLE_API_KEY;
     else process.env.GOOGLE_API_KEY = originalGoogleKey;
+    if (originalSupabaseUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = originalSupabaseUrl;
+    if (originalServiceRoleKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    else process.env.SUPABASE_SERVICE_ROLE_KEY = originalServiceRoleKey;
     global.fetch = originalFetch;
   }
 }
