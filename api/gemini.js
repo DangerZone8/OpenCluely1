@@ -8,9 +8,10 @@ const PRO_MONTHLY_BUDGET = 500;
 
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
 const MAX_PROMPT_TEXT_CHARS = 20000;
-const MAX_INLINE_MEDIA_CHARS = 1500000;
+const MAX_INLINE_MEDIA_CHARS = 3500000;
 const MAX_CONTENT_MESSAGES = 20;
 const MAX_OUTPUT_TOKENS = 512;
+const MAX_AUDIO_OUTPUT_TOKENS = 2048;
 const WINDOW_MS = 60 * 1000;
 const MAX_PER_WINDOW = 10;
 // A single live-screen session sends about 9 frames/minute at the 6.5s UI interval.
@@ -143,6 +144,8 @@ module.exports = async function handler(req, res) {
   if (request.contents.length > MAX_CONTENT_MESSAGES) {
     return respond(res, 413, { error: 'This request contains too much conversation history. Start a new chat or shorten the context.' });
   }
+  const requestParts = request.contents.flatMap(item => Array.isArray(item?.parts) ? item.parts : []);
+  const hasAudioRequest = requestParts.some(part => /^audio\\//i.test(String(part?.inlineData?.mimeType || part?.inline_data?.mime_type || '')));
   const promptTextChars = request.contents.reduce((total, item) =>
     total + (Array.isArray(item?.parts) ? item.parts.reduce((sum, part) => sum + (typeof part?.text === 'string' ? part.text.length : 0), 0) : 0), 0) +
     (typeof request.systemInstruction === 'string' ? request.systemInstruction.length : 0);
@@ -156,11 +159,12 @@ module.exports = async function handler(req, res) {
     return respond(res, 413, { error: 'The attached image or audio is too large. Capture a smaller frame or shorter clip.' });
   }
   const requestedOutputTokens = Number(request.generationConfig?.maxOutputTokens);
+  const outputTokenLimit = hasAudioRequest ? MAX_AUDIO_OUTPUT_TOKENS : MAX_OUTPUT_TOKENS;
   request.generationConfig = {
     ...(request.generationConfig && typeof request.generationConfig === 'object' ? request.generationConfig : {}),
     maxOutputTokens: Number.isFinite(requestedOutputTokens) && requestedOutputTokens > 0
-      ? Math.min(Math.floor(requestedOutputTokens), MAX_OUTPUT_TOKENS)
-      : MAX_OUTPUT_TOKENS
+      ? Math.min(Math.floor(requestedOutputTokens), outputTokenLimit)
+      : outputTokenLimit
   };
 
   const isVisionRequest = request.contents.some(item =>
@@ -172,8 +176,7 @@ module.exports = async function handler(req, res) {
   // reserve weighted usage atomically before contacting any AI provider.
   try {
     const { user, supabaseUrl, serviceRoleKey } = await authenticate(req);
-    const parts = request.contents.flatMap(item => Array.isArray(item?.parts) ? item.parts : []);
-    const hasAudio = parts.some(part => /^audio\\//i.test(String(part?.inlineData?.mimeType || part?.inline_data?.mime_type || '')));
+    const hasAudio = hasAudioRequest;
     const requestedFeature = String(body.feature || '');
     const feature = hasAudio
       ? 'voice'
