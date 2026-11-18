@@ -75,6 +75,9 @@ async function main() {
 
     // Regression: a reachable but misconfigured Vercel alias returns HTTP 503.
     // The app must try the next hosted alias instead of stopping at the first response.
+    // This second section tests the hosted path, where /api/gemini performs
+    // the authoritative credit reservation itself.
+    llm.remoteOnly = true;
     llm.executeRemoteRequest = saved.executeRemoteRequest;
     llm.remoteEndpoint = 'https://misconfigured.example/api/gemini';
     process.env.OPENCLUELY_AI_FALLBACK_ENDPOINT = 'https://healthy.example/api/gemini';
