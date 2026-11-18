@@ -42,7 +42,7 @@ async function run() {
     assert.equal(denied.statusCode,403);
 
     global.fetch=async(url,options={})=>{
-      if(String(url).endsWith('/auth/v1/user')) return {ok:true,json:async()=>({id:'123e4567-e89b-42d3-a456-426614174000',email:'admin@slickly.example'})};
+      if(String(url).endsWith('/auth/v1/user')) return {ok:true,json:async()=>({id:'123e4567-e89b-42d3-a456-426614174000',email:'admin@slickly.example',app_metadata:{provider:'google',providers:['google']}})};
       if(String(url).includes('/rest/v1/slickly_cloud_config')) {
         if(options.method==='POST') {const row=JSON.parse(options.body);stored=row.config;revision=row.revision_number;return {ok:true,json:async()=>[row]};}
         return {ok:true,json:async()=>stored?[{config:stored,revision_number:revision,updated_at:'2026-11-14T00:00:00Z'}]:[]};
