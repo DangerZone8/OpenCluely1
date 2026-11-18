@@ -12,25 +12,26 @@ function response() {
 }
 
 (async () => {
-  const names = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY'];
+  const names = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_SERVICE_ROLE_KEY'];
   const saved = Object.fromEntries(names.map(name => [name, process.env[name]]));
   try {
     delete process.env.SUPABASE_URL;
     delete process.env.SUPABASE_ANON_KEY;
+    delete process.env.SUPABASE_PUBLISHABLE_KEY;
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'never-return-this-server-secret';
     const missing = response();
     publicConfig({ method: 'GET' }, missing);
     assert.equal(missing.statusCode, 503);
-    assert.deepEqual(JSON.parse(missing.body).missing, ['SUPABASE_URL', 'SUPABASE_ANON_KEY']);
+    assert.deepEqual(JSON.parse(missing.body).missing, ['SUPABASE_URL', 'SUPABASE_ANON_KEY or SUPABASE_PUBLISHABLE_KEY']);
 
     process.env.SUPABASE_URL = 'https://example-project.supabase.co';
-    process.env.SUPABASE_ANON_KEY = 'public-anon-test-key';
+    process.env.SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test_public_key_123456789';
     const ready = response();
     publicConfig({ method: 'GET' }, ready);
     assert.equal(ready.statusCode, 200);
     const body = JSON.parse(ready.body);
     assert.equal(body.supabaseUrl, process.env.SUPABASE_URL);
-    assert.equal(body.supabaseAnonKey, process.env.SUPABASE_ANON_KEY);
+    assert.equal(body.supabaseAnonKey, process.env.SUPABASE_PUBLISHABLE_KEY);
     assert.equal(JSON.stringify(body).includes('never-return-this-server-secret'), false);
 
     const wrongMethod = response();
