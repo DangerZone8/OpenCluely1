@@ -48,6 +48,7 @@ async function run(){
     return{ok:true,json:async()=>row?[row]:[]};
    }
    if(u.includes('/rest/v1/slickly_usage_daily?'))return{ok:true,json:async()=>[]};
+   if(u.includes('/rest/v1/slickly_usage_monthly?'))return{ok:true,json:async()=>[]};
    if(u.includes('/rest/v1/slickly_referral_codes')){
     if(options.method==='POST'){savedCode=JSON.parse(options.body);return{ok:true,json:async()=>[{...savedCode,id:'123e4567-e89b-42d3-a456-426614174003',redemption_count:0}]};}
     if(u.includes('select=id&code=eq.'))return{ok:true,json:async()=>[]};
