@@ -17,7 +17,7 @@ function request(installId, authorization, feature, parts) {
     headers: {
       'x-opencluely-install-id': installId,
       ...(authorization ? { authorization } : {}),
-      ...(parts.some(part => part.inlineData || part.fileData) ? { 'x-opencluely-feature': 'screen-vision' } : {})
+      ...(parts.some(part => part.fileData || (part.inlineData && !String(part.inlineData.mimeType || '').toLowerCase().startsWith('audio/'))) ? { 'x-opencluely-feature': 'screen-vision' } : {})
     },
     body: { feature, request: { contents: [{ role: 'user', parts }] } }
   };
