@@ -76,8 +76,8 @@ async function invoke(feature, stream, providerFetch, plan = 'pro') {
   });
   assert.equal(qwen.statusCode, 200);
   assert.equal(qwen.headers['content-type'], 'text/event-stream; charset=utf-8');
+  assert.match(qwen.body, /QWEN_HOSTED_OK/);
   assert.ok(qwen.body.includes('[DONE]'));
-  assert.match(qwen.body, /\\[DONE\\]/);
   assert.equal(qwenCalls, 1);
 
   process.env.SLICKLY_PRO_HOSTED_AI_PROVIDER = 'deepseek';
