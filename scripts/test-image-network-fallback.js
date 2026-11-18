@@ -29,9 +29,9 @@ async function main() {
 
   try {
     llm.remoteOnly = false;
-    // Hosted credit reservation is tested at the API boundary; bypass the local
-    // account gate here so this network-fallback unit test stays credential-free.
-    llm.accountAccessTokenProvider = null;
+    // Supply a fake session token for the hosted endpoint-failover regression;
+    // no real credentials or live account are used by this offline unit test.
+    llm.accountAccessTokenProvider = async () => 'test-supabase-access-token';
     llm.isInitialized = true;
     llm.model = 'gemini-3.5-flash-lite';
     llm.client = { models: { generateContent: async () => {
