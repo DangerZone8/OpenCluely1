@@ -51,7 +51,7 @@ async function run() {
     assert.equal(rpcArgs.p_free_daily_limit, 2);
     assert.equal(rpcArgs.p_pro_daily_limit, 20);
     assert.equal(rpcArgs.p_feature_units, 3);
-    assert.equal(rpcArgs.p_pro_monthly_budget, 1000);
+    assert.equal(rpcArgs.p_pro_monthly_budget, 1500);
     assert.equal(JSON.parse(res.body).monthly, null);
 
     const invalid = response();
