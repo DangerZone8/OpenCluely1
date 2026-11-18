@@ -4,7 +4,7 @@ const { json, authenticate, safeError } = require('../_lib/slickly-auth');
 
 const LIMITS = {
   free: { screen_aware: 2, voice: 2, screenshot: 3, chat: 7 },
-  pro: { screen_aware: 10, voice: 3, screenshot: 5, chat: 20 }
+  pro: { screen_aware: 20, voice: 6, screenshot: 10, chat: 40 }
 };
 
 module.exports = async function accountMe(req, res) {
@@ -33,7 +33,7 @@ module.exports = async function accountMe(req, res) {
     const limits = LIMITS[plan];
     const used = Object.fromEntries((Array.isArray(usage) ? usage : []).map(item => [item.feature, Number(item.used) || 0]));
     const monthlyUsed = Number(Array.isArray(monthlyRows) ? monthlyRows[0]?.used_units : 0) || 0;
-    const monthlyBudget = plan === 'pro' ? { used: monthlyUsed, limit: 500, remaining: Math.max(0, 500 - monthlyUsed), resetsAt: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 1)).toISOString() } : null;
+    const monthlyBudget = plan === 'pro' ? { used: monthlyUsed, limit: 1000, remaining: Math.max(0, 1000 - monthlyUsed), resetsAt: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 1)).toISOString() } : null;
     const credits = Object.fromEntries(Object.entries(limits).map(([feature, limit]) => [feature, {
       used: used[feature] || 0,
       limit,
