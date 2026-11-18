@@ -3,8 +3,8 @@
 const { authenticate, rpc, safeError } = require('./_lib/slickly-auth');
 
 const FREE_DAILY_LIMITS = Object.freeze({ screen_aware: 2, voice: 2, screenshot: 3, chat: 7 });
-const PRO_DAILY_LIMITS = Object.freeze({ screen_aware: 10, voice: 3, screenshot: 5, chat: 20 });
-const PRO_MONTHLY_BUDGET = 500;
+const PRO_DAILY_LIMITS = Object.freeze({ screen_aware: 20, voice: 6, screenshot: 10, chat: 40 });
+const PRO_MONTHLY_BUDGET = 1000;
 
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
 const MAX_PROMPT_TEXT_CHARS = 20000;
@@ -231,7 +231,7 @@ module.exports = async function handler(req, res) {
       const monthlyExhausted = row.limit_reason === 'monthly_budget';
       return respond(res, 429, {
         error: monthlyExhausted
-          ? 'Your shared monthly Pro AI allowance is used up. It resets at the start of next month.'
+          ? 'Your 1,000 monthly Pro credits are used up. They reset at the start of next month.'
           : 'You have used today’s ' + feature.replace('_', ' ') + ' credits.',
         code: monthlyExhausted ? 'MONTHLY_BUDGET_EXHAUSTED' : 'DAILY_CREDITS_EXHAUSTED',
         feature,
