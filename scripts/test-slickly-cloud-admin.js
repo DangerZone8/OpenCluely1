@@ -22,7 +22,7 @@ async function run() {
     process.env.SLICKLY_ADMIN_EMAILS='admin@slickly.example';
     delete process.env.SLICKLY_CLOUD_CONFIG_JSON;
     global.fetch=async(url,options={})=>{
-      if(String(url).endsWith('/auth/v1/user')) return {ok:true,json:async()=>({id:'123e4567-e89b-42d3-a456-426614174000',email:'admin@slickly.example'})};
+      if(String(url).endsWith('/auth/v1/user')) return {ok:true,json:async()=>({id:'123e4567-e89b-42d3-a456-426614174000',email:'admin@slickly.example',app_metadata:{provider:'google',providers:['google']}})};
       if(String(url).includes('/rest/v1/slickly_cloud_config')) {
         if(options.method==='POST') {
           const row=JSON.parse(options.body);stored=row.config;revision=row.revision_number;
