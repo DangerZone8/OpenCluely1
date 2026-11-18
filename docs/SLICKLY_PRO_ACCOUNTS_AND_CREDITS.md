@@ -6,7 +6,7 @@ This change introduces the server-side foundation. It is deliberately NOT live b
 
 The Free-tier limits reset at 00:00 UTC:
 
-| Feature | Free daily uses |
+| Feature | Free daily requests |
 |---|---:|
 | Screen Aware AI / live screen analysis | 2 |
 | Voice AI attempts | 2 |
@@ -17,18 +17,18 @@ Each authenticated invocation consumes one daily feature credit. Credits are res
 
 ## Pro ₹399/month fair-use budget
 
-Pro uses daily burst ceilings plus one shared, atomic monthly allowance:
+Pro uses daily burst ceilings plus one shared, atomic monthly credit balance:
 
-| Feature | Pro daily ceiling | Monthly units per request |
+| Feature | Pro daily request ceiling | Monthly credits per request |
 |---|---:|---:|
-| Screen-aware AI | 10 | 3 |
-| Voice | 3 | 4 |
+| Screen-aware AI | 20 | 3 |
+| Voice | 6 | 4 |
 | Screenshot | 5 | 3 |
-| Chat | 20 | 1 |
+| Chat | 40 | 1 |
 
-Every Pro account receives **500 weighted AI credits per calendar month**. All four features draw from the same allowance; reaching the monthly allowance pauses hosted AI until the next month. The database transaction locks the monthly and daily rows and increments both atomically. The client cannot select the feature weight or monthly allowance. The new migration is `supabase/migrations/202611180001_slickly_monthly_pro_budget.sql`; apply it after the existing accounts/credits, referral and cloud-config migrations.
+Every Pro account receives **1,000 weighted AI credits per calendar month**. All four features draw from the same allowance; reaching the monthly allowance pauses hosted AI until the next month. The database transaction locks the monthly and daily rows and increments both atomically. The client cannot select the feature weight or monthly allowance. The new migration is `supabase/migrations/202611180001_slickly_monthly_pro_budget.sql`; apply it after the existing accounts/credits, referral and cloud-config migrations.
 
-These are conservative request weights, not exact token-dollar billing. The hosted Gemini 3.1 Flash-Lite paid standard price is currently listed by Google as $0.25/1M text/image/video input tokens, $0.50/1M audio input tokens and $1.50/1M output tokens. Real costs depend on prompt history, media resolution/duration, output and retries. The 500-unit cap is a cost-control guardrail, not a guarantee of profit. Keep billing disabled until actual staging usage, provider invoices, tax treatment, payment fees, hosting and support costs are measured. Review `docs/SLICKLY_PRO_399_PROFITABILITY_AUDIT.md` before enabling paid subscriptions.
+These are conservative request weights, not exact token-dollar billing. The hosted Gemini 3.1 Flash-Lite paid standard price is currently listed by Google as $0.25/1M text/image/video input tokens, $0.50/1M audio input tokens and $1.50/1M output tokens. Real costs depend on prompt history, media resolution/duration, output and retries. The 1,000-credit cap is a cost-control guardrail, not a guarantee of profit. Keep billing disabled until actual staging usage, provider invoices, tax treatment, payment fees, hosting and support costs are measured. Review `docs/SLICKLY_PRO_399_PROFITABILITY_AUDIT.md` before enabling paid subscriptions.
 
 ## Account identity and sign-in
 
@@ -125,7 +125,7 @@ The requested hostname `admin.vercel.app` is not a path this repository can clai
 
 The desktop Settings window now opens the trusted Slickly Account page in a dedicated Electron window with a minimal preload bridge. After sign-in, the account page sends the Supabase session to the main process; the desktop encrypts the refresh token/session with Electron safeStorage in the OS user-data directory and refreshes access tokens server-side from the main process. Sign-out clears that encrypted session. The account page only syncs a desktop session when opened from the desktop app. In desktop mode, the embedded Supabase client has automatic refresh disabled: the Electron main process is the single owner of refresh-token rotation. The trusted account preload exposes only a fresh access-token request; account API calls obtain the current token through that IPC bridge. Concurrent AI requests share one in-flight refresh, rotated refresh tokens are atomically persisted, transient network/Auth failures retain the encrypted session, confirmed invalid-refresh responses clear it, and sign-out wins over any refresh already in flight. Regular browser sessions continue using Supabase's normal client refresh.
 
-Hosted Gemini independently authenticates the Supabase access token and reserves credits atomically on the server before provider execution. Local/BYOK provider requests continue to reserve through the account credit API. Request classification is: typed chat → `chat`, audio payload → `voice`, live screen/image analysis → `screen_aware`, screenshot hotkey workflow → `screenshot`. All image requests are charged at 3 monthly units, including live screen frames, to avoid client-side under-reporting. Provider connection checks do not consume credits. The credit gate is applied at the common request methods so local/BYOK provider paths are metered too. A signed-in account is required in packaged desktop builds.
+Hosted Gemini independently authenticates the Supabase access token and reserves credits atomically on the server before provider execution. Local/BYOK provider requests continue to reserve through the account credit API. Request classification is: typed chat → `chat`, audio payload → `voice`, live screen/image analysis → `screen_aware`, screenshot hotkey workflow → `screenshot`. All image requests are charged at 3 monthly credits, including live screen frames, to avoid client-side under-reporting. Provider connection checks do not consume credits. The credit gate is applied at the common request methods so local/BYOK provider paths are metered too. A signed-in account is required in packaged desktop builds.
 
 The account page supports scheduling Razorpay Pro cancellation at the end of the current billing period. Entitlement remains active until the provider webhook updates the subscription status.
 
