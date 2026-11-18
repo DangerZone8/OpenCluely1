@@ -33,7 +33,7 @@ module.exports = async function accountMe(req, res) {
     const limits = LIMITS[plan];
     const used = Object.fromEntries((Array.isArray(usage) ? usage : []).map(item => [item.feature, Number(item.used) || 0]));
     const monthlyUsed = Number(Array.isArray(monthlyRows) ? monthlyRows[0]?.used_units : 0) || 0;
-    const monthlyBudget = plan === 'pro' ? { used: monthlyUsed, limit: 1000, remaining: Math.max(0, 1000 - monthlyUsed), resetsAt: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 1)).toISOString() } : null;
+    const monthlyBudget = plan === 'pro' ? { used: monthlyUsed, limit: 1500, remaining: Math.max(0, 1500 - monthlyUsed), resetsAt: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 1)).toISOString() } : null;
     const credits = Object.fromEntries(Object.entries(limits).map(([feature, limit]) => [feature, {
       used: used[feature] || 0,
       limit,
