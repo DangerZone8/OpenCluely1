@@ -44,6 +44,7 @@ declare
   v_next_month timestamptz := (date_trunc('month', now() at time zone 'utc') + interval '1 month') at time zone 'utc';
 begin
   if p_user_id is null
+     or p_feature is null
      or p_feature not in ('screen_aware','voice','screenshot','chat')
      or p_free_daily_limit < 0
      or p_pro_daily_limit < p_free_daily_limit
