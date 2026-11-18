@@ -738,7 +738,7 @@ class ApplicationController {
     if (!isTrustedAccountSender(event)) throw new Error("Rejected OAuth request from an untrusted page.");
     let authUrl;
     try { authUrl = new URL(String(rawUrl || "")); } catch (_) { throw new Error("Invalid Google authorization URL."); }
-    const allowedHost = /^([a-z0-9-]+)\\.supabase\\.co$/i.test(authUrl.hostname);
+    const allowedHost = /^([a-z0-9-]+)\.supabase\.co$/i.test(authUrl.hostname);
     if (authUrl.protocol !== "https:" || !allowedHost || authUrl.pathname !== "/auth/v1/authorize" ||
         authUrl.searchParams.get("provider") !== "google") {
       throw new Error("Only this Slickly project's Google OAuth authorization URL can be opened.");
