@@ -233,7 +233,7 @@ module.exports = async function handler(req, res) {
     }
     // Keep Free on economical Gemini. Pro may use a separately configured premium model.
     // Missing premium credentials safely fall back to Gemini instead of breaking requests.
-    const premiumProvider = String(process.env.SLICKLY_PRO_HOSTED_AI_PROVIDER || 'qwencloud').trim().toLowerCase();
+    const premiumProvider = String(process.env.SLICKLY_PRO_HOSTED_AI_PROVIDER || 'deepseek').trim().toLowerCase();
     const premiumKeyAvailable = premiumProvider === 'qwencloud'
       ? Boolean(process.env.SLICKLY_QWENCLOUD_API_KEY || process.env.QWENCLOUD_API_KEY)
       : premiumProvider === 'deepseek'
