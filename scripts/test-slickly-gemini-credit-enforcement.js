@@ -51,9 +51,9 @@ async function run() {
         calls.rpc += 1;
         calls.args = JSON.parse(options.body);
         return { ok: true, text: async () => JSON.stringify([{
-          allowed: false, used: 499, remaining: 1, daily_limit: 10,
+          allowed: false, used: 999, remaining: 1, daily_limit: 20,
           resets_at: '2026-12-01T00:00:00Z', plan: 'pro',
-          monthly_used: 499, monthly_remaining: 1, monthly_limit: 500,
+          monthly_used: 999, monthly_remaining: 1, monthly_limit: 1000,
           limit_reason: 'monthly_budget'
         }]) };
       }
@@ -78,7 +78,7 @@ async function run() {
     assert.equal(calls.rpc, 1);
     assert.equal(calls.args.p_feature, 'screen_aware');
     assert.equal(calls.args.p_feature_units, 3, 'all image requests use the higher server-enforced multimodal weight');
-    assert.equal(calls.args.p_pro_monthly_budget, 500);
+    assert.equal(calls.args.p_pro_monthly_budget, 1000);
     assert.equal(calls.provider, 0, 'the provider must not be called when the monthly allowance is exhausted');
 
     // Audio requests use the higher multimodal weight and preserve enough output
