@@ -81,7 +81,7 @@ The checkout endpoint never accepts a client-supplied amount or plan. Entitlemen
 
 ## Remaining integration before release
 
-- An authorised project owner must add `SUPABASE_URL`, `SUPABASE_ANON_KEY` and server-only `SUPABASE_SERVICE_ROLE_KEY` to the Slickly Vercel project.
+- An authorised project owner must add `SUPABASE_URL`, either `SUPABASE_ANON_KEY` or `SUPABASE_PUBLISHABLE_KEY`, and server-only `SUPABASE_SERVICE_ROLE_KEY` to the Slickly Vercel project.
 - Configure Supabase Email confirmation off and complete Google OAuth provider setup and redirect allowlisting as described above.
 - Apply the monthly Pro budget migration after the existing account, referral and cloud-config migrations.
 - Complete live Google OAuth tests in the browser and installed desktop app using the project owner's OAuth credentials.
