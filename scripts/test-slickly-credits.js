@@ -10,11 +10,13 @@ assert.deepEqual(credits.FREE_DAILY_LIMITS, {
   chat: 7
 });
 assert.deepEqual(credits.PRO_DAILY_LIMITS, {
-  screen_aware: 60,
-  voice: 60,
-  screenshot: 100,
-  chat: 200
+  screen_aware: 10,
+  voice: 3,
+  screenshot: 5,
+  chat: 20
 });
+assert.deepEqual(credits.FEATURE_UNITS, { screen_aware: 2, voice: 4, screenshot: 3, chat: 1 });
+assert.equal(credits.PRO_MONTHLY_BUDGET, 500);
 
 function response() {
   return {
@@ -37,16 +39,20 @@ async function run() {
         assert.match(options.headers.Authorization, /^Bearer valid-access-token$/);
         return { ok: true, json: async () => ({ id: '123e4567-e89b-42d3-a456-426614174000' }) };
       }
-      assert.match(url, /\/rest\/v1\/rpc\/consume_slickly_credit$/);
+      assert.match(url, /\/rest\/v1\/rpc\/consume_slickly_credit_v2$/);
       rpcArgs = JSON.parse(options.body);
-      return { ok: true, text: async () => JSON.stringify({ allowed: true, used: 1, remaining: 1, daily_limit: 2, resets_at: '2026-11-15T00:00:00Z', plan: 'free' }) };
+      return { ok: true, text: async () => JSON.stringify({ allowed: true, used: 1, remaining: 1, daily_limit: 2, resets_at: '2026-11-15T00:00:00Z', plan: 'free', monthly_used: 0, monthly_remaining: 0, monthly_limit: 0 }) };
     };
     const res = response();
     await credits({ method: 'POST', headers: { authorization: 'Bearer valid-access-token' }, body: { feature: 'screen_aware' } }, res);
     assert.equal(res.statusCode, 200);
     assert.equal(JSON.parse(res.body).remaining, 1);
     assert.equal(rpcArgs.p_feature, 'screen_aware');
-    assert.equal(rpcArgs.p_free_limit, 2);
+    assert.equal(rpcArgs.p_free_daily_limit, 2);
+    assert.equal(rpcArgs.p_pro_daily_limit, 10);
+    assert.equal(rpcArgs.p_feature_units, 2);
+    assert.equal(rpcArgs.p_pro_monthly_budget, 500);
+    assert.equal(JSON.parse(res.body).monthly, null);
 
     const invalid = response();
     await credits({ method: 'POST', headers: { authorization: 'Bearer valid-access-token' }, body: { feature: 'admin' } }, invalid);
@@ -60,7 +66,7 @@ async function run() {
     if (oldUrl === undefined) delete process.env.SUPABASE_URL; else process.env.SUPABASE_URL = oldUrl;
     if (oldKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY; else process.env.SUPABASE_SERVICE_ROLE_KEY = oldKey;
   }
-  console.log('Slickly credit API tests passed: exact free/pro limits, verified account requirement, server-side atomic RPC contract and invalid-feature rejection.');
+  console.log('Slickly credit API tests passed: free limits, verified account requirement, weighted monthly Pro budget, server-side atomic RPC contract and invalid-feature rejection.');
 }
 
 run().catch(error => { console.error(error); process.exitCode = 1; });
