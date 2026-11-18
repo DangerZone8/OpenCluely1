@@ -56,7 +56,7 @@ An authorised project owner should complete these settings:
 4. In Google Cloud Console, configure the OAuth consent screen (request only the basic OpenID, email and profile identity scopes; add your account as a test user while the app is in testing), then create an OAuth Client ID of type **Web application**. Under **Authorised redirect URIs**, add the exact Supabase callback shown in **Supabase → Authentication → Providers → Google**. It has the form `https://<your-project-ref>.supabase.co/auth/v1/callback`. Do not use the Slickly website URL as Google's redirect URI.
 5. Copy the Google OAuth Client ID and Client Secret into the Supabase Google provider settings and enable the provider. Save the changes.
 6. In Supabase **Authentication → Providers → Email**, keep Email enabled and turn **Confirm email** off to avoid verification emails for password sign-up.
-7. Apply the database migrations in order: `202611140001_slickly_accounts_credits_billing.sql`, `202611140002_slickly_referral_codes.sql`, `202611140003_slickly_cloud_config.sql`, then `202611180001_slickly_monthly_pro_budget.sql`.
+7. Apply the database migrations in order: `202611140001_slickly_accounts_credits_billing.sql`, `202611140002_slickly_referral_codes.sql`, `202611140003_slickly_cloud_config.sql`, then `202611180001_slickly_monthly_pro_budget.sql`, then `202611180002_slickly_provider_usage_telemetry.sql`.
 8. Redeploy the Vercel project after adding environment variables. Open `https://slicklyai.vercel.app/api/public-config`; it should return the Supabase URL and public key (never the service-role key), not HTTP 503.
 9. Test email/password sign-up, sign-in, browser Google sign-in, and desktop Google sign-in in a staging project before using production accounts.
 
