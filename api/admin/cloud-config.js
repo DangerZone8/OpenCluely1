@@ -3,7 +3,13 @@
 const { json, authenticate, getConfig, safeError } = require('../_lib/slickly-auth');
 const { sanitizeConfig, DEFAULT_CONFIG } = require('../cloud-config');
 
+function hasGoogleIdentity(user) {
+  return user?.app_metadata?.provider === 'google' ||
+    (Array.isArray(user?.app_metadata?.providers) && user.app_metadata.providers.includes('google'));
+}
+
 function isAdmin(user) {
+  if (!hasGoogleIdentity(user)) return false;
   const emails = [
     process.env.SLICKLY_ADMIN_EMAILS || '',
     process.env.SLICKLY_REFERRAL_ADMIN_EMAILS || ''
