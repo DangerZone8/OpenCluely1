@@ -7,8 +7,8 @@
 | Feature | Daily ceiling | Monthly units per request | Maximum if used alone |
 |---|---:|---:|---:|
 | Screen-aware AI | 10 | 3 | 166 calls |
-| Voice | 3 | 4 | 125 calls |
-| Screenshots | 5 | 3 | 166 calls |
+| Voice | 3 | 4 | 90 calls in a 30-day month |
+| Screenshots | 5 | 3 | 150 calls in a 30-day month |
 | Chat | 20 | 1 | 500 calls |
 | **Shared monthly allowance** | — | **500 units** | — |
 
@@ -40,10 +40,10 @@ These are modeling assumptions, not measured production telemetry:
 
 | Feature | Estimated model cost/call | Calls at 500-unit cap | Estimated model cost if all units go to this feature |
 |---|---:|---:|---:|
-| Screen-aware AI | ₹0.096 | 166 | ₹15.94 |
-| Voice | ₹0.364 | 125 | ₹45.50 |
-| Screenshots | ₹0.119 | 166 | ₹19.75 |
-| Chat | ₹0.108 | 500 | ₹54.00 |
+| Screen-aware AI | ₹0.096 | 166 | ₹15.90 |
+| Voice | ₹0.364 | 90 | ₹32.78 |
+| Screenshots | ₹0.119 | 150 | ₹17.89 |
+| Chat | ₹0.108 | 500 | ₹53.77 |
 
 A 2× planning buffer would put this illustrative model-only range at roughly ₹32–₹108/month. This is not a guaranteed cost ceiling: prompt length, media duration/resolution, provider retries, hidden reasoning tokens, model changes and request patterns can materially change actual charges. The shared weighted budget is a product-use guardrail, not a rupee-denominated provider-spend cap.
 
