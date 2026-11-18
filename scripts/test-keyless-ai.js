@@ -9,6 +9,7 @@ async function testHostedClient() {
   const originalRemoteOnly = llm.remoteOnly;
   const originalInitialized = llm.isInitialized;
   const originalClient = llm.client;
+  const originalAccountAccessTokenProvider = llm.accountAccessTokenProvider;
   const originalStrictEndpoint = process.env.SLICKLY_E2E_AI_ENDPOINT;
   const installId = 'a9d32e1c-8f42-4e65-a4ef-91d46f3f4b82';
   let seen;
@@ -16,6 +17,9 @@ async function testHostedClient() {
     llm.remoteOnly = true;
     llm.isInitialized = true;
     llm.client = null;
+    // The hosted client requires a signed-in Slickly account. Supply a
+    // deterministic test session through the same provider used by the app.
+    llm.setAccountAccessTokenProvider(async () => 'test-slickly-session-access-token');
     llm.remoteEndpoint = 'https://opencluely-iota.vercel.app/api/gemini';
     llm.installationId = installId;
     global.fetch = async (url, options) => {
@@ -36,6 +40,8 @@ async function testHostedClient() {
     assert.equal(seen.url, 'https://slicklyai.vercel.app/api/gemini',
       'hosted client must try the Slickly AI production endpoint before legacy aliases');
     assert.equal(seen.options.headers['x-opencluely-install-id'], installId);
+    assert.equal(seen.options.headers.Authorization, 'Bearer test-slickly-session-access-token',
+      'keyless hosted requests must carry the mocked Slickly account session');
     assert.equal(seen.body.model, llm.model);
     assert.deepEqual(seen.body.request, request);
     assert.equal(Object.hasOwn(seen.options.headers, 'x-goog-api-key'), false,
@@ -84,6 +90,7 @@ async function testHostedClient() {
     llm.remoteOnly = originalRemoteOnly;
     llm.isInitialized = originalInitialized;
     llm.client = originalClient;
+    llm.setAccountAccessTokenProvider(originalAccountAccessTokenProvider);
     if (originalStrictEndpoint === undefined) delete process.env.SLICKLY_E2E_AI_ENDPOINT;
     else process.env.SLICKLY_E2E_AI_ENDPOINT = originalStrictEndpoint;
   }
