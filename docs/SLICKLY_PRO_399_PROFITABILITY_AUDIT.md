@@ -10,7 +10,7 @@
 | Voice | 6 | 4 | 250 calls |
 | Screenshots | 10 | 3 | 333 calls |
 | Chat | 40 | 1 | 1,000 calls |
-| **Shared monthly credits** | — | **1,000 credits** | — |
+| **Shared monthly credits** | — | **1,500 credits** | — |
 
 The allowance is shared across features and resets on the first day of each UTC calendar month. The database RPC enforces daily and monthly limits atomically. The hosted Gemini endpoint now independently authenticates the Supabase access token and reserves credits before contacting the AI provider; the desktop-only credit check is not treated as a security boundary.
 
@@ -38,16 +38,16 @@ These are modeling assumptions, not measured production telemetry:
 - Chat request: 1,500 text input tokens + 512 output tokens.
 - Illustrative conversion: ₹94.08 per USD.
 
-| Feature | Estimated model cost/call | Calls at 1,000-credit cap | Estimated model cost if all credits go to this feature |
+| Feature | Estimated model cost/call | Calls at 1,500-credit cap | Estimated model cost if all credits go to this feature |
 |---|---:|---:|---:|
 | Screen-aware AI | ₹0.096 | 333 | ₹31.80 |
 | Voice | ₹0.364 | 250 | ₹91.00 |
 | Screenshots | ₹0.119 | 333 | ₹39.67 |
 | Chat | ₹0.108 | 1,000 | ₹107.54 |
 
-A 2× planning buffer would put this illustrative model-only range at roughly ₹64–₹216/month. These estimates are recalculated for the 1,000-credit cap; they remain illustrative rather than measured costs. This is not a guaranteed cost ceiling: prompt length, media duration/resolution, provider retries, hidden reasoning tokens, model changes and request patterns can materially change actual charges. The shared weighted budget is a product-use guardrail, not a rupee-denominated provider-spend cap.
+A 2× planning buffer would put this illustrative model-only range at roughly ₹96–₹324/month. These estimates are recalculated for the 1,500-credit cap; they remain illustrative rather than measured costs. This is not a guaranteed cost ceiling: prompt length, media duration/resolution, provider retries, hidden reasoning tokens, model changes and request patterns can materially change actual charges. The shared weighted budget is a product-use guardrail, not a rupee-denominated provider-spend cap.
 
-## Measuring actual costs after migration
+## Measuring actual provider costs after migration
 
 After applying the provider-usage migration, this query estimates daily Gemini model spend by feature. It uses the current published Standard prices and treats voice input as audio-priced input; it is an estimate, not an invoice reconciliation.
 
