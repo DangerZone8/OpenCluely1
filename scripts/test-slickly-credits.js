@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const credits = require('../api/credits');
 
 assert.deepEqual(credits.FREE_DAILY_LIMITS, {
-  screen_aware: 2,
+  screen_aware: 3,
   voice: 2,
   screenshot: 3,
   chat: 7
@@ -41,14 +41,14 @@ async function run() {
       }
       assert.match(url, /\/rest\/v1\/rpc\/consume_slickly_credit_v2$/);
       rpcArgs = JSON.parse(options.body);
-      return { ok: true, text: async () => JSON.stringify({ allowed: true, used: 1, remaining: 1, daily_limit: 2, resets_at: '2026-11-15T00:00:00Z', plan: 'free', monthly_used: 0, monthly_remaining: 0, monthly_limit: 0 }) };
+      return { ok: true, text: async () => JSON.stringify({ allowed: true, used: 1, remaining: 2, daily_limit: 3, resets_at: '2026-11-15T00:00:00Z', plan: 'free', monthly_used: 0, monthly_remaining: 0, monthly_limit: 0 }) };
     };
     const res = response();
     await credits({ method: 'POST', headers: { authorization: 'Bearer valid-access-token' }, body: { feature: 'screen_aware' } }, res);
     assert.equal(res.statusCode, 200);
-    assert.equal(JSON.parse(res.body).remaining, 1);
+    assert.equal(JSON.parse(res.body).remaining, 2);
     assert.equal(rpcArgs.p_feature, 'screen_aware');
-    assert.equal(rpcArgs.p_free_daily_limit, 2);
+    assert.equal(rpcArgs.p_free_daily_limit, 3);
     assert.equal(rpcArgs.p_pro_daily_limit, 20);
     assert.equal(rpcArgs.p_feature_units, 3);
     assert.equal(rpcArgs.p_pro_monthly_budget, 1500);
