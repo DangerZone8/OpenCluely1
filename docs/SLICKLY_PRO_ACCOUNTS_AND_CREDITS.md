@@ -83,12 +83,12 @@ The checkout endpoint never accepts a client-supplied amount or plan. Entitlemen
 
 - An authorised project owner must add `SUPABASE_URL`, either `SUPABASE_ANON_KEY` or `SUPABASE_PUBLISHABLE_KEY`, and server-only `SUPABASE_SERVICE_ROLE_KEY` to the Slickly Vercel project.
 - Configure Supabase Email confirmation off and complete Google OAuth provider setup and redirect allowlisting as described above.
-- Apply the monthly Pro budget migration after the existing account, referral and cloud-config migrations.
+- Apply the monthly Pro budget and provider-usage telemetry migrations after the existing account, referral and cloud-config migrations.
 - Complete live Google OAuth tests in the browser and installed desktop app using the project owner's OAuth credentials.
 - Mobile-native account integration remains deferred; this branch covers the shared website account and desktop app.
-- Add server-side idempotent credit refunds for provider failures/timeouts and durable per-account provider token/cost aggregation.
-- Verify hosted AI authorization and monthly usage enforcement against direct API requests, not only the desktop UI.
-- Run real staging tests for sign-up/sign-in, refresh, sign-out, subscription activation/renewal/cancellation, refunds and monthly budget concurrency.
+- Implement idempotent credit refunds for hosted provider failures/timeouts; successful Gemini token counts are now stored by account and feature without retaining prompt or media content.
+- Complete live staging verification of hosted AI authorization and monthly usage enforcement against direct API requests.
+- Run real staging tests for sign-up/sign-in, refresh, sign-out, subscription activation/renewal/cancellation and monthly budget concurrency.
 
 Do not advertise Pro as a complete paid product until the staging gates pass. Live Razorpay billing remains disabled.
 
