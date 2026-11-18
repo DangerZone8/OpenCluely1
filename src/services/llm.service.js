@@ -29,6 +29,9 @@ class LLMService {
 
   async consumeCreditForRequest(geminiRequest, featureOverride = null) {
     if (!geminiRequest || typeof geminiRequest !== 'object' || featureOverride === 'already_consumed') return;
+    // Hosted requests reserve credits inside /api/gemini, immediately before
+    // provider execution. Local-provider requests continue to reserve here.
+    if (this.remoteOnly) return;
     if (!this.accountAccessTokenProvider) return;
     const existing = this.creditClaims.get(geminiRequest);
     if (existing) return existing;
@@ -147,9 +150,20 @@ class LLMService {
       ? Math.max(20000, Math.min(configuredTimeout + 2000, 30000))
       : Math.min(configuredTimeout + 1500, 16500);
     const deadline = Date.now() + totalTimeout;
-    const payload = JSON.stringify({ model: modelName, request: geminiRequest });
+    const accessToken = this.accountAccessTokenProvider
+      ? await this.accountAccessTokenProvider()
+      : null;
+    if (!accessToken) {
+      throw new Error('Your Slickly account session has expired. Open Account and sign in again.');
+    }
+    const parts = (geminiRequest.contents || []).flatMap(message => Array.isArray(message?.parts) ? message.parts : []);
+    const hasAudio = parts.some(part => String(part?.inlineData?.mimeType || part?.inline_data?.mime_type || '').toLowerCase().startsWith('audio/'));
+    const requestedFeature = ['screen_aware', 'voice', 'screenshot', 'chat'].includes(featureOverride) ? featureOverride : null;
+    const feature = hasAudio ? 'voice' : requestedFeature || (containsImage ? 'screenshot' : 'chat');
+    const payload = JSON.stringify({ model: modelName, request: geminiRequest, feature });
     const headers = {
       'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + accessToken,
       'Content-Length': Buffer.byteLength(payload),
       'x-opencluely-install-id': this.getRemoteInstallationId(),
       ...(containsImage ? { 'x-opencluely-feature': 'screen-vision' } : {}),
@@ -1296,7 +1310,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
       throw new Error('Selected AI provider did not return a response.');
     }
     if (this.remoteOnly) {
-      return this.executeRemoteRequest(geminiRequest);
+      return this.executeRemoteRequest(geminiRequest, this.model, null, featureOverride);
     }
     const maxRetries = config.get('llm.gemini.maxRetries');
     const timeout = config.get('llm.gemini.timeout') || 15000;
@@ -1559,7 +1573,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
       return fullText;
     }
     if (this.remoteOnly) {
-      return this.executeRemoteRequest(geminiRequest, this.model, onDelta);
+      return this.executeRemoteRequest(geminiRequest, this.model, onDelta, featureOverride);
     }
     const maxRetries = config.get('llm.gemini.maxRetries');
     const timeout = config.get('llm.gemini.timeout') || 15000;
