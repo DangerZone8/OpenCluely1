@@ -183,6 +183,14 @@
         "provider": "generic",
         "url": "https://slicklyai.vercel.app/api/updates/"
       }
+    ],
+    "protocols": [
+      {
+        "name": "Slickly Account Sign-in",
+        "schemes": [
+          "slickly"
+        ]
+      }
     ]
   }
 }
