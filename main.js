@@ -263,6 +263,21 @@ class ApplicationController {
     this.setupServiceEventHandlers();
   }
 
+  deliverPendingSlicklyOAuthCode() {
+    const accountWindow = this.accountWindow;
+    if (!this.pendingSlicklyOAuthCode || !accountWindow || accountWindow.isDestroyed()) return false;
+    const contents = accountWindow.webContents;
+    if (typeof contents.isLoadingMainFrame === "function" && contents.isLoadingMainFrame()) {
+      // The callback can arrive while the account window is navigating. Keep
+      // the code in the main process until the trusted preload is ready.
+      contents.once("did-finish-load", () => this.deliverPendingSlicklyOAuthCode());
+      return false;
+    }
+    contents.send("slickly-oauth-code", this.pendingSlicklyOAuthCode);
+    this.pendingSlicklyOAuthCode = null;
+    return true;
+  }
+
   handleOAuthCallback(rawUrl) {
     try {
       const callback = new URL(String(rawUrl || ""));
@@ -270,10 +285,7 @@ class ApplicationController {
       const code = callback.searchParams.get("code");
       if (!code || code.length > 4096) return false;
       this.pendingSlicklyOAuthCode = code;
-      if (this.accountWindow && !this.accountWindow.isDestroyed()) {
-        this.accountWindow.webContents.send("slickly-oauth-code", code);
-        this.pendingSlicklyOAuthCode = null;
-      }
+      this.deliverPendingSlicklyOAuthCode();
       logger.info("Received Slickly Google OAuth callback");
       return true;
     } catch (error) {
@@ -723,10 +735,7 @@ class ApplicationController {
     });
     accountWindow.on("closed", () => { if (this.accountWindow === accountWindow) this.accountWindow = null; });
     await accountWindow.loadURL("https://slicklyai.vercel.app/account.html?desktop=1");
-    if (this.pendingSlicklyOAuthCode) {
-      accountWindow.webContents.send("slickly-oauth-code", this.pendingSlicklyOAuthCode);
-      this.pendingSlicklyOAuthCode = null;
-    }
+    this.deliverPendingSlicklyOAuthCode();
     return { opened: true };
   });
 
