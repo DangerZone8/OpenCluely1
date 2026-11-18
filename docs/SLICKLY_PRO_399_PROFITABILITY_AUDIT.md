@@ -47,6 +47,30 @@ These are modeling assumptions, not measured production telemetry:
 
 A 2× planning buffer would put this illustrative model-only range at roughly ₹32–₹108/month. This is not a guaranteed cost ceiling: prompt length, media duration/resolution, provider retries, hidden reasoning tokens, model changes and request patterns can materially change actual charges. The shared weighted budget is a product-use guardrail, not a rupee-denominated provider-spend cap.
 
+## Measuring actual costs after migration
+
+After applying the provider-usage migration, this query estimates daily Gemini model spend by feature. It uses the current published Standard prices and treats voice input as audio-priced input; it is an estimate, not an invoice reconciliation.
+
+```sql
+select
+  usage_date,
+  feature,
+  provider,
+  model,
+  sum(requests) as requests,
+  sum(prompt_tokens) as prompt_tokens,
+  sum(output_tokens) as output_tokens,
+  round((
+    sum(prompt_tokens) * case when feature = 'voice' then 0.50 else 0.25 end
+    + sum(output_tokens) * 1.50
+  ) / 1000000.0, 6) as estimated_usd
+from public.slickly_provider_usage_daily
+group by usage_date, feature, provider, model
+order by usage_date desc, feature;
+```
+
+The current endpoint persists Gemini usage metadata for successful streaming and non-streaming responses. Alternate providers must expose their own usage metadata before their costs can be reconciled in this table. Reconcile these estimates with the provider invoice and account for any usage that lacks metadata.
+
 ## What ₹399 needs to cover
 
 The ₹399 subscription price is gross revenue, not net contribution. Before describing Pro as profitable, subtract:
