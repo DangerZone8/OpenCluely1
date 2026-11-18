@@ -1,7 +1,15 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const handler = require('../api/gemini');
+const providerUsageMigration = fs.readFileSync(path.join(__dirname, '../supabase/migrations/202611180002_slickly_provider_usage_telemetry.sql'), 'utf8');
+assert.match(providerUsageMigration, /create table if not exists public\.slickly_provider_usage_daily/);
+assert.match(providerUsageMigration, /create or replace function public\.record_slickly_provider_usage/);
+assert.match(providerUsageMigration, /enable row level security/);
+assert.match(providerUsageMigration, /grant execute on function public\.record_slickly_provider_usage[\s\S]*to service_role/);
+assert.match(providerUsageMigration, /revoke all on function public\.record_slickly_provider_usage[\s\S]*from public, anon, authenticated/);
 
 function response() {
   return {
