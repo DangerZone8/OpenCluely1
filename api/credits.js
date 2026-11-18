@@ -20,7 +20,7 @@ const PRO_DAILY_LIMITS = Object.freeze({
 // Conservative relative weights for multimodal request cost.
 // These are product units, not claims of exact provider-token billing.
 const FEATURE_UNITS = Object.freeze({
-  screen_aware: 2,
+  screen_aware: 3,
   voice: 4,
   screenshot: 3,
   chat: 1
