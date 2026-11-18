@@ -31,7 +31,7 @@ button{width:100%;min-height:46px;border:1px solid var(--ink);border-radius:5px;
     <h1>Welcome back.</h1>
     <p class="muted" id="identity"></p>
     <div class="price">₹399 <small>/ month · Slickly Pro</small></div>
-    <p class="muted">More daily AI capacity, with limits designed to keep the service reliable.</p>
+    <p class="muted">1,000 shared monthly AI credits, plus higher daily request ceilings to keep the service reliable.</p>
     <div class="field"><label for="referralCode">Referral / discount code</label><input id="referralCode" maxlength="24" autocomplete="off" placeholder="Enter a code"></div>
     <div class="inline"><button class="secondary" id="applyReferral">Apply code</button><button id="upgrade">Continue to secure payment</button></div>
     <button class="secondary hidden" id="cancelPro">Schedule Pro cancellation at period end</button>
@@ -207,7 +207,7 @@ button{width:100%;min-height:46px;border:1px solid var(--ink);border-radius:5px;
       try{
         const r=await fetch('/api/account/me',{headers:await authHeaders(),cache:'no-store'});const d=await r.json();if(!r.ok)throw new Error(d.error||'Could not load credits.');
         $('plan').textContent='Current plan: '+d.plan.toUpperCase()+' · Daily limits reset at '+new Date(d.resetsAt).toLocaleTimeString();
-        $('monthlyBudget').textContent=d.monthlyBudget?'Shared monthly Pro AI allowance: '+d.monthlyBudget.remaining+' / '+d.monthlyBudget.limit+' weighted credits remaining. Resets '+new Date(d.monthlyBudget.resetsAt).toLocaleDateString()+'.':'Pro monthly allowance is shown after subscription activation.';
+        $('monthlyBudget').textContent=d.monthlyBudget?'Monthly Pro credit balance: '+d.monthlyBudget.remaining+' / '+d.monthlyBudget.limit+' credits remaining. Resets '+new Date(d.monthlyBudget.resetsAt).toLocaleDateString()+'.':'Pro monthly allowance is shown after subscription activation.';
         $('cancelPro').classList.toggle('hidden',!(d.plan==='pro' && d.subscription?.status==='active'));
         $('upgrade').classList.toggle('hidden',d.plan==='pro');
         const labels={screen_aware:'Screen Aware AI',voice:'Voice',screenshot:'Screenshot',chat:'Chat'};
