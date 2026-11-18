@@ -111,7 +111,10 @@ module.exports = async function handler(req, res) {
   const keys = keyEntries.map(entry => entry.value);
   const hostedProviderOverride = String(process.env.SLICKLY_HOSTED_AI_PROVIDER || '').trim().toLowerCase();
   let hostedProviderId = 'gemini';
-  if (!keys.length && hostedProviderId === 'gemini') {
+  if (!keys.length && !hostedProviderOverride &&
+      !process.env.SLICKLY_QWENCLOUD_API_KEY && !process.env.QWENCLOUD_API_KEY &&
+      !process.env.SLICKLY_DEEPSEEK_API_KEY && !process.env.DEEPSEEK_API_KEY &&
+      !process.env.SLICKLY_MOONSHOT_API_KEY && !process.env.MOONSHOT_API_KEY) {
     return respond(res, 503, {
       error: 'The Slickly AI service is not configured in this deployment. Verify the Production environment variables and redeploy.',
       configuredNames: {
