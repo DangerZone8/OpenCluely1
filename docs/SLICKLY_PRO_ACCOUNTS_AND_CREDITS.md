@@ -15,7 +15,7 @@ The Free-tier limits reset at 00:00 UTC:
 
 Each authenticated invocation consumes one daily feature credit. Credits are reserved before the AI request, so a failed provider request can currently consume a credit; do not advertise automatic refunds.
 
-## Pro ₹399/month fair-use budget
+## Pro ₹399/month fair-use credits
 
 Pro uses daily burst ceilings plus one shared, atomic monthly credit balance:
 
@@ -26,9 +26,9 @@ Pro uses daily burst ceilings plus one shared, atomic monthly credit balance:
 | Screenshot | 10 | 3 |
 | Chat | 40 | 1 |
 
-Every Pro account receives **1,000 weighted AI credits per calendar month**. All four features draw from the same allowance; reaching the monthly allowance pauses hosted AI until the next month. The database transaction locks the monthly and daily rows and increments both atomically. The client cannot select the feature weight or monthly allowance. The new migration is `supabase/migrations/202611180001_slickly_monthly_pro_budget.sql`; apply it after the existing accounts/credits, referral and cloud-config migrations.
+Every Pro account receives **1,500 weighted AI credits per calendar month**. All four features draw from the same allowance; reaching the monthly allowance pauses hosted AI until the next month. The database transaction locks the monthly and daily rows and increments both atomically. The client cannot select the feature weight or monthly allowance. The new migration is `supabase/migrations/202611180001_slickly_monthly_pro_budget.sql`; apply it after the existing accounts/credits, referral and cloud-config migrations.
 
-These are conservative request weights, not exact token-dollar billing. The hosted Gemini 3.1 Flash-Lite paid standard price is currently listed by Google as $0.25/1M text/image/video input tokens, $0.50/1M audio input tokens and $1.50/1M output tokens. Real costs depend on prompt history, media resolution/duration, output and retries. The 1,000-credit cap is a cost-control guardrail, not a guarantee of profit. Keep billing disabled until actual staging usage, provider invoices, tax treatment, payment fees, hosting and support costs are measured. Review `docs/SLICKLY_PRO_399_PROFITABILITY_AUDIT.md` before enabling paid subscriptions.
+These are conservative request weights, not exact token-dollar billing. The hosted Gemini 3.1 Flash-Lite paid standard price is currently listed by Google as $0.25/1M text/image/video input tokens, $0.50/1M audio input tokens and $1.50/1M output tokens. Real costs depend on prompt history, media resolution/duration, output and retries. The 1,500-credit cap is a cost-control guardrail, not a guarantee of profit. Keep billing disabled until actual staging usage, provider invoices, tax treatment, payment fees, hosting and support costs are measured. Review `docs/SLICKLY_PRO_399_PROFITABILITY_AUDIT.md` before enabling paid subscriptions.
 
 ## Account identity and sign-in
 
@@ -142,7 +142,7 @@ Razorpay Subscription payment methods are controlled in the merchant dashboard u
 
 An authorised adult/business representative must complete merchant KYC and register/verify the business bank account in Razorpay's merchant dashboard. This repository cannot securely link a bank account or complete KYC through the public subscription API. After sandbox tests, verify settlement status and the destination account in the merchant dashboard before enabling live billing. Never put bank account details, Razorpay secrets, or Supabase service-role keys in source control or chat.
 
-## Model-provider evaluation and configuration
+## Premium model routing and provider evaluation
 
 The desktop BYOK adapter supports:
 - Alibaba Cloud Model Studio (Qwen) OpenAI-compatible endpoint: `QWENCLOUD_API_KEY`, optional `QWENCLOUD_BASE_URL` (defaults to the official Singapore DashScope endpoint `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`; a workspace-specific endpoint may be configured for production), `QWENCLOUD_MODEL` (default `qwen3.8-max`). The API key and endpoint must belong to the same region. Qwen3.8-Max supports image/video understanding on supported Model Studio regions.
@@ -165,7 +165,7 @@ Do not advertise Pro quotas as guaranteed capacity until:
 The repository tests can verify implementation and mocked integrations. They cannot independently verify a merchant's bank account, complete KYC, or prove real-world model quality without authorised provider credentials and representative test data.
 ## Hosted model selection (server-side)
 
-The shared hosted AI endpoint remains on Gemini by default. An authorised operator can route hosted chat and screen-vision requests through the QwenCloud or DeepSeek adapter by setting server-only Vercel Production variables:
+Free accounts remain on the economical Gemini route. Pro accounts can use a separate premium model route. Set `SLICKLY_PRO_HOSTED_AI_PROVIDER=qwencloud` (default), `deepseek`, or `kimi` in Vercel Production and add the matching server-only key: `SLICKLY_QWENCLOUD_API_KEY`, `SLICKLY_DEEPSEEK_API_KEY`, or `SLICKLY_MOONSHOT_API_KEY`. If no premium key is configured, Pro safely falls back to Gemini. An explicit `SLICKLY_HOSTED_AI_PROVIDER` still overrides routing for controlled testing. Premium model quality and availability must be verified with live benchmarks before advertising a specific model.
 - `SLICKLY_HOSTED_AI_PROVIDER=qwencloud` or `deepseek`.
 - For QwenCloud: `SLICKLY_QWENCLOUD_API_KEY`, optional `SLICKLY_QWENCLOUD_MODEL` (default `qwen3.8-max`) and optional `SLICKLY_QWENCLOUD_BASE_URL` (default Singapore pay-as-you-go endpoint). To benchmark a compatible Kimi model, set the model ID only if it is available in the account's model list.
 - For DeepSeek: `SLICKLY_DEEPSEEK_API_KEY` and optional `SLICKLY_DEEPSEEK_MODEL` (default `deepseek-flash`).
