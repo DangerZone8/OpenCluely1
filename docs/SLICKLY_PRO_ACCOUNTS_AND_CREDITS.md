@@ -21,7 +21,7 @@ Pro uses daily burst ceilings plus one shared, atomic monthly allowance:
 
 | Feature | Pro daily ceiling | Monthly units per request |
 |---|---:|---:|
-| Screen-aware AI | 10 | 2 |
+| Screen-aware AI | 10 | 3 |
 | Voice | 3 | 4 |
 | Screenshot | 5 | 3 |
 | Chat | 20 | 1 |
@@ -125,7 +125,7 @@ The requested hostname `admin.vercel.app` is not a path this repository can clai
 
 The desktop Settings window now opens the trusted Slickly Account page in a dedicated Electron window with a minimal preload bridge. After sign-in, the account page sends the Supabase session to the main process; the desktop encrypts the refresh token/session with Electron safeStorage in the OS user-data directory and refreshes access tokens server-side from the main process. Sign-out clears that encrypted session. The account page only syncs a desktop session when opened from the desktop app. In desktop mode, the embedded Supabase client has automatic refresh disabled: the Electron main process is the single owner of refresh-token rotation. The trusted account preload exposes only a fresh access-token request; account API calls obtain the current token through that IPC bridge. Concurrent AI requests share one in-flight refresh, rotated refresh tokens are atomically persisted, transient network/Auth failures retain the encrypted session, confirmed invalid-refresh responses clear it, and sign-out wins over any refresh already in flight. Regular browser sessions continue using Supabase's normal client refresh.
 
-The desktop LLM service now requests an atomic account credit before invoking hosted Gemini or configured BYOK providers. Request classification is: typed chat → `chat`, audio payload → `voice`, live screen/image analysis → `screen_aware`, screenshot hotkey workflow → `screenshot`. Provider connection checks do not consume credits. The credit gate is applied at the common request methods so local/BYOK provider paths are metered too. A signed-in account is required in packaged desktop builds.
+Hosted Gemini independently authenticates the Supabase access token and reserves credits atomically on the server before provider execution. Local/BYOK provider requests continue to reserve through the account credit API. Request classification is: typed chat → `chat`, audio payload → `voice`, live screen/image analysis → `screen_aware`, screenshot hotkey workflow → `screenshot`. All image requests are charged at 3 monthly units, including live screen frames, to avoid client-side under-reporting. Provider connection checks do not consume credits. The credit gate is applied at the common request methods so local/BYOK provider paths are metered too. A signed-in account is required in packaged desktop builds.
 
 The account page supports scheduling Razorpay Pro cancellation at the end of the current billing period. Entitlement remains active until the provider webhook updates the subscription status.
 
