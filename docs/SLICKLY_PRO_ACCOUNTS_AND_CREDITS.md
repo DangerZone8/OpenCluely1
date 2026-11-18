@@ -23,7 +23,7 @@ Pro uses daily burst ceilings plus one shared, atomic monthly credit balance:
 |---|---:|---:|
 | Screen-aware AI | 20 | 3 |
 | Voice | 6 | 4 |
-| Screenshot | 5 | 3 |
+| Screenshot | 10 | 3 |
 | Chat | 40 | 1 |
 
 Every Pro account receives **1,000 weighted AI credits per calendar month**. All four features draw from the same allowance; reaching the monthly allowance pauses hosted AI until the next month. The database transaction locks the monthly and daily rows and increments both atomically. The client cannot select the feature weight or monthly allowance. The new migration is `supabase/migrations/202611180001_slickly_monthly_pro_budget.sql`; apply it after the existing accounts/credits, referral and cloud-config migrations.
