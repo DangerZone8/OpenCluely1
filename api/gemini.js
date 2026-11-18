@@ -145,7 +145,7 @@ module.exports = async function handler(req, res) {
     return respond(res, 413, { error: 'This request contains too much conversation history. Start a new chat or shorten the context.' });
   }
   const requestParts = request.contents.flatMap(item => Array.isArray(item?.parts) ? item.parts : []);
-  const hasAudioRequest = requestParts.some(part => /^audio\\//i.test(String(part?.inlineData?.mimeType || part?.inline_data?.mime_type || '')));
+  const hasAudioRequest = requestParts.some(part => String(part?.inlineData?.mimeType || part?.inline_data?.mime_type || '').toLowerCase().startsWith('audio/'));
   const promptTextChars = request.contents.reduce((total, item) =>
     total + (Array.isArray(item?.parts) ? item.parts.reduce((sum, part) => sum + (typeof part?.text === 'string' ? part.text.length : 0), 0) : 0), 0) +
     (typeof request.systemInstruction === 'string' ? request.systemInstruction.length : 0);
