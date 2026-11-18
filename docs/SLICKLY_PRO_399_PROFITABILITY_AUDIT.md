@@ -6,11 +6,11 @@
 
 | Feature | Daily ceiling | Monthly units per request | Maximum if used alone |
 |---|---:|---:|---:|
-| Screen-aware AI | 10 | 3 | 166 calls |
-| Voice | 3 | 4 | 90 calls in a 30-day month |
-| Screenshots | 5 | 3 | 150 calls in a 30-day month |
-| Chat | 20 | 1 | 500 calls |
-| **Shared monthly allowance** | — | **500 units** | — |
+| Screen-aware AI | 20 | 3 | 333 calls |
+| Voice | 6 | 4 | 250 calls |
+| Screenshots | 10 | 3 | 150 calls in a 30-day month |
+| Chat | 40 | 1 | 1,000 calls |
+| **Shared monthly allowance** | — | **1,000 credits** | — |
 
 The allowance is shared across features and resets on the first day of each UTC calendar month. The database RPC enforces daily and monthly limits atomically. The hosted Gemini endpoint now independently authenticates the Supabase access token and reserves credits before contacting the AI provider; the desktop-only credit check is not treated as a security boundary.
 
@@ -38,14 +38,14 @@ These are modeling assumptions, not measured production telemetry:
 - Chat request: 1,500 text input tokens + 512 output tokens.
 - Illustrative conversion: ₹94.08 per USD.
 
-| Feature | Estimated model cost/call | Calls at 500-unit cap | Estimated model cost if all units go to this feature |
+| Feature | Estimated model cost/call | Calls at 1,000-credit cap | Estimated model cost if all credits go to this feature |
 |---|---:|---:|---:|
-| Screen-aware AI | ₹0.096 | 166 | ₹15.90 |
-| Voice | ₹0.364 | 90 | ₹32.78 |
-| Screenshots | ₹0.119 | 150 | ₹17.89 |
-| Chat | ₹0.108 | 500 | ₹53.77 |
+| Screen-aware AI | ₹0.096 | 166 | ₹31.80 |
+| Voice | ₹0.364 | 90 | ₹81.95 |
+| Screenshots | ₹0.119 | 150 | ₹35.78 |
+| Chat | ₹0.108 | 500 | ₹107.54 |
 
-A 2× planning buffer would put this illustrative model-only range at roughly ₹32–₹108/month. This is not a guaranteed cost ceiling: prompt length, media duration/resolution, provider retries, hidden reasoning tokens, model changes and request patterns can materially change actual charges. The shared weighted budget is a product-use guardrail, not a rupee-denominated provider-spend cap.
+A 2× planning buffer would put this illustrative model-only range at roughly ₹64–₹216/month. This is not a guaranteed cost ceiling: prompt length, media duration/resolution, provider retries, hidden reasoning tokens, model changes and request patterns can materially change actual charges. The shared weighted budget is a product-use guardrail, not a rupee-denominated provider-spend cap.
 
 ## Measuring actual costs after migration
 
@@ -92,4 +92,4 @@ The customer mix also matters: a large share of voice or image usage costs more 
 7. Set provider-side spend alerts/quotas and an operational monthly spend ceiling. Alerts are not a hard spend cap.
 8. Complete live tests for sign-in, session refresh, purchase, renewal, cancellation, refunds and credit concurrency before enabling live billing.
 
-**Conclusion:** ₹399 may work with the 500-unit shared fair-use plan, but the modeled cost is not proof of profit. Keep live billing disabled until the external setup, staging telemetry and real cost review are complete.
+**Conclusion:** ₹399 may work with the 1,000-credit shared fair-use plan, but the modeled cost is not proof of profit. Keep live billing disabled until the external setup, staging telemetry and real cost review are complete.
