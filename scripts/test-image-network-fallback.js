@@ -32,6 +32,16 @@ async function main() {
     // Supply a fake session token for the hosted endpoint-failover regression;
     // no real credentials or live account are used by this offline unit test.
     llm.accountAccessTokenProvider = async () => 'test-supabase-access-token';
+    // The local Gemini path reserves credits through /api/credits before it
+    // attempts the provider. Stub that reservation as an allowed test claim;
+    // otherwise this offline regression test accidentally depends on a live
+    // Supabase-backed account service.
+    global.fetch = async (url) => {
+      if (String(url).includes('/api/credits')) {
+        return { ok: true, status: 200, json: async () => ({ allowed: true, used: 1, remaining: 999 }) };
+      }
+      throw new Error('Unexpected network request in offline image fallback test: ' + String(url));
+    };
     llm.isInitialized = true;
     llm.model = 'gemini-3.5-flash-lite';
     llm.client = { models: { generateContent: async () => {
