@@ -11,10 +11,10 @@ const FREE_DAILY_LIMITS = Object.freeze({
 
 // Per-feature daily guardrails. All Pro features share one monthly allowance.
 const PRO_DAILY_LIMITS = Object.freeze({
-  screen_aware: 10,
-  voice: 3,
-  screenshot: 5,
-  chat: 20
+  screen_aware: 20,
+  voice: 6,
+  screenshot: 10,
+  chat: 40
 });
 
 // Conservative relative weights for multimodal request cost.
@@ -25,7 +25,7 @@ const FEATURE_UNITS = Object.freeze({
   screenshot: 3,
   chat: 1
 });
-const PRO_MONTHLY_BUDGET = 500;
+const PRO_MONTHLY_BUDGET = 1000;
 
 module.exports = async function credits(req, res) {
   if (req.method !== 'POST') {
@@ -67,7 +67,7 @@ module.exports = async function credits(req, res) {
       const monthlyExhausted = row.limit_reason === 'monthly_budget';
       return json(res, 429, {
         error: monthlyExhausted
-          ? 'Your shared monthly Pro AI allowance is used up. It resets at the start of next month.'
+          ? 'Your 1,000 monthly Pro credits are used up. They reset at the start of next month.'
           : 'You have used today’s ' + feature.replace('_', ' ') + ' credits.',
         code: monthlyExhausted ? 'MONTHLY_BUDGET_EXHAUSTED' : 'DAILY_CREDITS_EXHAUSTED',
         feature,
