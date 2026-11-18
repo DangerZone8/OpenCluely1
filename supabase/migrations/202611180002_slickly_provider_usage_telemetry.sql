@@ -44,7 +44,7 @@ begin
     raise exception 'invalid provider usage record';
   end if;
 
-  insert into public.slickly_provider_usage_daily (
+  insert into public.slickly_provider_usage_daily as current_usage (
     user_id, usage_date, feature, provider, model,
     requests, prompt_tokens, output_tokens, total_tokens, updated_at
   ) values (
@@ -52,10 +52,10 @@ begin
     1, p_prompt_tokens, p_output_tokens, p_total_tokens, now()
   )
   on conflict (user_id, usage_date, feature, provider, model) do update set
-    requests = public.slickly_provider_usage_daily.requests + 1,
-    prompt_tokens = public.slickly_provider_usage_daily.prompt_tokens + excluded.prompt_tokens,
-    output_tokens = public.slickly_provider_usage_daily.output_tokens + excluded.output_tokens,
-    total_tokens = public.slickly_provider_usage_daily.total_tokens + excluded.total_tokens,
+    requests = current_usage.requests + 1,
+    prompt_tokens = current_usage.prompt_tokens + excluded.prompt_tokens,
+    output_tokens = current_usage.output_tokens + excluded.output_tokens,
+    total_tokens = current_usage.total_tokens + excluded.total_tokens,
     updated_at = now();
 end;
 $$;
