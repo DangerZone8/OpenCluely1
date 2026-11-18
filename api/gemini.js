@@ -1,5 +1,11 @@
 'use strict';
 
+const { authenticate, rpc, safeError } = require('./_lib/slickly-auth');
+
+const FREE_DAILY_LIMITS = Object.freeze({ screen_aware: 2, voice: 2, screenshot: 3, chat: 7 });
+const PRO_DAILY_LIMITS = Object.freeze({ screen_aware: 10, voice: 3, screenshot: 5, chat: 20 });
+const PRO_MONTHLY_BUDGET = 500;
+
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
 const MAX_PROMPT_TEXT_CHARS = 20000;
 const MAX_INLINE_MEDIA_CHARS = 1500000;
@@ -160,6 +166,60 @@ module.exports = async function handler(req, res) {
   const isVisionRequest = request.contents.some(item =>
     Array.isArray(item?.parts) && item.parts.some(part => part && (part.inlineData || part.fileData))
   );
+
+  // The hosted endpoint is the final enforcement boundary. Never trust a
+  // desktop-only credit check: authenticate the Supabase access token and
+  // reserve weighted usage atomically before contacting any AI provider.
+  try {
+    const { user, supabaseUrl, serviceRoleKey } = await authenticate(req);
+    const parts = request.contents.flatMap(item => Array.isArray(item?.parts) ? item.parts : []);
+    const hasAudio = parts.some(part => /^audio\\//i.test(String(part?.inlineData?.mimeType || part?.inline_data?.mime_type || '')));
+    const requestedFeature = String(body.feature || '');
+    const feature = hasAudio
+      ? 'voice'
+      : isVisionRequest
+        ? (requestedFeature === 'screen_aware' ? 'screen_aware' : 'screenshot')
+        : 'chat';
+    // Every image request is charged at the screenshot weight even when the
+    // live-screen quota bucket is selected. This prevents a client from
+    // understating multimodal cost by changing its feature label.
+    const featureUnits = hasAudio ? 4 : isVisionRequest ? 3 : 1;
+    const dailyLimit = Object.prototype.hasOwnProperty.call(PRO_DAILY_LIMITS, feature)
+      ? PRO_DAILY_LIMITS[feature] : PRO_DAILY_LIMITS.chat;
+    const result = await rpc({ supabaseUrl, serviceRoleKey }, 'consume_slickly_credit_v2', {
+      p_user_id: user.id,
+      p_feature: feature,
+      p_free_daily_limit: FREE_DAILY_LIMITS[feature],
+      p_pro_daily_limit: dailyLimit,
+      p_feature_units: featureUnits,
+      p_pro_monthly_budget: PRO_MONTHLY_BUDGET
+    });
+    const row = Array.isArray(result) ? result[0] : result;
+    if (!row || typeof row.allowed !== 'boolean') {
+      return respond(res, 503, { error: 'Slickly could not verify your AI allowance. No provider request was made.' });
+    }
+    if (!row.allowed) {
+      const monthlyExhausted = row.limit_reason === 'monthly_budget';
+      return respond(res, 429, {
+        error: monthlyExhausted
+          ? 'Your shared monthly Pro AI allowance is used up. It resets at the start of next month.'
+          : 'You have used today’s ' + feature.replace('_', ' ') + ' credits.',
+        code: monthlyExhausted ? 'MONTHLY_BUDGET_EXHAUSTED' : 'DAILY_CREDITS_EXHAUSTED',
+        feature,
+        remaining: Number(row.remaining) || 0,
+        limit: Number(row.daily_limit) || dailyLimit,
+        resetsAt: row.resets_at || null,
+        plan: row.plan || 'free',
+        monthly: row.plan === 'pro' ? {
+          used: Number(row.monthly_used) || 0,
+          limit: Number(row.monthly_limit) || PRO_MONTHLY_BUDGET,
+          remaining: Number(row.monthly_remaining) || 0
+        } : null
+      });
+    }
+  } catch (error) {
+    return safeError(res, error);
+  }
 
   // Optional hosted-provider routing. The default remains Gemini until an
   // authorised operator configures a provider and its server-only API key.
