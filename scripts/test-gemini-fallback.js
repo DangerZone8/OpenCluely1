@@ -11,21 +11,40 @@ AbortSignal.timeout = function (ms) {
 };
 const originalEnv = Object.fromEntries([
   'GEMINI_API_KEY','GEMINI_API_KEYS','GEMINI_API_KEY_2','GEMINI_API_KEY_3',
+  'SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','SLICKLY_HOSTED_AI_PROVIDER',
   'GOOGLE_API_KEY','GOOGLE_GENAI_API_KEY','GOOGLE_GENERATIVE_AI_API_KEY'
 ].map(key => [key, process.env[key]]));
 
 function response() {
   return { statusCode: 200, headers: {}, setHeader(k, v) { this.headers[k.toLowerCase()] = v; }, end(body) { this.body = body; } };
 }
-async function invoke(fetchImpl, feature = 'chat', installId = crypto.randomUUID()) {
-  global.fetch = fetchImpl;
+async function invoke(providerFetch, feature = 'chat', installId = crypto.randomUUID()) {
+  global.fetch = async (url, options = {}) => {
+    const target = String(url);
+    if (target.endsWith('/auth/v1/user')) {
+      assert.equal(options.headers.Authorization, 'Bearer test-access-token');
+      return { ok: true, json: async () => ({ id: '123e4567-e89b-42d3-a456-426614174000' }) };
+    }
+    if (target.includes('/rest/v1/rpc/consume_slickly_credit_v2')) {
+      return { ok: true, text: async () => JSON.stringify([{
+        allowed: true, used: 1, remaining: 999, daily_limit: 40,
+        resets_at: '2026-12-01T00:00:00Z', plan: 'free',
+        monthly_used: 0, monthly_remaining: 0, monthly_limit: 0
+      }]) };
+    }
+    if (target.includes('/rest/v1/rpc/record_slickly_provider_usage')) {
+      return { ok: true, text: async () => 'null' };
+    }
+    return providerFetch(url, options);
+  };
   const res = response();
   await handler({
     method: 'POST',
     headers: {
       'content-length': '100',
       'x-opencluely-install-id': installId,
-      'x-opencluely-feature': feature
+      'x-opencluely-feature': feature,
+      authorization: 'Bearer test-access-token'
     },
     body: { model: 'some-other-model-must-be-ignored', request: {
       contents: [{ role: 'user', parts: feature === 'screen-vision'
@@ -37,6 +56,9 @@ async function invoke(fetchImpl, feature = 'chat', installId = crypto.randomUUID
 }
 async function main() {
   process.env.GEMINI_API_KEY = 'unit-test-key';
+  process.env.SUPABASE_URL = 'https://test-project.supabase.co';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+  process.env.SLICKLY_HOSTED_AI_PROVIDER = 'gemini';
   delete process.env.GEMINI_API_KEYS;
   delete process.env.GEMINI_API_KEY_2;
   delete process.env.GEMINI_API_KEY_3;
