@@ -1819,6 +1819,9 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
     if (audioBuffer.length > 20 * 1024 * 1024) {
       throw new Error('Audio clip exceeds the 20 MB analysis limit. Record a shorter clip.');
     }
+    if (this.remoteOnly && audioBuffer.length > 2500000) {
+      throw new Error('Hosted voice analysis supports audio clips up to 2.5 MB. Please record a shorter clip or configure your own Gemini API key.');
+    }
     if (!/^audio\/(webm|wav|mpeg|mp4|ogg|flac|aiff|aac)(?:;[^\r\n]*)?$/i.test(mimeType)) {
       throw new Error('Unsupported audio format: ' + mimeType);
     }
