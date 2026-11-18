@@ -41,6 +41,19 @@ async function run() {
     await admin({method:'GET',headers:{authorization:'Bearer token'}},denied);
     assert.equal(denied.statusCode,403);
 
+    // Turning off email confirmation must not let someone claim an allowlisted
+    // admin email with a password-only account.
+    global.fetch=async(url,options={})=>{
+      if(String(url).endsWith('/auth/v1/user')) return {ok:true,json:async()=>({
+        id:'123e4567-e89b-42d3-a456-426614174000',email:'admin@slickly.example',
+        app_metadata:{provider:'email',providers:['email']}
+      })};
+      throw new Error('Unexpected fetch '+url);
+    };
+    const passwordSpoof=response();
+    await admin({method:'GET',headers:{authorization:'Bearer token'}},passwordSpoof);
+    assert.equal(passwordSpoof.statusCode,403,'email/password account must not inherit admin access from an unverified email');
+
     global.fetch=async(url,options={})=>{
       if(String(url).endsWith('/auth/v1/user')) return {ok:true,json:async()=>({id:'123e4567-e89b-42d3-a456-426614174000',email:'admin@slickly.example',app_metadata:{provider:'google',providers:['google']}})};
       if(String(url).includes('/rest/v1/slickly_cloud_config')) {
