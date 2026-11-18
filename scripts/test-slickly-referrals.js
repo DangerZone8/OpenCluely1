@@ -11,6 +11,7 @@ const checkout = fs.readFileSync(path.join(__dirname, '../api/billing/checkout.j
 const webhook = fs.readFileSync(path.join(__dirname, '../api/billing/webhook.js'), 'utf8');
 
 assert.match(admin, /SLICKLY_REFERRAL_ADMIN_EMAILS/);
+assert.match(admin, /hasGoogleIdentity/,'admin privileges must require a Google-authenticated identity when email confirmation is disabled');
 assert.match(admin, /discountType === 'percent'.*discountValue < 1.*discountValue > 90/s);
 assert.match(admin, /discountType === 'fixed'.*discountValue < 1.*discountValue > 398/s);
 assert.match(admin, /monthly_price_paise: price/);
