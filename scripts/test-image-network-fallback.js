@@ -6,6 +6,7 @@ const llm = require('../src/services/llm.service');
 async function main() {
   const saved = {
     remoteOnly: llm.remoteOnly,
+    accountAccessTokenProvider: llm.accountAccessTokenProvider,
     isInitialized: llm.isInitialized,
     model: llm.model,
     client: llm.client,
@@ -28,6 +29,7 @@ async function main() {
 
   try {
     llm.remoteOnly = false;
+    llm.accountAccessTokenProvider = async () => 'test-supabase-access-token';
     llm.isInitialized = true;
     llm.model = 'gemini-3.5-flash-lite';
     llm.client = { models: { generateContent: async () => {
@@ -115,6 +117,7 @@ async function main() {
     console.log('PASS: image requests fall back to hosted vision proxy after direct Gemini fetch failures (streaming and non-streaming).');
   } finally {
     llm.remoteOnly = saved.remoteOnly;
+    llm.accountAccessTokenProvider = saved.accountAccessTokenProvider;
     llm.isInitialized = saved.isInitialized;
     llm.model = saved.model;
     llm.client = saved.client;
