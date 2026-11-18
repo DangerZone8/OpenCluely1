@@ -15,7 +15,7 @@ assert.deepEqual(credits.PRO_DAILY_LIMITS, {
   screenshot: 5,
   chat: 20
 });
-assert.deepEqual(credits.FEATURE_UNITS, { screen_aware: 2, voice: 4, screenshot: 3, chat: 1 });
+assert.deepEqual(credits.FEATURE_UNITS, { screen_aware: 3, voice: 4, screenshot: 3, chat: 1 });
 assert.equal(credits.PRO_MONTHLY_BUDGET, 500);
 
 function response() {
@@ -50,7 +50,7 @@ async function run() {
     assert.equal(rpcArgs.p_feature, 'screen_aware');
     assert.equal(rpcArgs.p_free_daily_limit, 2);
     assert.equal(rpcArgs.p_pro_daily_limit, 10);
-    assert.equal(rpcArgs.p_feature_units, 2);
+    assert.equal(rpcArgs.p_feature_units, 3);
     assert.equal(rpcArgs.p_pro_monthly_budget, 500);
     assert.equal(JSON.parse(res.body).monthly, null);
 
