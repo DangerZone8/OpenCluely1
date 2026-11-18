@@ -64,7 +64,7 @@ The customer mix also matters: a large share of voice or image usage costs more 
 3. Disable email confirmation in Supabase only after accepting that password-only accounts will not prove control of their email address. Google OAuth identity is required for allowlisted admin access.
 4. Complete Google OAuth provider setup and redirect allowlisting with the project owner's Google credentials.
 5. Run a staging cohort and compare provider-reported token usage and actual invoices with the weighted allowance.
-6. Add durable per-account/per-feature token and cost aggregation, without storing prompts, screenshots, audio or secrets.
+6. Apply `supabase/migrations/202611180002_slickly_provider_usage_telemetry.sql` and validate that provider-reported token counts are being aggregated by account, feature, provider and model without storing prompts, screenshots, audio or secrets.
 7. Set provider-side spend alerts/quotas and an operational monthly spend ceiling. Alerts are not a hard spend cap.
 8. Complete live tests for sign-in, session refresh, purchase, renewal, cancellation, refunds and credit concurrency before enabling live billing.
 
