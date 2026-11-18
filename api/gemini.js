@@ -36,6 +36,27 @@ function respond(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+async function recordProviderUsage(account, feature, model, usage) {
+  if (!account || !usage) return;
+  try {
+    await rpc({ supabaseUrl: account.supabaseUrl, serviceRoleKey: account.serviceRoleKey },
+      'record_slickly_provider_usage', {
+        p_user_id: account.user.id,
+        p_feature: feature,
+        p_provider: 'gemini',
+        p_model: String(model || 'unknown').slice(0, 128),
+        p_prompt_tokens: Number(usage.promptTokens) || 0,
+        p_output_tokens: Number(usage.outputTokens) || 0,
+        p_total_tokens: Number(usage.totalTokens) || 0
+      });
+  } catch (error) {
+    // Telemetry must never turn a completed AI response into a failed request.
+    console.warn('[Slickly provider usage telemetry]', JSON.stringify({
+      provider: 'gemini', feature, message: String(error?.message || error).slice(0, 140)
+    }));
+  }
+}
+
 function rateLimit(key, now, maxPerWindow = MAX_PER_WINDOW, maxPerDay = MAX_PER_DAY) {
   let entry = counters.get(key);
   if (!entry) {
@@ -174,8 +195,12 @@ module.exports = async function handler(req, res) {
   // The hosted endpoint is the final enforcement boundary. Never trust a
   // desktop-only credit check: authenticate the Supabase access token and
   // reserve weighted usage atomically before contacting any AI provider.
+  let authenticatedAccount = null;
+  let reservedFeature = 'chat';
   try {
-    const { user, supabaseUrl, serviceRoleKey } = await authenticate(req);
+    const account = await authenticate(req);
+    authenticatedAccount = account;
+    const { user, supabaseUrl, serviceRoleKey } = account;
     const hasAudio = hasAudioRequest;
     const requestedFeature = String(body.feature || '');
     const feature = hasAudio
@@ -183,6 +208,7 @@ module.exports = async function handler(req, res) {
       : isVisionRequest
         ? (requestedFeature === 'screen_aware' ? 'screen_aware' : 'screenshot')
         : 'chat';
+    reservedFeature = feature;
     // Every image request is charged at the screenshot weight even when the
     // live-screen quota bucket is selected. This prevents a client from
     // understating multimodal cost by changing its feature label.
@@ -354,6 +380,7 @@ module.exports = async function handler(req, res) {
           const decoder = new TextDecoder();
           let buffer = '';
           let streamedCharacters = 0;
+          let streamUsage = null;
           const emitLine = (line) => {
             const trimmed = line.trim();
             if (!trimmed.startsWith('data:')) return;
@@ -361,6 +388,13 @@ module.exports = async function handler(req, res) {
             if (!payload || payload === '[DONE]') return;
             let packet;
             try { packet = JSON.parse(payload); } catch { return; }
+            if (packet.usageMetadata && typeof packet.usageMetadata === 'object') {
+              streamUsage = {
+                promptTokens: Number(packet.usageMetadata.promptTokenCount) || 0,
+                outputTokens: Number(packet.usageMetadata.candidatesTokenCount) || 0,
+                totalTokens: Number(packet.usageMetadata.totalTokenCount) || 0
+              };
+            }
             const piece = (packet.candidates || [])
               .flatMap(candidate => candidate.content && Array.isArray(candidate.content.parts)
                 ? candidate.content.parts : [])
@@ -384,6 +418,7 @@ module.exports = async function handler(req, res) {
             }
             buffer += decoder.decode();
             if (buffer.trim()) emitLine(buffer);
+            if (streamUsage) await recordProviderUsage(authenticatedAccount, reservedFeature, model, streamUsage);
             if (!res.destroyed) {
               res.write('data: [DONE]\n\n');
               res.end();
@@ -467,7 +502,10 @@ module.exports = async function handler(req, res) {
               outputTokens: Number(result.usageMetadata.candidatesTokenCount) || 0,
               totalTokens: Number(result.usageMetadata.totalTokenCount) || 0
             } : null;
-            if (usage) console.info('[Slickly Gemini usage]', JSON.stringify({ model, ...usage }));
+            if (usage) {
+              console.info('[Slickly Gemini usage]', JSON.stringify({ model, ...usage }));
+              await recordProviderUsage(authenticatedAccount, reservedFeature, model, usage);
+            }
             return respond(res, 200, { text, model, ...(usage ? { usage } : {}) });
           }
           lastFailure = { status: 502, code: 'EMPTY_RESPONSE', message: 'The model returned no text.' };
