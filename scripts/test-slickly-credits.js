@@ -16,7 +16,7 @@ assert.deepEqual(credits.PRO_DAILY_LIMITS, {
   chat: 40
 });
 assert.deepEqual(credits.FEATURE_UNITS, { screen_aware: 3, voice: 4, screenshot: 3, chat: 1 });
-assert.equal(credits.PRO_MONTHLY_BUDGET, 1000);
+assert.equal(credits.PRO_MONTHLY_BUDGET, 1500);
 
 function response() {
   return {
@@ -69,7 +69,7 @@ async function run() {
       return { ok: true, text: async () => JSON.stringify({
         allowed: false, used: 1, remaining: 19, daily_limit: 20,
         resets_at: '2026-12-01T00:00:00Z', plan: 'pro',
-        monthly_used: 999, monthly_remaining: 1, monthly_limit: 1000,
+        monthly_used: 1499, monthly_remaining: 1, monthly_limit: 1500,
         limit_reason: 'monthly_budget'
       }) };
     };
