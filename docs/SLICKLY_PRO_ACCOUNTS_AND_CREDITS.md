@@ -4,7 +4,7 @@ This change introduces the server-side foundation. It is deliberately NOT live b
 
 ## Free daily credits
 
-The proposed free-tier limits reset at 00:00 UTC:
+The Free-tier limits reset at 00:00 UTC:
 
 | Feature | Free daily uses |
 |---|---:|
@@ -13,24 +13,54 @@ The proposed free-tier limits reset at 00:00 UTC:
 | Screenshot analysis | 3 |
 | Chat messages | 7 |
 
-Each successful server-authorized invocation costs one credit. Failed requests should be refunded only through a server-side, idempotent refund path; clients must never edit balances. The SQL RPC serializes concurrent usage updates per user/feature/day.
+Each authenticated invocation consumes one daily feature credit. Credits are reserved before the AI request, so a failed provider request can currently consume a credit; do not advertise automatic refunds.
 
-Pro limits in this foundation are 60 Screen Aware, 60 Voice, 100 Screenshot and 200 Chat uses per UTC day. These are launch guardrails, not unlimited usage, and should be adjusted after measuring model cost.
+## Pro ₹399/month fair-use budget
 
-## Account identity
+Pro uses daily burst ceilings plus one shared, atomic monthly allowance:
 
-Use Supabase Auth for Google OAuth and verified email sign-in. Native desktop integration must use OAuth 2.0 / OIDC Authorization Code + PKCE through the system browser, with a registered slickly:// callback (or a one-time local callback), strict state/nonce validation, and tokens stored in the OS credential vault. Do not put a service-role key in a client or renderer. The current credit API verifies the bearer token against Supabase Auth before it calls the database.
+| Feature | Pro daily ceiling | Monthly units per request |
+|---|---:|---:|
+| Screen-aware AI | 10 | 2 |
+| Voice | 3 | 4 |
+| Screenshot | 5 | 3 |
+| Chat | 20 | 1 |
 
-## Supabase setup
+Every Pro account receives **500 weighted AI credits per calendar month**. All four features draw from the same allowance; reaching the monthly allowance pauses hosted AI until the next month. The database transaction locks the monthly and daily rows and increments both atomically. The client cannot select the feature weight or monthly allowance. The new migration is `supabase/migrations/202611180001_slickly_monthly_pro_budget.sql`; apply it after the existing accounts/credits, referral and cloud-config migrations.
 
-1. An eligible adult/business representative creates and owns the Supabase project.
-2. Enable Google provider and configure its OAuth client, redirect URI and allowed redirect URLs.
-3. Enable email OTP/magic-link sign-in and configure verified email requirements.
-4. Apply supabase/migrations/202611140001_slickly_accounts_credits_billing.sql.
-5. Add server-only Vercel Production environment variables:
-   - SUPABASE_URL
-   - SUPABASE_SERVICE_ROLE_KEY (never expose to clients)
-6. Deploy and test in a staging Supabase project before production.
+These are conservative request weights, not exact token-dollar billing. The hosted Gemini 3.1 Flash-Lite paid standard price is currently listed by Google as $0.25/1M text/image/video input tokens, $0.50/1M audio input tokens and $1.50/1M output tokens. Real costs depend on prompt history, media resolution/duration, output and retries. The 500-unit cap is a cost-control guardrail, not a guarantee of profit. Keep billing disabled until actual staging usage, provider invoices, tax treatment, payment fees, hosting and support costs are measured. Review `docs/SLICKLY_PRO_399_PROFITABILITY_AUDIT.md` before enabling paid subscriptions.
+
+## Account identity and sign-in
+
+The account page supports:
+- Google OAuth using Supabase Authorization Code + PKCE;
+- email/password sign-in and account creation (magic-link sign-in is removed);
+- desktop Google OAuth in the system browser, returning to the desktop app through `slickly://auth/callback`;
+- encrypted desktop refresh-token storage and single-owner refresh in the Electron main process.
+
+**No verification email:** in the Supabase project, open **Authentication → Providers → Email** and turn **Confirm email** off. Keep the Email provider enabled. New email/password accounts then sign in immediately rather than waiting for a confirmation link. This also means the email address is not proven to belong to the user; do not treat an unverified email as strong identity proof or rely on it for sensitive account recovery. Google sign-in remains a separate OAuth identity check.
+
+## Supabase and Google setup
+
+An authorised project owner should complete these settings:
+
+1. In Supabase, open **Project Settings → API**. Copy the Project URL and the public anon/publishable key.
+2. In Vercel, set these Production environment variables:
+   - `SUPABASE_URL` — Supabase Project URL.
+   - `SUPABASE_ANON_KEY` — public anon/publishable key; this is returned to the browser by `/api/public-config`.
+   - `SUPABASE_SERVICE_ROLE_KEY` — server-only secret; never expose it to the browser, desktop renderer, repository or chat.
+3. In Supabase, open **Authentication → URL Configuration**:
+   - Site URL: `https://slicklyai.vercel.app`.
+   - Add redirect URL: `https://slicklyai.vercel.app/**`.
+   - Add redirect URL: `slickly://auth/callback` for desktop Google OAuth.
+4. In Google Cloud Console, create an OAuth Client ID of type **Web application**. Under **Authorised redirect URIs**, add the exact Supabase callback shown in **Supabase → Authentication → Providers → Google**. It has the form `https://<your-project-ref>.supabase.co/auth/v1/callback`. Do not use the Slickly website URL as Google's redirect URI.
+5. Copy the Google OAuth Client ID and Client Secret into the Supabase Google provider settings and enable the provider. Save the changes.
+6. In Supabase **Authentication → Providers → Email**, keep Email enabled and turn **Confirm email** off to avoid verification emails for password sign-up.
+7. Apply the database migrations in order: `202611140001_slickly_accounts_credits_billing.sql`, `202611140002_slickly_referral_codes.sql`, `202611140003_slickly_cloud_config.sql`, then `202611180001_slickly_monthly_pro_budget.sql`.
+8. Redeploy the Vercel project after adding environment variables. Open `https://slicklyai.vercel.app/api/public-config`; it should return the Supabase URL and public key (never the service-role key), not HTTP 503.
+9. Test email/password sign-up, sign-in, browser Google sign-in, and desktop Google sign-in in a staging project before using production accounts.
+
+The Google OAuth redirect URI at Google must be the Supabase callback URL. The Slickly site and desktop custom-scheme URLs belong in Supabase's redirect allowlist. Native desktop sign-in uses PKCE; do not put a service-role key in any client or renderer. The credit API verifies each bearer token against Supabase Auth before calling the database.
 
 ## Razorpay sandbox setup
 
