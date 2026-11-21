@@ -42,7 +42,7 @@ jobs:
           node-version: '24'
       - name: Verify production revision without calling Gemini
         env:
-          VERIFY_ONLY_ENDPOINT: https://slicklyai.vercel.app/api/gemini
+          VERIFY_ONLY_ENDPOINT: ${{ github.event_name == 'pull_request' && 'https://slicklyai-git-fix-slickly-mainli-18360d-vlordvoldemort1234-5397.vercel.app/api/gemini' || 'https://slicklyai.vercel.app/api/gemini' }}
           SLICKLY_EXPECTED_API_REVISION: v177-hosted-multiprovider-2026-11-15-a
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: node scripts/test-production-api-revision.js
@@ -65,12 +65,14 @@ jobs:
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           VERIFY_ONLY_ENDPOINT: https://slicklyai.vercel.app/api/gemini
+          SLICKLY_EXPECTED_API_REVISION: v177-hosted-multiprovider-2026-11-15-a
           ALLOW_OLD_API_REVISION: 'false'
         run: npm run test:screen-vision-live
       - name: Diagnose backup endpoints if production screen vision fails
         if: always() && steps.livevision.outcome == 'failure'
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          SLICKLY_EXPECTED_API_REVISION: v177-hosted-multiprovider-2026-11-15-a
           ALLOW_OLD_API_REVISION: 'true'
         run: npm run test:screen-vision-live
 
@@ -89,6 +91,7 @@ jobs:
       - run: npm ci
       - name: Prepare authenticated Slickly test account session
         env:
+          SLICKLY_SITE_URL: ${{ github.event_name == 'pull_request' && 'https://slicklyai-git-fix-slickly-mainli-18360d-vlordvoldemort1234-5397.vercel.app' || 'https://slicklyai.vercel.app' }}
           SLICKLY_TEST_EMAIL: ${{ secrets.SLICKLY_TEST_EMAIL }}
           SLICKLY_TEST_PASSWORD: ${{ secrets.SLICKLY_TEST_PASSWORD }}
         run: node scripts/create-slickly-test-session.js
@@ -96,7 +99,7 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-          OPENCLUELY_AI_ENDPOINT: https://slicklyai.vercel.app/api/gemini
+          OPENCLUELY_AI_ENDPOINT: ${{ github.event_name == 'pull_request' && 'https://slicklyai-git-fix-slickly-mainli-18360d-vlordvoldemort1234-5397.vercel.app/api/gemini' || 'https://slicklyai.vercel.app/api/gemini' }}
         run: |
           if [ -z "$GEMINI_API_KEY" ]; then
             echo "::error::GEMINI_API_KEY Actions secret is missing; direct Gemini and live-chat verification cannot be claimed."
