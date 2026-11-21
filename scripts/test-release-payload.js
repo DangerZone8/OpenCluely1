@@ -11,6 +11,7 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), 'slickly-release-payload-'));
 try {
   const artifacts = [
     'Slickly-AI-Setup-1.2.3.exe',
+    'Slickly-AI-Android.apk',
     'slickly-ai_1.2.3_amd64.deb',
     'Slickly AI-1.2.3.AppImage',
     'Slickly AI-1.2.3.dmg',
