@@ -13,8 +13,16 @@ async function main() {
     : 'non-JSON response (' + String(configResponse.headers.get('content-type') || 'unknown content type') + ', ' + configText.length + ' bytes)';
   assert.equal(configResponse.status, 200,
     'Live Slickly public config returned HTTP ' + configResponse.status + ' (' + configDiagnostic + '); missing Vercel variables: ' + JSON.stringify(config.missing || []) + '. Check SUPABASE_URL and SUPABASE_ANON_KEY/SUPABASE_PUBLISHABLE_KEY.');
-  assert.match(config.supabaseUrl || '', /^https:\/\/[a-z0-9.-]+\.supabase\.co$/i,
-    'Live public config must expose a valid Supabase project URL.');
+  let supabaseOrigin = null;
+  try {
+    const parsed = new URL(config.supabaseUrl || '');
+    if (parsed.protocol === 'https:' && parsed.hostname && !parsed.username && !parsed.password &&
+        parsed.pathname === '/' && !parsed.search && !parsed.hash) {
+      supabaseOrigin = parsed.origin;
+    }
+  } catch (_) {}
+  assert.ok(supabaseOrigin,
+    'Live public config must expose an HTTPS Supabase project origin (custom Supabase domains are supported).');
   assert.ok(typeof config.supabaseAnonKey === 'string' && config.supabaseAnonKey.length >= 20,
     'Live public config must expose the Supabase public anon/publishable key.');
   assert.equal(JSON.stringify(config).includes('SUPABASE_SERVICE_ROLE_KEY'), false,
