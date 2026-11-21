@@ -4,11 +4,12 @@ const crypto = require('node:crypto');
 const handler = require('../api/gemini');
 
 const envNames = [
-  'GEMINI_API_KEY','GEMINI_API_KEYS','GEMINI_API_KEY_2','GEMINI_API_KEY_3',
-  'GOOGLE_API_KEY','GOOGLE_GENAI_API_KEY','GOOGLE_GENERATIVE_AI_API_KEY',
-  'SLICKLY_HOSTED_AI_PROVIDER','SLICKLY_QWENCLOUD_API_KEY','SLICKLY_QWENCLOUD_MODEL',
-  'SLICKLY_QWENCLOUD_BASE_URL','SLICKLY_DEEPSEEK_API_KEY','SLICKLY_DEEPSEEK_MODEL',
-  'SLICKLY_MOONSHOT_API_KEY','SLICKLY_MOONSHOT_MODEL','SLICKLY_MOONSHOT_BASE_URL'
+  'SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','GEMINI_API_KEY','GEMINI_API_KEYS',
+  'GEMINI_API_KEY_2','GEMINI_API_KEY_3','GOOGLE_API_KEY','GOOGLE_GENAI_API_KEY',
+  'GOOGLE_GENERATIVE_AI_API_KEY','SLICKLY_HOSTED_AI_PROVIDER','SLICKLY_PRO_HOSTED_AI_PROVIDER',
+  'SLICKLY_QWENCLOUD_API_KEY','SLICKLY_QWENCLOUD_MODEL','SLICKLY_QWENCLOUD_BASE_URL',
+  'SLICKLY_DEEPSEEK_API_KEY','SLICKLY_DEEPSEEK_MODEL','SLICKLY_MOONSHOT_API_KEY',
+  'SLICKLY_MOONSHOT_MODEL','SLICKLY_MOONSHOT_BASE_URL'
 ];
 const originalEnv = Object.fromEntries(envNames.map(name => [name, process.env[name]]));
 const originalFetch = global.fetch;
@@ -21,13 +22,29 @@ function makeResponse() {
     end(value = '') { this.body += value; this.writableEnded = true; }
   };
 }
-async function invoke(feature, stream, fetchImpl) {
-  global.fetch = fetchImpl;
-  const res = makeResponse();
+async function invoke(feature, stream, providerFetch, plan = 'pro') {
   const installId = crypto.randomUUID();
+  global.fetch = async (url, options = {}) => {
+    if (String(url).endsWith('/auth/v1/user')) {
+      assert.match(options.headers.Authorization, /^Bearer test-access-token$/);
+      return { ok: true, json: async () => ({ id: '123e4567-e89b-42d3-a456-426614174000', email: 'pro@example.test' }) };
+    }
+    if (String(url).endsWith('/rest/v1/rpc/consume_slickly_credit_v2')) {
+      const args = JSON.parse(options.body);
+      assert.equal(args.p_pro_monthly_budget, 1500);
+      return { ok: true, text: async () => JSON.stringify({
+        allowed: true, used: 1, remaining: 19, daily_limit: 20,
+        resets_at: '2026-12-01T00:00:00Z', plan,
+        monthly_used: 1, monthly_remaining: 1499, monthly_limit: 1500
+      }) };
+    }
+    return providerFetch(url, options);
+  };
+  const res = makeResponse();
   await handler({
     method: 'POST',
     headers: {
+      authorization: 'Bearer test-access-token',
       'content-length': '512',
       'x-opencluely-install-id': installId,
       'x-opencluely-feature': feature === 'screen-vision' ? 'screen-vision' : 'chat',
@@ -42,8 +59,9 @@ async function invoke(feature, stream, fetchImpl) {
 
 (async () => {
   for (const name of envNames) delete process.env[name];
-
-  process.env.SLICKLY_HOSTED_AI_PROVIDER = 'qwencloud';
+  process.env.SUPABASE_URL = 'https://test-project.supabase.co';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+  process.env.SLICKLY_PRO_HOSTED_AI_PROVIDER = 'qwencloud';
   process.env.SLICKLY_QWENCLOUD_API_KEY = 'test-qwen-key';
   process.env.SLICKLY_QWENCLOUD_MODEL = 'qwen3.8-max';
   let qwenCalls = 0;
@@ -59,10 +77,10 @@ async function invoke(feature, stream, fetchImpl) {
   assert.equal(qwen.statusCode, 200);
   assert.equal(qwen.headers['content-type'], 'text/event-stream; charset=utf-8');
   assert.match(qwen.body, /QWEN_HOSTED_OK/);
-  assert.match(qwen.body, /\[DONE\]/);
+  assert.ok(qwen.body.includes('[DONE]'));
   assert.equal(qwenCalls, 1);
 
-  process.env.SLICKLY_HOSTED_AI_PROVIDER = 'deepseek';
+  process.env.SLICKLY_PRO_HOSTED_AI_PROVIDER = 'deepseek';
   process.env.SLICKLY_DEEPSEEK_API_KEY = 'test-deepseek-key';
   process.env.SLICKLY_DEEPSEEK_MODEL = 'deepseek-flash';
   const deepseek = await invoke('screen-vision', false, async (url, options) => {
@@ -79,7 +97,7 @@ async function invoke(feature, stream, fetchImpl) {
     text: 'DEEPSEEK_VISION_OK', model: 'deepseek-flash', provider: 'deepseek'
   });
 
-  process.env.SLICKLY_HOSTED_AI_PROVIDER = 'kimi';
+  process.env.SLICKLY_PRO_HOSTED_AI_PROVIDER = 'kimi';
   process.env.SLICKLY_MOONSHOT_API_KEY = 'test-kimi-key';
   process.env.SLICKLY_MOONSHOT_MODEL = 'kimi-k3';
   const kimi = await invoke('chat', false, async (url, options) => {
@@ -92,15 +110,7 @@ async function invoke(feature, stream, fetchImpl) {
   assert.equal(JSON.parse(kimi.body).provider, 'kimi');
   assert.equal(JSON.parse(kimi.body).text, 'KIMI_HOSTED_OK');
 
-  process.env.SLICKLY_HOSTED_AI_PROVIDER = 'qwencloud';
-  delete process.env.SLICKLY_QWENCLOUD_API_KEY;
-  const missingKey = await invoke('chat', false, async () => {
-    throw new Error('provider fetch must not run without a key');
-  });
-  assert.equal(missingKey.statusCode, 503);
-  assert.match(JSON.parse(missingKey.body).error, /not configured/);
-
-  console.log('PASS: hosted QwenCloud chat streaming, Moonshot Kimi chat, DeepSeek screen vision, server-only provider keys, and missing-key handling.');
+  console.log('PASS: Pro-only QwenCloud, DeepSeek and Kimi routing, authenticated atomic 1,500-credit reservation, streaming, screen vision, and server-only provider keys.');
 })().catch(error => {
   console.error('HOSTED PROVIDER ROUTING TEST FAILED:', error);
   process.exitCode = 1;

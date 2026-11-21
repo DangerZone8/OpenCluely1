@@ -29,6 +29,7 @@ export function buildGeminiPayload(messages) {
 export async function requestAssistantReply({
   messages,
   installId,
+  accessToken,
   fetchImpl = fetch,
   apiUrl = DEFAULT_API_URL
 }) {
@@ -36,10 +37,15 @@ export async function requestAssistantReply({
     throw new Error('The app could not initialize its secure installation identifier. Restart Slickly and try again.');
   }
 
+  if (typeof accessToken !== 'string' || accessToken.length < 20) {
+    throw new Error('Sign in to your Slickly account before sending a message.');
+  }
+
   const response = await fetchImpl(apiUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + accessToken,
       'x-opencluely-install-id': installId,
       'x-opencluely-feature': 'chat'
     },
@@ -55,7 +61,7 @@ export async function requestAssistantReply({
 
   if (!response.ok) {
     if (response.status === 429) {
-      throw new Error('The shared AI service is busy or its usage limit has been reached. Please wait and try again.');
+      throw new Error('The shared AI service is busy or your available credits have been used up. Please wait and try again.');
     }
     if (response.status === 503) {
       throw new Error('The hosted AI service is temporarily unavailable. Please try again later.');
