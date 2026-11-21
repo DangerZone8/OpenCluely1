@@ -4,13 +4,15 @@ const assert = require('node:assert/strict');
 
 async function main() {
   const site = new URL(process.env.SLICKLY_SITE_URL || 'https://slicklyai.vercel.app');
-  const configResponse = await fetch(new URL('/api/public-config', site), { cache: 'no-store' });
+  const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || '';
+  const requestHeaders = bypassSecret ? { 'x-vercel-protection-bypass': bypassSecret } : {};
+  const configResponse = await fetch(new URL('/api/public-config', site), { headers: requestHeaders, cache: 'no-store' });
   const configText = await configResponse.text();
   let config = {};
   try { config = JSON.parse(configText); } catch (_) {}
   const configDiagnostic = typeof config.error === 'string'
     ? config.error
-    : 'non-JSON response (' + String(configResponse.headers.get('content-type') || 'unknown content type') + ', ' + configText.length + ' bytes)';
+    : 'response keys=' + Object.keys(config).sort().join(',') + ', content-type=' + String(configResponse.headers.get('content-type') || 'unknown') + ', bytes=' + configText.length;
   assert.equal(configResponse.status, 200,
     'Live Slickly public config returned HTTP ' + configResponse.status + ' (' + configDiagnostic + '); missing Vercel variables: ' + JSON.stringify(config.missing || []) + '. Check SUPABASE_URL and SUPABASE_ANON_KEY/SUPABASE_PUBLISHABLE_KEY.');
   let supabaseOrigin = null;
@@ -28,7 +30,7 @@ async function main() {
   assert.equal(JSON.stringify(config).includes('SUPABASE_SERVICE_ROLE_KEY'), false,
     'Public config must never expose the service-role key.');
 
-  const accountProbe = await fetch(new URL('/api/account/me', site), { cache: 'no-store' });
+  const accountProbe = await fetch(new URL('/api/account/me', site), { headers: requestHeaders, cache: 'no-store' });
   assert.equal(accountProbe.status, 401,
     'Slickly account API must be configured and reject an unsigned request with HTTP 401 (not 503). This also verifies SUPABASE_SERVICE_ROLE_KEY is present.');
 
