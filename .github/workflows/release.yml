@@ -639,7 +639,7 @@ jobs:
           find artifacts/slickly-ai-windows-latest -type f -name 'Slickly-AI-Setup-*.exe' \
             -exec cp -v {} release/ \;
           find artifacts/slickly-ai-android-apk -type f -name 'Slickly-AI-Android.apk' \
-            -exec cp -v {} release/ \\;
+            -exec cp -v {} release/ \;
           find artifacts -type f -name 'slickly-ai_*_amd64.deb' \
             -exec cp -v {} release/ \;
           find artifacts -type f -name '*.AppImage' \
