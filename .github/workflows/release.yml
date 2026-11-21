@@ -65,6 +65,9 @@ jobs:
       - name: Run repository checks
         run: npm run check
 
+      - name: Verify live Supabase and Google sign-in configuration
+        run: node scripts/test-slickly-live-auth.js
+
       - name: Verify Vercel update-feed routing
         run: node scripts/test-vercel-update-feed.js
 
