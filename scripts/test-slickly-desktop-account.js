@@ -98,5 +98,6 @@ assert.ok(pricing.includes('href="/account.html?plan=pro"'),'Pro CTA must lead t
 assert.ok(account.includes("fetch('/api/public-config'"),'website account must load the configured shared Supabase project');
 assert.ok(account.includes('window.supabase.createClient'),'website and desktop account page must use the shared Supabase auth client');
 assert.ok(account.includes('href="/pricing.html"'),'account page must link back to public pricing');
-assert.ok(main.includes('https://slicklyai.vercel.app/account.html?desktop=1'),'desktop app must open the same hosted account page');
+assert.ok(main.includes('new URL("https://slicklyai.vercel.app/account.html")'),'desktop app must open the same hosted account page');
+assert.match(main,/accountUrl\.searchParams\.set\("desktop", "1"\)/,'desktop account window must enable its secure session bridge');
 console.log('Slickly account checks passed: trusted account window, encrypted session storage, account credit metering, explicit recurring payment-method guidance, and QwenCloud/DeepSeek provider settings.');
