@@ -152,7 +152,7 @@ llmService.setAccountAccessTokenProvider(() => {
   if (process.env.CI === "true" &&
       process.env.CLEVERLY_E2E_SCREEN_CAPTURE === "1" &&
       process.env.SLICKLY_E2E_STUB_CREDITS === "1") {
-    return "slickly-desktop-e2e-test-token";
+    return process.env.SLICKLY_E2E_ACCESS_TOKEN || null;
   }
   return accountSessionService.getAccessToken();
 });
