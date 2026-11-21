@@ -217,6 +217,9 @@ button{width:100%;min-height:46px;border:1px solid var(--ink);border-radius:5px;
         status('Signed in. Your subscription and credits are linked to this account.');
       }catch(e){status(e.message);}
     }
+    const authIntent=new URLSearchParams(location.search).get('auth');
+    if(authIntent==='google') setTimeout(()=>$('google').click(),0);
+    else if(authIntent==='email') { $('email').focus(); $('email').scrollIntoView({block:'center',behavior:'smooth'}); }
     await render();
   }catch(e){status(e.message||'Account services are unavailable.');}
 })();
