@@ -7,7 +7,7 @@ async function main() {
   const configResponse = await fetch(new URL('/api/public-config', site), { cache: 'no-store' });
   const config = await configResponse.json().catch(() => ({}));
   assert.equal(configResponse.status, 200,
-    'Live Slickly public config must return HTTP 200; check Vercel SUPABASE_URL and SUPABASE_ANON_KEY/SUPABASE_PUBLISHABLE_KEY.');
+    'Live Slickly public config returned HTTP ' + configResponse.status + '; missing Vercel variables: ' + JSON.stringify(config.missing || []) + '. Check SUPABASE_URL and SUPABASE_ANON_KEY/SUPABASE_PUBLISHABLE_KEY.');
   assert.match(config.supabaseUrl || '', /^https:\/\/[a-z0-9.-]+\.supabase\.co$/i,
     'Live public config must expose a valid Supabase project URL.');
   assert.ok(typeof config.supabaseAnonKey === 'string' && config.supabaseAnonKey.length >= 20,
