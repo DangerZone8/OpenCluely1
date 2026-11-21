@@ -31,8 +31,8 @@ async function main() {
   assert.equal(settingsResponse.status, 200, 'Supabase Auth settings must be readable for sign-in verification.');
   const settings = await settingsResponse.json();
   assert.equal(settings.external?.email, true, 'Supabase email/password sign-in provider must be enabled.');
-  assert.equal(settings.mailer_autoconfirm, false,
-    'Supabase email confirmations must be disabled so signup returns an active session.');
+  assert.equal(settings.mailer_autoconfirm, true,
+    'Supabase Confirm email must be disabled (auto-confirm enabled) so email/password signup returns an active session.');
   assert.notEqual(settings.disable_signup, true, 'Supabase must allow new account signups.');
 
   async function verifyGoogleRedirect(redirectTo, label) {
