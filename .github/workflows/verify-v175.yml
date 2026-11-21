@@ -87,6 +87,11 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - name: Prepare authenticated Slickly test account session
+        env:
+          SLICKLY_TEST_EMAIL: ${{ secrets.SLICKLY_TEST_EMAIL }}
+          SLICKLY_TEST_PASSWORD: ${{ secrets.SLICKLY_TEST_PASSWORD }}
+        run: node scripts/create-slickly-test-session.js
       - name: Verify live Gemini fast-chat behavior independently of screen vision
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -132,6 +137,11 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - name: Prepare authenticated Slickly test account session
+        env:
+          SLICKLY_TEST_EMAIL: ${{ secrets.SLICKLY_TEST_EMAIL }}
+          SLICKLY_TEST_PASSWORD: ${{ secrets.SLICKLY_TEST_PASSWORD }}
+        run: node scripts/create-slickly-test-session.js
       - name: Install virtual-desktop runtime
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb xauth libgtk-3-0 libnss3 libxss1 libasound2t64 libgbm1
       - name: Exercise both actual desktop screen-AI buttons against production
