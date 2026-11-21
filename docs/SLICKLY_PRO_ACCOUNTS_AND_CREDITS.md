@@ -39,6 +39,7 @@ Use Supabase Auth for Google OAuth and verified email sign-in. Native desktop in
 3. Set server-only Vercel variables RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, and RAZORPAY_WEBHOOK_SECRET.
 4. Configure the webhook URL /api/billing/webhook for subscription lifecycle events.
 5. Test activation, renewal, cancellation, failed payment, duplicate delivery and out-of-order delivery in sandbox. Live checkout must remain disabled until legal, tax, privacy, refund and support terms are reviewed.
+6. From a protected operator environment, run `npm run test:razorpay-sandbox` with Razorpay **test-mode** `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and `RAZORPAY_PRO_PLAN_ID`. This read-only check verifies API authentication and that the plan is ₹399 INR/month; it does not create a subscription or charge a customer. It refuses non-test key IDs. Do not place credentials in source control, chat, or client-side settings.
 
 The checkout endpoint never accepts a client-supplied amount or plan. Entitlements are granted only from a signature-verified webhook. Webhook event IDs are idempotent and older events cannot overwrite newer subscription state.
 
@@ -102,3 +103,46 @@ Offline regression coverage now includes:
 - `scripts/test-slickly-referral-e2e.js` for the mocked referral-to-activation journey.
 
 These are code-level/mock tests. They do not replace a live staging run with the real Supabase schema, Google OAuth configuration, Razorpay test credentials, webhook delivery and installed desktop builds. Do not enable live checkout until an authorised adult/business operator has completed those checks.
+
+## Payment methods and payout settlement
+
+Razorpay Subscription payment methods are controlled in the merchant dashboard under **Subscriptions → Settings**. Depending on account activation, supported geography, bank and UPI eligibility, the merchant can enable Cards, UPI Autopay and eMandate (eNACH / netbanking). The hosted subscription checkout displays only methods enabled and eligible for that account; the app must not promise that every customer will see every method. Google Pay is accessed as a supported UPI app where UPI Autopay is available and enabled; it is not a separate card processor.
+
+An authorised adult/business representative must complete merchant KYC and register/verify the business bank account in Razorpay's merchant dashboard. This repository cannot securely link a bank account or complete KYC through the public subscription API. After sandbox tests, verify settlement status and the destination account in the merchant dashboard before enabling live billing. Never put bank account details, Razorpay secrets, or Supabase service-role keys in source control or chat.
+
+## Model-provider evaluation and configuration
+
+The desktop BYOK adapter supports:
+- Alibaba Cloud Model Studio (Qwen) OpenAI-compatible endpoint: `QWENCLOUD_API_KEY`, optional `QWENCLOUD_BASE_URL` (defaults to the official Singapore DashScope endpoint `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`; a workspace-specific endpoint may be configured for production), `QWENCLOUD_MODEL` (default `qwen3.8-max`). The API key and endpoint must belong to the same region. Qwen3.8-Max supports image/video understanding on supported Model Studio regions.
+- Direct Moonshot Kimi API: `MOONSHOT_API_KEY`, optional `MOONSHOT_BASE_URL` (default `https://api.moonshot.ai/v1`), `MOONSHOT_MODEL` (default `kimi-k3`; `kimi-k2.6` is another documented multimodal option).
+- Direct DeepSeek API: `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL` (default `deepseek-flash`).
+
+Use QwenCloud pay-as-you-go keys for a custom application backend. Some QwenCloud Token Plan credentials are restricted to approved programming tools and must not be used by a custom app. Provider model IDs and regions change; verify availability and pricing in the provider console before configuration.
+
+These adapters preserve image payloads for vision-capable models. Raw audio is not universally supported; Slickly's speech recognition/transcription pipeline remains separate. The adapters add a system-level instruction boundary against prompt injection, but this is defense-in-depth, not a guarantee that jailbreaks cannot succeed.
+
+## Pro readiness gates
+
+Do not advertise Pro quotas as guaranteed capacity until:
+1. Provider benchmarks measure task success, screenshot understanding, latency, token cost and reliability for representative Free/Pro workflows.
+2. Jailbreak/prompt-injection regression tests cover text, screenshots and document content.
+3. Server-side durable usage accounting and provider spend limits are verified under concurrency.
+4. Razorpay sandbox subscriptions, webhook signatures/idempotency, cancellations and settlement reconciliation pass.
+5. The adult/business merchant owner confirms live KYC, payout-bank verification, applicable tax/refund/privacy/support terms and production environment configuration.
+
+The repository tests can verify implementation and mocked integrations. They cannot independently verify a merchant's bank account, complete KYC, or prove real-world model quality without authorised provider credentials and representative test data.
+## Hosted model selection (server-side)
+
+The shared hosted AI endpoint remains on Gemini by default. An authorised operator can route hosted chat and screen-vision requests through the QwenCloud or DeepSeek adapter by setting server-only Vercel Production variables:
+- `SLICKLY_HOSTED_AI_PROVIDER=qwencloud` or `deepseek`.
+- For QwenCloud: `SLICKLY_QWENCLOUD_API_KEY`, optional `SLICKLY_QWENCLOUD_MODEL` (default `qwen3.8-max`) and optional `SLICKLY_QWENCLOUD_BASE_URL` (default Singapore pay-as-you-go endpoint). To benchmark a compatible Kimi model, set the model ID only if it is available in the account's model list.
+- For DeepSeek: `SLICKLY_DEEPSEEK_API_KEY` and optional `SLICKLY_DEEPSEEK_MODEL` (default `deepseek-flash`).
+
+Keep provider credentials exclusively in the Vercel server environment. Never set these values in the browser or packaged desktop app. Test in a Preview deployment with approved test credentials before changing Production. The hosted router preserves the existing JSON response for vision and SSE framing for streamed chat. Raw audio is rejected for these providers and should be transcribed through Slickly's speech pipeline first. Reverting `SLICKLY_HOSTED_AI_PROVIDER` to `gemini` restores the existing Gemini route.
+
+Automated mocked routing coverage is in `scripts/test-hosted-provider-routing.js`; it verifies request conversion and response contracts, not live provider availability, real-world quality, billing, or jailbreak resistance.
+
+Run `npm run benchmark:providers` locally after configuring authorised provider API keys in your environment. The benchmark compares QwenCloud Qwen, Kimi (when enabled), and DeepSeek models on reasoning, simple coding, and a prompt-injection regression task. It records latency and provider-reported token usage. To add a screenshot task, set `SLICKLY_BENCHMARK_IMAGE_PATH` to a local PNG/JPEG/WebP/GIF and `SLICKLY_BENCHMARK_VISION_EXPECTED` to a short phrase visible in that screenshot. The script does not upload keys, and a small regression suite does not prove overall safety or vision quality.
+
+
+Live checkout is additionally protected by the server-side feature flag `SLICKLY_BILLING_ENABLED`. It must remain unset/false while merchant onboarding, payout-bank verification, migrations and sandbox tests are incomplete. Only an authorised adult/business operator should set it to `true` after all readiness gates have passed. The checkout endpoint returns HTTP 503 and does not contact Razorpay while the flag is off. The automated guard test is `scripts/test-slickly-billing-guard.js`.

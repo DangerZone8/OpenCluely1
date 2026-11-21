@@ -7,6 +7,9 @@ module.exports = async function checkout(req, res) {
     res.setHeader('Allow', 'POST');
     return json(res, 405, { error: 'Use POST to start a Slickly Pro subscription.' });
   }
+  if (String(process.env.SLICKLY_BILLING_ENABLED || '').toLowerCase() !== 'true') {
+    return json(res, 503, { error: 'Slickly Pro checkout is not open yet. Payment activation is pending merchant and sandbox verification.' });
+  }
   let reservation = null;
   let userId = null;
   try {

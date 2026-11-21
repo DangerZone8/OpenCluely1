@@ -20,6 +20,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const openaiKeyInput = document.getElementById('openaiKey');
     const xaiKeyInput = document.getElementById('xaiKey');
     const anthropicKeyInput = document.getElementById('anthropicKey');
+    const qwencloudKeyInput = document.getElementById('qwencloudKey');
+    const kimiKeyInput = document.getElementById('kimiKey');
+    const deepseekKeyInput = document.getElementById('deepseekKey');
     const aiProviderSelect = document.getElementById('aiProvider');
     const aiModelInput = document.getElementById('aiModel');
     const windowGapInput = document.getElementById('windowGap');
@@ -96,6 +99,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (openaiKeyInput) openaiKeyInput.value = settings.openaiKey || '';
         if (xaiKeyInput) xaiKeyInput.value = settings.xaiKey || '';
         if (anthropicKeyInput) anthropicKeyInput.value = settings.anthropicKey || '';
+        if (qwencloudKeyInput) qwencloudKeyInput.value = settings.qwencloudKey || '';
+        if (kimiKeyInput) kimiKeyInput.value = settings.kimiKey || '';
+        if (deepseekKeyInput) deepseekKeyInput.value = settings.deepseekKey || '';
         if (aiProviderSelect) aiProviderSelect.value = settings.aiProvider || 'gemini';
         if (aiModelInput) aiModelInput.value = settings.aiModel || '';
         updateAIProviderFieldStates();
@@ -161,6 +167,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (openaiKeyInput) settings.openaiKey = openaiKeyInput.value;
         if (xaiKeyInput) settings.xaiKey = xaiKeyInput.value;
         if (anthropicKeyInput) settings.anthropicKey = anthropicKeyInput.value;
+        if (qwencloudKeyInput) settings.qwencloudKey = qwencloudKeyInput.value;
+        if (kimiKeyInput) settings.kimiKey = kimiKeyInput.value;
+        if (deepseekKeyInput) settings.deepseekKey = deepseekKeyInput.value;
         if (aiProviderSelect) settings.aiProvider = aiProviderSelect.value;
         if (aiModelInput) settings.aiModel = aiModelInput.value;
         if (windowGapInput) settings.windowGap = windowGapInput.value;
@@ -222,6 +231,9 @@ document.addEventListener('DOMContentLoaded', () => {
         openaiKeyInput,
         xaiKeyInput,
         anthropicKeyInput,
+        qwencloudKeyInput,
+        kimiKeyInput,
+        deepseekKeyInput,
         aiModelInput,
         windowGapInput
     ];

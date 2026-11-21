@@ -12,10 +12,13 @@ function jsonResponse(body, status = 200) {
     ['gemini', 'gemini-3.1-flash-lite'],
     ['openai', 'gpt-test'],
     ['xai', 'grok-test'],
-    ['anthropic', 'claude-test']
+    ['anthropic', 'claude-test'],
+    ['qwencloud', 'qwen3.8-max'],
+    ['kimi', 'kimi-k3'],
+    ['deepseek', 'deepseek-flash']
   ];
   for (const [id, expectedModel] of providers) {
-    const modelEnv = { gemini: 'GEMINI_MODEL', openai: 'OPENAI_MODEL', xai: 'XAI_MODEL', anthropic: 'ANTHROPIC_MODEL' }[id];
+    const modelEnv = { gemini: 'GEMINI_MODEL', openai: 'OPENAI_MODEL', xai: 'XAI_MODEL', anthropic: 'ANTHROPIC_MODEL', qwencloud: 'QWENCLOUD_MODEL', kimi: 'MOONSHOT_MODEL', deepseek: 'DEEPSEEK_MODEL' }[id];
     const config = getProvider({ AI_PROVIDER: id, [modelEnv]: id === 'gemini' ? '' : expectedModel });
     assert.equal(config.id, id, id + ' provider selection');
     assert.equal(config.model, expectedModel, id + ' model selection');
@@ -44,7 +47,13 @@ function jsonResponse(body, status = 200) {
     ['xai', 'XAI_API_KEY', 'XAI_MODEL', 'https://api.x.ai/v1/chat/completions',
       { choices: [{ message: { content: 'Grok test answer' } }] }],
     ['anthropic', 'ANTHROPIC_API_KEY', 'ANTHROPIC_MODEL', 'https://api.anthropic.com/v1/messages',
-      { content: [{ type: 'text', text: 'Claude test answer' }] }]
+      { content: [{ type: 'text', text: 'Claude test answer' }] }],
+    ['qwencloud', 'QWENCLOUD_API_KEY', 'QWENCLOUD_MODEL', 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions',
+      { choices: [{ message: { content: 'QwenCloud test answer' } }] }],
+    ['kimi', 'MOONSHOT_API_KEY', 'MOONSHOT_MODEL', 'https://api.moonshot.ai/v1/chat/completions',
+      { choices: [{ message: { content: 'Kimi test answer' } }] }],
+    ['deepseek', 'DEEPSEEK_API_KEY', 'DEEPSEEK_MODEL', 'https://api.deepseek.com/chat/completions',
+      { choices: [{ message: { content: 'DeepSeek test answer' } }] }]
   ];
   for (const [provider, keyEnv, modelEnv, expectedUrl, body] of chatCases) {
     let calledUrl = '';
@@ -60,6 +69,8 @@ function jsonResponse(body, status = 200) {
       }
       const payload = JSON.parse(options.body);
       assert.equal(payload.model, 'test-model');
+      if (provider === 'qwencloud') assert.equal(payload.preserve_thinking, false);
+      if (provider === 'qwencloud' || provider === 'deepseek') assert.match(payload.messages[0].content, /SECURITY BOUNDARY/);
       assert.ok(payload.messages.length > 0);
       const userMessage = payload.messages.find(message => message.role === 'user');
       assert.ok(userMessage, provider + ' user message should be present');
@@ -122,7 +133,7 @@ function jsonResponse(body, status = 200) {
     /Raw audio analysis is not supported/
   );
 
-  console.log('PASS: Gemini/OpenAI/xAI/Anthropic selection and models; OpenAI/xAI/Anthropic auth, text+vision payloads, OpenAI audio transcription, missing-key, provider-error, empty-response, and unsupported-audio paths.');
+  console.log('PASS: Gemini/OpenAI/xAI/Anthropic/QwenCloud/Kimi/DeepSeek selection; compatible-provider auth and text+vision payloads; security boundary; OpenAI audio transcription; missing-key, provider-error, empty-response, and unsupported-audio paths.');
 })().catch(error => {
   console.error('PROVIDER ADAPTER TEST FAILED:', error);
   process.exitCode = 1;
