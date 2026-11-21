@@ -31,11 +31,11 @@ async function invoke(feature, stream, providerFetch, plan = 'pro') {
     }
     if (String(url).endsWith('/rest/v1/rpc/consume_slickly_credit_v2')) {
       const args = JSON.parse(options.body);
-      assert.equal(args.p_pro_monthly_budget, 1500);
+      assert.equal(args.p_pro_monthly_budget, 1000);
       return { ok: true, text: async () => JSON.stringify({
         allowed: true, used: 1, remaining: 19, daily_limit: 20,
         resets_at: '2026-12-01T00:00:00Z', plan,
-        monthly_used: 1, monthly_remaining: 1499, monthly_limit: 1500
+        monthly_used: 1, monthly_remaining: 999, monthly_limit: 1000
       }) };
     }
     return providerFetch(url, options);
@@ -110,7 +110,7 @@ async function invoke(feature, stream, providerFetch, plan = 'pro') {
   assert.equal(JSON.parse(kimi.body).provider, 'kimi');
   assert.equal(JSON.parse(kimi.body).text, 'KIMI_HOSTED_OK');
 
-  console.log('PASS: Pro-only QwenCloud, DeepSeek and Kimi routing, authenticated atomic 1,500-credit reservation, streaming, screen vision, and server-only provider keys.');
+  console.log('PASS: Pro-only QwenCloud, DeepSeek and Kimi routing, authenticated atomic 1,000-credit reservation, streaming, screen vision, and server-only provider keys.');
 })().catch(error => {
   console.error('HOSTED PROVIDER ROUTING TEST FAILED:', error);
   process.exitCode = 1;
