@@ -35,6 +35,7 @@ function verifyReleasePayload(directory) {
     return match;
   };
   requireMatch('Windows NSIS installer', /^Slickly-AI-Setup-.*\.exe$/i);
+  requireMatch('Android installable APK', /^Slickly-AI-Android\.apk$/i);
   requireMatch('Linux Debian package', /^slickly-ai_.*_amd64\.deb$/i);
   requireMatch('Linux AppImage', /\.AppImage$/i);
   requireMatch('macOS DMG', /\.dmg$/i);
