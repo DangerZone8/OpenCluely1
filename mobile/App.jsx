@@ -231,7 +231,7 @@ export default function App() {
             <Pressable onPress={() => { setAuthMode(mode => mode === 'signin' ? 'signup' : 'signin'); setError(''); }}>
               <Text style={styles.authSwitch}>{authMode === 'signup' ? 'Already have an account? Sign in' : 'New to SlicklyAI? Create an account'}</Text>
             </Pressable>
-            <Text style={styles.pricingNote}>Free to start · Pro ₹399/month · 1,500 shared monthly AI credits</Text>
+            <Text style={styles.pricingNote}>Free to start · Pro ₹399/month · 1,000 shared monthly AI credits</Text>
             <Pressable onPress={() => Linking.openURL('https://slicklyai.vercel.app/pricing.html')}>
               <Text style={styles.authSwitch}>Compare all plans and features ↗</Text>
             </Pressable>
