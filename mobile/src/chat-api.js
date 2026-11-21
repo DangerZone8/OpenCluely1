@@ -61,7 +61,7 @@ export async function requestAssistantReply({
 
   if (!response.ok) {
     if (response.status === 429) {
-      throw new Error('The shared AI service is busy or its usage limit has been reached. Please wait and try again.');
+      throw new Error('The shared AI service is busy or your available credits have been used up. Please wait and try again.');
     }
     if (response.status === 503) {
       throw new Error('The hosted AI service is temporarily unavailable. Please try again later.');
