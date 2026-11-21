@@ -78,7 +78,7 @@ assert.match(pricing,/Shared monthly AI credits/,'pricing must describe the shar
 assert.match(account,/Continue to secure payment/,'account checkout CTA must clearly describe the next step');
 assert.match(account,/Payment details are entered only on the provider checkout/,'card and bank details must remain on hosted checkout');
 assert.ok(pricing.includes('up to 20 requests / day'));
-assert.ok(pricing.includes('1,500 shared monthly AI credits'));
+assert.ok(pricing.includes('1,000 shared monthly AI credits'));
 assert.match(onboarding,/Welcome to SlicklyAI/);
 assert.match(onboarding,/googleSignInBtn/);
 assert.match(onboarding,/emailSignInBtn/);
