@@ -65,6 +65,11 @@ assert.doesNotMatch(account,/signInWithOtp/,'magic-link verification flow must b
 assert.match(account,/exchangeCodeForSession/,'desktop Google OAuth must exchange the returned PKCE code');
 assert.match(account,/slickly:\/\/auth\/callback/,'desktop Google OAuth must return through the registered app protocol');
 assert.match(main,/setAsDefaultProtocolClient\("slickly"\)/,'desktop must register the OAuth callback protocol');
+assert.match(main,/requestedAuthIntent/,'desktop account window must accept a constrained sign-in intent');
+assert.match(main,/accountUrl\.searchParams\.set\("auth", authIntent\)/,'desktop sign-in intent must be routed into the secure account page');
+assert.match(preload,/openSlicklyAccount: \(authIntent\)/,'preload must pass the selected sign-in method to the trusted account window');
+assert.match(onboarding,/openSlicklyAccount\('google'\)/,'welcome Google sign-in must use the desktop account session');
+assert.match(onboarding,/openSlicklyAccount\('email'\)/,'welcome email sign-in must use the desktop account session');
 assert.match(main,/shell\.openExternal/,'Google OAuth must use the system browser');
 assert.match(preload,/openOAuthUrl/,'trusted preload must expose validated OAuth launch');
 assert.match(pricing,/Shared monthly AI credits/,'pricing must describe the shared monthly credit balance');
