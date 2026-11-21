@@ -5,9 +5,14 @@ const assert = require('node:assert/strict');
 async function main() {
   const site = new URL(process.env.SLICKLY_SITE_URL || 'https://slicklyai.vercel.app');
   const configResponse = await fetch(new URL('/api/public-config', site), { cache: 'no-store' });
-  const config = await configResponse.json().catch(() => ({}));
+  const configText = await configResponse.text();
+  let config = {};
+  try { config = JSON.parse(configText); } catch (_) {}
+  const configDiagnostic = typeof config.error === 'string'
+    ? config.error
+    : 'non-JSON response (' + String(configResponse.headers.get('content-type') || 'unknown content type') + ', ' + configText.length + ' bytes)';
   assert.equal(configResponse.status, 200,
-    'Live Slickly public config returned HTTP ' + configResponse.status + '; missing Vercel variables: ' + JSON.stringify(config.missing || []) + '. Check SUPABASE_URL and SUPABASE_ANON_KEY/SUPABASE_PUBLISHABLE_KEY.');
+    'Live Slickly public config returned HTTP ' + configResponse.status + ' (' + configDiagnostic + '); missing Vercel variables: ' + JSON.stringify(config.missing || []) + '. Check SUPABASE_URL and SUPABASE_ANON_KEY/SUPABASE_PUBLISHABLE_KEY.');
   assert.match(config.supabaseUrl || '', /^https:\/\/[a-z0-9.-]+\.supabase\.co$/i,
     'Live public config must expose a valid Supabase project URL.');
   assert.ok(typeof config.supabaseAnonKey === 'string' && config.supabaseAnonKey.length >= 20,
