@@ -489,15 +489,29 @@
       .join('');
   }
 
-  $('#starBtn').addEventListener('click', () => {
+  function openSlicklyPage(path) {
+    const url = 'https://slicklyai.vercel.app' + path;
     if (window.electronAPI && window.electronAPI.openExternal) {
-      window.electronAPI.openExternal('https://github.com/DangerZone8/OpenCluely1');
+      window.electronAPI.openExternal(url);
     } else {
-      window.open('https://github.com/DangerZone8/OpenCluely1', '_blank');
+      window.open(url, '_blank', 'noopener,noreferrer');
     }
+  }
+  $('#googleSignInBtn').addEventListener('click', async () => {
+    try {
+      if (window.electronAPI?.openSlicklyAccount) await window.electronAPI.openSlicklyAccount('google');
+      else openSlicklyPage('/account.html?auth=google');
+    } catch (error) { console.error('Could not open Google sign-in:', error); }
   });
-  $('#skipStarBtn').addEventListener('click', () => {
-    // No-op — just visual closure
+  $('#emailSignInBtn').addEventListener('click', async () => {
+    try {
+      if (window.electronAPI?.openSlicklyAccount) await window.electronAPI.openSlicklyAccount('email');
+      else openSlicklyPage('/account.html?auth=email');
+    } catch (error) { console.error('Could not open email sign-in:', error); }
+  });
+  $('#viewPlansBtn').addEventListener('click', (event) => {
+    event.preventDefault();
+    openSlicklyPage('/pricing.html');
   });
 
   // ── Wire up: Hero CTA (welcome screen) ────────────────────────────

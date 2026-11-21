@@ -2,7 +2,13 @@
 
 const { json, authenticate, getConfig, safeError } = require('../_lib/slickly-auth');
 
+function hasGoogleIdentity(user) {
+  return user?.app_metadata?.provider === 'google' ||
+    (Array.isArray(user?.app_metadata?.providers) && user.app_metadata.providers.includes('google'));
+}
+
 function isAdmin(user) {
+  if (!hasGoogleIdentity(user)) return false;
   const allowed = [process.env.SLICKLY_REFERRAL_ADMIN_EMAILS || '', process.env.SLICKLY_ADMIN_EMAILS || '']
     .join(',').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
   return Boolean(user?.email && allowed.includes(String(user.email).toLowerCase()));

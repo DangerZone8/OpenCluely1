@@ -42,8 +42,8 @@ jobs:
           node-version: '24'
       - name: Verify production revision without calling Gemini
         env:
-          VERIFY_ONLY_ENDPOINT: https://slicklyai.vercel.app/api/gemini
-          SLICKLY_EXPECTED_API_REVISION: v175-fast-chat-2026-10-27-n
+          VERIFY_ONLY_ENDPOINT: ${{ github.event_name == 'pull_request' && 'https://slicklyai-git-fix-slickly-mainli-18360d-vlordvoldemort1234-5397.vercel.app/api/gemini' || 'https://slicklyai.vercel.app/api/gemini' }}
+          SLICKLY_EXPECTED_API_REVISION: v177-hosted-multiprovider-2026-11-15-a
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: node scripts/test-production-api-revision.js
 
@@ -64,13 +64,15 @@ jobs:
         id: livevision
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-          VERIFY_ONLY_ENDPOINT: https://slicklyai.vercel.app/api/gemini
+          VERIFY_ONLY_ENDPOINT: ${{ github.event_name == 'pull_request' && 'https://slicklyai-git-fix-slickly-mainli-18360d-vlordvoldemort1234-5397.vercel.app/api/gemini' || 'https://slicklyai.vercel.app/api/gemini' }}
+          SLICKLY_EXPECTED_API_REVISION: v177-hosted-multiprovider-2026-11-15-a
           ALLOW_OLD_API_REVISION: 'false'
         run: npm run test:screen-vision-live
       - name: Diagnose backup endpoints if production screen vision fails
         if: always() && steps.livevision.outcome == 'failure'
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          SLICKLY_EXPECTED_API_REVISION: v177-hosted-multiprovider-2026-11-15-a
           ALLOW_OLD_API_REVISION: 'true'
         run: npm run test:screen-vision-live
 
@@ -87,11 +89,17 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - name: Prepare authenticated Slickly test account session
+        env:
+          SLICKLY_SITE_URL: ${{ github.event_name == 'pull_request' && 'https://slicklyai-git-fix-slickly-mainli-18360d-vlordvoldemort1234-5397.vercel.app' || 'https://slicklyai.vercel.app' }}
+          SLICKLY_TEST_EMAIL: ${{ secrets.SLICKLY_TEST_EMAIL }}
+          SLICKLY_TEST_PASSWORD: ${{ secrets.SLICKLY_TEST_PASSWORD }}
+        run: node scripts/create-slickly-test-session.js
       - name: Verify live Gemini fast-chat behavior independently of screen vision
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-          OPENCLUELY_AI_ENDPOINT: https://slicklyai.vercel.app/api/gemini
+          OPENCLUELY_AI_ENDPOINT: ${{ github.event_name == 'pull_request' && 'https://slicklyai-git-fix-slickly-mainli-18360d-vlordvoldemort1234-5397.vercel.app/api/gemini' || 'https://slicklyai.vercel.app/api/gemini' }}
         run: |
           if [ -z "$GEMINI_API_KEY" ]; then
             echo "::error::GEMINI_API_KEY Actions secret is missing; direct Gemini and live-chat verification cannot be claimed."
@@ -132,6 +140,11 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - name: Prepare authenticated Slickly test account session
+        env:
+          SLICKLY_TEST_EMAIL: ${{ secrets.SLICKLY_TEST_EMAIL }}
+          SLICKLY_TEST_PASSWORD: ${{ secrets.SLICKLY_TEST_PASSWORD }}
+        run: node scripts/create-slickly-test-session.js
       - name: Install virtual-desktop runtime
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb xauth libgtk-3-0 libnss3 libxss1 libasound2t64 libgbm1
       - name: Exercise both actual desktop screen-AI buttons against production
@@ -170,8 +183,8 @@ jobs:
           node-version: '24'
       - name: Probe production chat and screen vision for 150 seconds
         env:
-          SLICKLY_DIAGNOSTIC_ENDPOINT: https://slicklyai.vercel.app/api/gemini
-          SLICKLY_EXPECTED_API_REVISION: v175-fast-chat-2026-10-27-n
+          SLICKLY_DIAGNOSTIC_ENDPOINT: ${{ github.event_name == 'pull_request' && 'https://slicklyai-git-fix-slickly-mainli-18360d-vlordvoldemort1234-5397.vercel.app/api/gemini' || 'https://slicklyai.vercel.app/api/gemini' }}
+          SLICKLY_EXPECTED_API_REVISION: v177-hosted-multiprovider-2026-11-15-a
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           SLICKLY_DIAGNOSTIC_DURATION_MS: '150000'
           SLICKLY_DIAGNOSTIC_INTERVAL_MS: '25000'
