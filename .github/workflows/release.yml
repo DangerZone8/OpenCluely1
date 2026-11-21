@@ -72,6 +72,7 @@ jobs:
       - name: Verify live Supabase and Google sign-in configuration
         env:
           SLICKLY_SITE_URL: ${{ github.event_name == 'pull_request' && 'https://slicklyai-git-fix-slickly-mainli-18360d-vlordvoldemort1234-5397.vercel.app' || 'https://slicklyai.vercel.app' }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: node scripts/test-slickly-live-auth.js
 
       - name: Prepare authenticated Slickly test account session
