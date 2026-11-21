@@ -439,10 +439,68 @@ jobs:
           path: ${{ matrix.artifact_glob }}
           if-no-files-found: error
 
+  mobile-android:
+    name: Build installable Android APK
+    needs: [test]
+    if: needs.test.result == 'success' && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up Java for Android Gradle
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install mobile dependencies
+        working-directory: mobile
+        run: npm install --no-audit --no-fund
+
+      - name: Generate native Android project
+        working-directory: mobile
+        run: npx expo prebuild --platform android --non-interactive
+
+      - name: Build signed release APK
+        working-directory: mobile/android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Verify APK signature and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="mobile/android/app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose "$APK"
+          mkdir -p mobile-release
+          cp "$APK" mobile-release/Slickly-AI-Android.apk
+          echo "PASS: Android APK is non-empty, signed, and ready for device installation."
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: slickly-ai-android-apk
+          path: mobile-release/Slickly-AI-Android.apk
+          if-no-files-found: error
+          retention-days: 30
+
   release:
     name: Create GitHub Release
-    needs: [test, preflight, build]
-    if: ${{ !cancelled() && needs.test.result == 'success' && needs.preflight.result == 'success' && needs.build.result == 'success' && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) }}
+    needs: [test, preflight, build, mobile-android]
+    if: ${{ !cancelled() && needs.test.result == 'success' && needs.preflight.result == 'success' && needs.build.result == 'success' && needs.mobile-android.result == 'success' && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (full history for changelog)
@@ -528,6 +586,7 @@ jobs:
           | Platform | File | Notes |
           |---|---|---|
           | **Windows** | `Slickly-AI-Setup-*.exe` | NSIS installer — installs app + adds to Start Menu |
+          | **Android** | `Slickly-AI-Android.apk` | Install from the Slickly website; Android may ask you to approve this download source |
           | **Linux** | `*.deb` | Debian/Ubuntu — auto-pulls system deps (Python, ffmpeg, GTK) |
           | **Linux** | `*.AppImage` | Universal — no install, just `chmod +x` and run |
           | **macOS** | `*.dmg` / `*.zip` | Intel and Apple Silicon builds; unsigned, so first launch may require approval in Privacy & Security |
@@ -579,6 +638,8 @@ jobs:
           # Use only the canonical matrix installer; the PR smoke-test artifact shares its filename.
           find artifacts/slickly-ai-windows-latest -type f -name 'Slickly-AI-Setup-*.exe' \
             -exec cp -v {} release/ \;
+          find artifacts/slickly-ai-android-apk -type f -name 'Slickly-AI-Android.apk' \
+            -exec cp -v {} release/ \\;
           find artifacts -type f -name 'slickly-ai_*_amd64.deb' \
             -exec cp -v {} release/ \;
           find artifacts -type f -name '*.AppImage' \
