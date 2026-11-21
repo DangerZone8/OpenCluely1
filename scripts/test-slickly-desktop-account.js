@@ -14,6 +14,7 @@ const chat=fs.readFileSync(path.join(__dirname,'../chat.html'),'utf8');
 const website=fs.readFileSync(path.join(__dirname,'../web/index.html'),'utf8');
 const pricing=fs.readFileSync(path.join(__dirname,'../web/pricing.html'),'utf8');
 const onboarding=fs.readFileSync(path.join(__dirname,'../onboarding.html'),'utf8');
+const onboardingScript=fs.readFileSync(path.join(__dirname,'../onboarding.js'),'utf8');
 assert.match(main,/new SlicklyAccountSession\(\)/);
 assert.match(main,/setAccountAccessTokenProvider/);
 assert.match(main,/open-slickly-account/);
@@ -69,8 +70,8 @@ assert.match(main,/setAsDefaultProtocolClient\("slickly"\)/,'desktop must regist
 assert.match(main,/requestedAuthIntent/,'desktop account window must accept a constrained sign-in intent');
 assert.match(main,/accountUrl\.searchParams\.set\("auth", authIntent\)/,'desktop sign-in intent must be routed into the secure account page');
 assert.match(appPreload,/openSlicklyAccount: \(authIntent\)/,'preload must pass the selected sign-in method to the trusted account window');
-assert.match(onboarding,/openSlicklyAccount\('google'\)/,'welcome Google sign-in must use the desktop account session');
-assert.match(onboarding,/openSlicklyAccount\('email'\)/,'welcome email sign-in must use the desktop account session');
+assert.match(onboardingScript,/openSlicklyAccount\('google'\)/,'welcome Google sign-in must use the desktop account session');
+assert.match(onboardingScript,/openSlicklyAccount\('email'\)/,'welcome email sign-in must use the desktop account session');
 assert.match(main,/shell\.openExternal/,'Google OAuth must use the system browser');
 assert.match(preload,/openOAuthUrl/,'trusted preload must expose validated OAuth launch');
 assert.match(pricing,/Shared monthly AI credits/,'pricing must describe the shared monthly credit balance');
