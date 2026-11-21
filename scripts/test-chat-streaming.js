@@ -20,6 +20,7 @@ async function testDesktopStreamClient() {
     process.env.SLICKLY_E2E_AI_ENDPOINT = 'https://stream-test.example/api/gemini';
     global.fetch = async (_url, options) => {
       assert.equal(options.headers['x-opencluely-stream'], '1');
+      assert.equal(options.headers.Authorization, 'Bearer stream-test-account-token');
       const encoder = new TextEncoder();
       return {
         ok: true,
