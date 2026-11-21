@@ -15,6 +15,10 @@ async function main() {
   assert.equal(JSON.stringify(config).includes('SUPABASE_SERVICE_ROLE_KEY'), false,
     'Public config must never expose the service-role key.');
 
+  const accountProbe = await fetch(new URL('/api/account/me', site), { cache: 'no-store' });
+  assert.equal(accountProbe.status, 401,
+    'Slickly account API must be configured and reject an unsigned request with HTTP 401 (not 503). This also verifies SUPABASE_SERVICE_ROLE_KEY is present.');
+
   const settingsResponse = await fetch(new URL('/auth/v1/settings', config.supabaseUrl), {
     headers: { apikey: config.supabaseAnonKey },
     cache: 'no-store'
