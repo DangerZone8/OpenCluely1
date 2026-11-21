@@ -78,13 +78,13 @@ async function testHostedStreamingHandler() {
       if (target.endsWith('/rest/v1/rpc/record_slickly_provider_usage')) {
         return { ok: true, text: async () => '[]' };
       }
-      assert.match(target, /:streamGenerateContent\\?alt=sse$/);
+      assert.match(target, /:streamGenerateContent\?alt=sse$/);
       return {
         ok: true,
         status: 200,
         body: Readable.from([
-          Buffer.from('data: {"candidates":[{"content":{"parts":[{"text":"Hello "}]}}]}\\n\\n'),
-          Buffer.from('data: {"candidates":[{"content":{"parts":[{"text":"there"}]}}]}\\n\\n')
+          Buffer.from('data: {"candidates":[{"content":{"parts":[{"text":"Hello "}]}}]}\n\n'),
+          Buffer.from('data: {"candidates":[{"content":{"parts":[{"text":"there"}]}}]}\n\n')
         ])
       };
     };
