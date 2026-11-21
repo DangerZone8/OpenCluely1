@@ -28,6 +28,8 @@ export default function App() {
   const [sending, setSending] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState('');
+  const [cloudAnnouncement, setCloudAnnouncement] = useState('');
+  const [cloudAnnouncementUrl, setCloudAnnouncementUrl] = useState('');
   const [supabase, setSupabase] = useState(null);
   const [session, setSession] = useState(null);
   const [email, setEmail] = useState('');
@@ -67,6 +69,47 @@ export default function App() {
     return () => {
       active = false;
       authSubscription?.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    let timer;
+    async function refreshCloudContent() {
+      let nextDelay = 15 * 60 * 1000;
+      try {
+        const response = await fetch('https://slicklyai.vercel.app/api/cloud-config', {
+          headers: { Accept: 'application/json' }
+        });
+        if (!response.ok) throw new Error('Cloud content is unavailable.');
+        const config = await response.json();
+        const enabled = config?.features?.cloudConfig !== false;
+        const presentation = config?.presentation && typeof config.presentation === 'object'
+          ? config.presentation : {};
+        const announcement = enabled && typeof presentation.announcement === 'string'
+          ? presentation.announcement.trim().slice(0, 240) : '';
+        const candidateUrl = typeof presentation.announcementUrl === 'string'
+          ? presentation.announcementUrl.trim() : '';
+        const safeUrl = /^https:\/\/(?:slicklyai\.vercel\.app|github\.com\/DangerZone8\/OpenCluely1)(?:\/|$)/.test(candidateUrl)
+          ? candidateUrl : '';
+        if (active) {
+          setCloudAnnouncement(announcement);
+          setCloudAnnouncementUrl(safeUrl);
+        }
+        if (Number.isInteger(config.pollIntervalMs) &&
+            config.pollIntervalMs >= 60000 && config.pollIntervalMs <= 86400000) {
+          nextDelay = config.pollIntervalMs;
+        }
+      } catch (_) {
+        // Keep the last known announcement visible and retry later while offline.
+      } finally {
+        if (active) timer = setTimeout(refreshCloudContent, nextDelay);
+      }
+    }
+    refreshCloudContent();
+    return () => {
+      active = false;
+      if (timer) clearTimeout(timer);
     };
   }, []);
 
@@ -210,6 +253,20 @@ export default function App() {
           </View>
         </View>
 
+        {!!cloudAnnouncement && (
+          <View style={styles.liveNotice}>
+            <View style={styles.liveNoticeCopy}>
+              <Text style={styles.liveNoticeLabel}>SLICKLY LIVE</Text>
+              <Text style={styles.liveNoticeText}>{cloudAnnouncement}</Text>
+            </View>
+            {!!cloudAnnouncementUrl && (
+              <Pressable accessibilityRole="link" onPress={() => Linking.openURL(cloudAnnouncementUrl).catch(() => {})} style={styles.liveNoticeLink}>
+                <Text style={styles.liveNoticeLinkText}>Open ↗</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+
         {initializing ? (
           <View style={styles.centerState}>
             <ActivityIndicator color="#a78bfa" size="large" />
@@ -312,6 +369,12 @@ const styles = StyleSheet.create({
   authInput: { backgroundColor: '#18181b', borderWidth: 1, borderColor: '#3f3f46', borderRadius: 12, color: '#fafafa', paddingHorizontal: 14, paddingVertical: 13, marginTop: 10 },
   authSwitch: { color: '#c4b5fd', textAlign: 'center', marginTop: 16, fontSize: 12, fontWeight: '600' },
   pricingNote: { color: '#a1a1aa', textAlign: 'center', fontSize: 11, marginTop: 18, lineHeight: 17 },
+  liveNotice: { marginHorizontal: 14, marginTop: 10, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: '#5b4a24', backgroundColor: '#211b10', flexDirection: 'row', alignItems: 'center', gap: 12 },
+  liveNoticeCopy: { flex: 1 },
+  liveNoticeLabel: { color: '#f5d76e', fontSize: 9, fontWeight: '800', letterSpacing: 1.4, marginBottom: 4 },
+  liveNoticeText: { color: '#f4e9c8', fontSize: 13, lineHeight: 19 },
+  liveNoticeLink: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, backgroundColor: '#3b2f18' },
+  liveNoticeLinkText: { color: '#f5d76e', fontSize: 11, fontWeight: '700' },
   header: {
     minHeight: 72, paddingHorizontal: 20, paddingVertical: 14,
     borderBottomWidth: 1, borderBottomColor: '#27272a',
