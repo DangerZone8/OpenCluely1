@@ -497,8 +497,18 @@
       window.open(url, '_blank', 'noopener,noreferrer');
     }
   }
-  $('#googleSignInBtn').addEventListener('click', () => openSlicklyPage('/account.html?auth=google'));
-  $('#emailSignInBtn').addEventListener('click', () => openSlicklyPage('/account.html?auth=email'));
+  $('#googleSignInBtn').addEventListener('click', async () => {
+    try {
+      if (window.electronAPI?.openSlicklyAccount) await window.electronAPI.openSlicklyAccount('google');
+      else openSlicklyPage('/account.html?auth=google');
+    } catch (error) { console.error('Could not open Google sign-in:', error); }
+  });
+  $('#emailSignInBtn').addEventListener('click', async () => {
+    try {
+      if (window.electronAPI?.openSlicklyAccount) await window.electronAPI.openSlicklyAccount('email');
+      else openSlicklyPage('/account.html?auth=email');
+    } catch (error) { console.error('Could not open email sign-in:', error); }
+  });
   $('#viewPlansBtn').addEventListener('click', (event) => {
     event.preventDefault();
     openSlicklyPage('/pricing.html');
