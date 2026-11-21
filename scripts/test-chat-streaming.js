@@ -10,11 +10,13 @@ async function testDesktopStreamClient() {
   const originalRemoteOnly = llm.remoteOnly;
   const originalInitialized = llm.isInitialized;
   const originalInstallationId = llm.installationId;
+  const originalAccountAccessTokenProvider = llm.accountAccessTokenProvider;
   const deltas = [];
   try {
     llm.remoteOnly = true;
     llm.isInitialized = true;
     llm.installationId = 'c9f26b40-3d45-4d1f-a6b5-7c12a3e4f501';
+    llm.setAccountAccessTokenProvider(async () => 'stream-test-account-token');
     process.env.SLICKLY_E2E_AI_ENDPOINT = 'https://stream-test.example/api/gemini';
     global.fetch = async (_url, options) => {
       assert.equal(options.headers['x-opencluely-stream'], '1');
@@ -43,6 +45,7 @@ async function testDesktopStreamClient() {
     llm.remoteOnly = originalRemoteOnly;
     llm.isInitialized = originalInitialized;
     llm.installationId = originalInstallationId;
+    llm.setAccountAccessTokenProvider(originalAccountAccessTokenProvider);
     if (originalEndpoint === undefined) delete process.env.SLICKLY_E2E_AI_ENDPOINT;
     else process.env.SLICKLY_E2E_AI_ENDPOINT = originalEndpoint;
   }
