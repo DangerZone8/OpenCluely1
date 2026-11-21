@@ -72,6 +72,6 @@ test('shows a useful message when the hosted service rate-limits a request', asy
       accessToken,
       fetchImpl: async () => ({ ok: false, status: 429, json: async () => ({ error: 'rate limit' }) })
     }),
-    /usage limit/
+    /available credits/
   );
 });
