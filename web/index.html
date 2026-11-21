@@ -553,10 +553,12 @@
           var macArm = findAsset(assets, [/arm64.*\.dmg$/i, /arm64.*\.zip$/i]);
           var macIntel = findAsset(assets, [/^Slickly\.AI-.*\.dmg$/i, /^(?!.*arm64).*\.zip$/i]);
           var linux = findAsset(assets, [/\.AppImage$/i, /_amd64\.deb$/i, /\.deb$/i]);
+          var android = findAsset(assets, [/^Slickly-AI-Android\.apk$/i, /\.apk$/i]);
           setLink(links.windows, windows, "Windows", "EXE");
           setLink(macArmLink, macArm, "macOS", "APPLE SILICON DMG");
           setLink(macIntelLink, macIntel, "macOS", "INTEL DMG");
           setLink(links.linux, linux, "Linux", linux && /\.deb$/i.test(linux.name) ? "DEB" : "APPIMAGE");
+          setLink(links.android, android, "Android", "APK");
           var os = detectOS();
           var selected = os === "windows" ? windows : os === "mac" ? (macIntel || macArm) : os === "linux" ? linux : os === "android" ? android : null;
           if (selected) {
