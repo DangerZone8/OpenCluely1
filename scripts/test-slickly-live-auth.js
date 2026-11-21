@@ -15,6 +15,17 @@ async function main() {
   assert.equal(JSON.stringify(config).includes('SUPABASE_SERVICE_ROLE_KEY'), false,
     'Public config must never expose the service-role key.');
 
+  const settingsResponse = await fetch(new URL('/auth/v1/settings', config.supabaseUrl), {
+    headers: { apikey: config.supabaseAnonKey },
+    cache: 'no-store'
+  });
+  assert.equal(settingsResponse.status, 200, 'Supabase Auth settings must be readable for sign-in verification.');
+  const settings = await settingsResponse.json();
+  assert.equal(settings.external?.email, true, 'Supabase email/password sign-in provider must be enabled.');
+  assert.equal(settings.mailer_autoconfirm, false,
+    'Supabase email confirmations must be disabled so signup returns an active session.');
+  assert.notEqual(settings.disable_signup, true, 'Supabase must allow new account signups.');
+
   async function verifyGoogleRedirect(redirectTo, label) {
     const authorize = new URL('/auth/v1/authorize', config.supabaseUrl);
     authorize.searchParams.set('provider', 'google');
