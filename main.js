@@ -710,9 +710,14 @@ class ApplicationController {
   }
 
   setupIPCHandlers() {
-  ipcMain.handle("open-slickly-account", async () => {
+  ipcMain.handle("open-slickly-account", async (_event, requestedAuthIntent) => {
+    const authIntent = requestedAuthIntent === "google" || requestedAuthIntent === "email" ? requestedAuthIntent : "";
+    const accountUrl = new URL("https://slicklyai.vercel.app/account.html");
+    accountUrl.searchParams.set("desktop", "1");
+    if (authIntent) accountUrl.searchParams.set("auth", authIntent);
     if (this.accountWindow && !this.accountWindow.isDestroyed()) {
       this.accountWindow.focus();
+      if (authIntent) await this.accountWindow.loadURL(accountUrl.toString());
       return { opened: true };
     }
     const accountWindow = new BrowserWindow({
@@ -734,7 +739,7 @@ class ApplicationController {
       catch (_) { event.preventDefault(); }
     });
     accountWindow.on("closed", () => { if (this.accountWindow === accountWindow) this.accountWindow = null; });
-    await accountWindow.loadURL("https://slicklyai.vercel.app/account.html?desktop=1");
+    await accountWindow.loadURL(accountUrl.toString());
     this.deliverPendingSlicklyOAuthCode();
     return { opened: true };
   });
