@@ -64,7 +64,7 @@ jobs:
         id: livevision
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-          VERIFY_ONLY_ENDPOINT: https://slicklyai.vercel.app/api/gemini
+          VERIFY_ONLY_ENDPOINT: ${{ github.event_name == 'pull_request' && 'https://slicklyai-git-fix-slickly-mainli-18360d-vlordvoldemort1234-5397.vercel.app/api/gemini' || 'https://slicklyai.vercel.app/api/gemini' }}
           SLICKLY_EXPECTED_API_REVISION: v177-hosted-multiprovider-2026-11-15-a
           ALLOW_OLD_API_REVISION: 'false'
         run: npm run test:screen-vision-live
@@ -183,7 +183,7 @@ jobs:
           node-version: '24'
       - name: Probe production chat and screen vision for 150 seconds
         env:
-          SLICKLY_DIAGNOSTIC_ENDPOINT: https://slicklyai.vercel.app/api/gemini
+          SLICKLY_DIAGNOSTIC_ENDPOINT: ${{ github.event_name == 'pull_request' && 'https://slicklyai-git-fix-slickly-mainli-18360d-vlordvoldemort1234-5397.vercel.app/api/gemini' || 'https://slicklyai.vercel.app/api/gemini' }}
           SLICKLY_EXPECTED_API_REVISION: v177-hosted-multiprovider-2026-11-15-a
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           SLICKLY_DIAGNOSTIC_DURATION_MS: '150000'
