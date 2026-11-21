@@ -70,10 +70,13 @@ jobs:
         run: npm run check
 
       - name: Verify live Supabase and Google sign-in configuration
+        env:
+          SLICKLY_SITE_URL: ${{ github.event_name == 'pull_request' && 'https://slicklyai-git-fix-slickly-mainli-18360d-vlordvoldemort1234-5397.vercel.app' || 'https://slicklyai.vercel.app' }}
         run: node scripts/test-slickly-live-auth.js
 
       - name: Prepare authenticated Slickly test account session
         env:
+          SLICKLY_SITE_URL: ${{ github.event_name == 'pull_request' && 'https://slicklyai-git-fix-slickly-mainli-18360d-vlordvoldemort1234-5397.vercel.app' || 'https://slicklyai.vercel.app' }}
           SLICKLY_TEST_EMAIL: ${{ secrets.SLICKLY_TEST_EMAIL }}
           SLICKLY_TEST_PASSWORD: ${{ secrets.SLICKLY_TEST_PASSWORD }}
         run: node scripts/create-slickly-test-session.js
