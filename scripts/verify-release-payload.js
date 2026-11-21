@@ -57,7 +57,7 @@ function verifyReleasePayload(directory) {
 if (require.main === module) {
   try {
     const result = verifyReleasePayload(path.resolve(process.argv[2] || 'release'));
-    console.log('PASS: all Windows/Linux/macOS release artifacts, update manifests, referenced files, sizes, SHA-512 hashes, and blockmap are present and consistent.');
+    console.log('PASS: Windows, Android, Linux and macOS release artifacts, update manifests, referenced files, sizes, SHA-512 hashes, and blockmap are present and consistent.');
     console.log(JSON.stringify(result, null, 2));
   } catch (error) {
     console.error(error.message);
