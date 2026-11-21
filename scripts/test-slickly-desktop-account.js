@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const main=fs.readFileSync(path.join(__dirname,'../main.js'),'utf8');
 const preload=fs.readFileSync(path.join(__dirname,'../account-preload.js'),'utf8');
+const appPreload=fs.readFileSync(path.join(__dirname,'../preload.js'),'utf8');
 const apiGemini=fs.readFileSync(path.join(__dirname,'../api/gemini.js'),'utf8');
 const service=fs.readFileSync(path.join(__dirname,'../src/services/account-session.service.js'),'utf8');
 const llm=fs.readFileSync(path.join(__dirname,'../src/services/llm.service.js'),'utf8');
@@ -67,7 +68,7 @@ assert.match(account,/slickly:\/\/auth\/callback/,'desktop Google OAuth must ret
 assert.match(main,/setAsDefaultProtocolClient\("slickly"\)/,'desktop must register the OAuth callback protocol');
 assert.match(main,/requestedAuthIntent/,'desktop account window must accept a constrained sign-in intent');
 assert.match(main,/accountUrl\.searchParams\.set\("auth", authIntent\)/,'desktop sign-in intent must be routed into the secure account page');
-assert.match(preload,/openSlicklyAccount: \(authIntent\)/,'preload must pass the selected sign-in method to the trusted account window');
+assert.match(appPreload,/openSlicklyAccount: \(authIntent\)/,'preload must pass the selected sign-in method to the trusted account window');
 assert.match(onboarding,/openSlicklyAccount\('google'\)/,'welcome Google sign-in must use the desktop account session');
 assert.match(onboarding,/openSlicklyAccount\('email'\)/,'welcome email sign-in must use the desktop account session');
 assert.match(main,/shell\.openExternal/,'Google OAuth must use the system browser');
