@@ -29,6 +29,7 @@ async function run() {
   const assets = [
     { name: "latest.yml", browser_download_url: "https://github.com/DangerZone8/OpenCluely1/releases/download/v9.9.9/latest.yml" },
     { name: "Slickly-AI-Setup-9.9.9.exe", browser_download_url: "https://github.com/DangerZone8/OpenCluely1/releases/download/v9.9.9/Slickly-AI-Setup-9.9.9.exe" },
+    'Slickly-AI-Android.apk',
     { name: "Slickly-AI-Setup-9.9.9.exe.blockmap", browser_download_url: "https://github.com/DangerZone8/OpenCluely1/releases/download/v9.9.9/Slickly-AI-Setup-9.9.9.exe.blockmap" }
   ];
   try {
