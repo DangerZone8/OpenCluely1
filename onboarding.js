@@ -489,15 +489,19 @@
       .join('');
   }
 
-  $('#starBtn').addEventListener('click', () => {
+  function openSlicklyPage(path) {
+    const url = 'https://slicklyai.vercel.app' + path;
     if (window.electronAPI && window.electronAPI.openExternal) {
-      window.electronAPI.openExternal('https://github.com/DangerZone8/OpenCluely1');
+      window.electronAPI.openExternal(url);
     } else {
-      window.open('https://github.com/DangerZone8/OpenCluely1', '_blank');
+      window.open(url, '_blank', 'noopener,noreferrer');
     }
-  });
-  $('#skipStarBtn').addEventListener('click', () => {
-    // No-op — just visual closure
+  }
+  $('#googleSignInBtn').addEventListener('click', () => openSlicklyPage('/account.html?auth=google'));
+  $('#emailSignInBtn').addEventListener('click', () => openSlicklyPage('/account.html?auth=email'));
+  $('#viewPlansBtn').addEventListener('click', (event) => {
+    event.preventDefault();
+    openSlicklyPage('/pricing.html');
   });
 
   // ── Wire up: Hero CTA (welcome screen) ────────────────────────────
