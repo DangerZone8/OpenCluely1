@@ -29,6 +29,7 @@ export function buildGeminiPayload(messages) {
 export async function requestAssistantReply({
   messages,
   installId,
+  accessToken,
   fetchImpl = fetch,
   apiUrl = DEFAULT_API_URL
 }) {
@@ -36,10 +37,15 @@ export async function requestAssistantReply({
     throw new Error('The app could not initialize its secure installation identifier. Restart Slickly and try again.');
   }
 
+  if (typeof accessToken !== 'string' || accessToken.length < 20) {
+    throw new Error('Sign in to your Slickly account before sending a message.');
+  }
+
   const response = await fetchImpl(apiUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + accessToken,
       'x-opencluely-install-id': installId,
       'x-opencluely-feature': 'chat'
     },
