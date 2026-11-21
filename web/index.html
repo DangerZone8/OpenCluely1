@@ -122,7 +122,7 @@
     .download-recommend .os-label{font:11px var(--mono);color:#c8e879;text-transform:uppercase;margin-bottom:10px}
     .download-recommend h3{font:600 25px var(--display);margin:0 0 8px;letter-spacing:-.04em}
     .download-recommend p{margin:0;color:#aab3a6;font-size:13px;line-height:1.5}
-    .download-platforms{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+    .download-platforms{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
     .platform-link{min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:18px;padding:20px 17px;border:1px solid #455044;border-radius:var(--radius);text-decoration:none;transition:background .18s,border-color .18s}
     .platform-link:hover{background:#2d372d;border-color:#c8e879}
     .platform-link .platform-name{font:600 15px var(--display)}
@@ -457,6 +457,7 @@
             <a class="platform-link" id="windows-download" href="#download"><span class="platform-name">Windows</span><span class="platform-action">CHECKING · EXE ↗</span></a>
             <div class="platform-link platform-link--mac"><span class="platform-name">macOS</span><div class="platform-actions"><a class="platform-action" id="mac-arm-download" href="#download">Apple silicon · checking ↗</a><a class="platform-action" id="mac-intel-download" href="#download">Intel · checking ↗</a></div></div>
             <a class="platform-link" id="linux-download" href="#download"><span class="platform-name">Linux</span><span class="platform-action">CHECKING · APPIMAGE ↗</span></a>
+            <a class="platform-link" id="android-download" href="#download"><span class="platform-name">Android</span><span class="platform-action">CHECKING · APK ↗</span></a>
           </div>
         </div>
         <p class="download-status" id="release-status" role="status" aria-live="polite">Checking GitHub for the latest published release…</p>
@@ -493,7 +494,8 @@
       var byId = function (id) { return document.getElementById(id); };
       var links = {
         windows: byId("windows-download"),
-        linux: byId("linux-download")
+        linux: byId("linux-download"),
+        android: byId("android-download")
       };
       var macArmLink = byId("mac-arm-download");
       var macIntelLink = byId("mac-intel-download");
@@ -507,8 +509,8 @@
       function setLink(link, asset, label, extension) {
         var action = link.querySelector(".platform-action") || (link.classList.contains("platform-action") ? link : null);
         if (!asset) {
-          link.href = fallback;
-          if (action) action.textContent = "VIEW RELEASE ↗";
+          link.href = "#download";
+          if (action) action.textContent = "NOT PUBLISHED YET";
           else link.textContent = label + " unavailable";
           return;
         }
@@ -518,6 +520,7 @@
       }
       function detectOS() {
         var ua = navigator.userAgent || "";
+        if (/Android/i.test(ua)) return "android";
         if (/Windows/i.test(ua)) return "windows";
         if (/Macintosh|Mac OS X/i.test(ua)) return "mac";
         if (/Linux|X11/i.test(ua)) return "linux";
@@ -533,10 +536,10 @@
       function showFailure() {
         status.textContent = "The latest release could not be loaded. You can still inspect all published builds on GitHub.";
         version.textContent = "Release lookup unavailable";
-        recommended.href = fallback;
-        recommended.textContent = "View releases ↗";
-        heroDownload.href = fallback;
-        heroDownload.textContent = "View releases ↗";
+        recommended.href = "#download";
+        recommended.textContent = "Downloads temporarily unavailable";
+        heroDownload.href = "#download";
+        heroDownload.textContent = "Check downloads";
         Object.keys(links).forEach(function (key) { setLink(links[key], null, key, ""); });
       }
       fetch(API, { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" })
@@ -555,17 +558,17 @@
           setLink(macIntelLink, macIntel, "macOS", "INTEL DMG");
           setLink(links.linux, linux, "Linux", linux && /\.deb$/i.test(linux.name) ? "DEB" : "APPIMAGE");
           var os = detectOS();
-          var selected = os === "windows" ? windows : os === "mac" ? (macIntel || macArm) : os === "linux" ? linux : null;
+          var selected = os === "windows" ? windows : os === "mac" ? (macIntel || macArm) : os === "linux" ? linux : os === "android" ? android : null;
           if (selected) {
             recommended.href = downloadUrl(selected);
             recommended.textContent = "Download for " + (os === "mac" ? "macOS" : os.charAt(0).toUpperCase() + os.slice(1)) + " ↗";
             heroDownload.href = downloadUrl(selected);
             heroDownload.innerHTML = "Download for " + (os === "mac" ? "macOS" : os.charAt(0).toUpperCase() + os.slice(1)) + ' <span class="arrow">↗</span>';
-            byId("recommend-label").textContent = "READY FOR YOUR DESKTOP";
+            byId("recommend-label").textContent = os === "android" ? "READY FOR YOUR PHONE" : "READY FOR YOUR DEVICE";
             byId("recommend-title").textContent = release.tag_name || "Latest release";
             byId("recommend-detail").textContent = selected.name;
           } else {
-            recommended.href = release.html_url || fallback;
+            recommended.href = "#download";
             recommended.textContent = "Choose a release ↗";
             heroDownload.href = "#download";
             heroDownload.innerHTML = 'Choose your platform <span class="arrow">↓</span>';
@@ -573,7 +576,7 @@
             byId("recommend-title").textContent = release.tag_name || "Slickly";
             byId("recommend-detail").textContent = "Select your operating system to find its installer.";
           }
-          version.innerHTML = '<span class="dot"></span>' + (release.tag_name || "Latest release") + " · desktop builds";
+          version.innerHTML = '<span class="dot"></span>' + (release.tag_name || "Latest release") + " · desktop and Android builds";
           status.textContent = (release.tag_name || "Latest release") + " · " + assets.length + " published release assets. Downloads are served through the Slickly website.";
         })
         .catch(showFailure);
