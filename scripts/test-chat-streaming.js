@@ -53,20 +53,38 @@ async function testHostedStreamingHandler() {
   const originalFetch = global.fetch;
   const envNames = [
     'GEMINI_API_KEY', 'GEMINI_API_KEYS', 'GEMINI_API_KEY_2', 'GEMINI_API_KEY_3',
-    'GOOGLE_API_KEY', 'GOOGLE_GENAI_API_KEY', 'GOOGLE_GENERATIVE_AI_API_KEY'
+    'GOOGLE_API_KEY', 'GOOGLE_GENAI_API_KEY', 'GOOGLE_GENERATIVE_AI_API_KEY',
+    'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'
   ];
   const originalEnv = Object.fromEntries(envNames.map(name => [name, process.env[name]]));
   try {
     for (const name of envNames) delete process.env[name];
     process.env.GEMINI_API_KEY = 'stream-test-secret';
-    global.fetch = async (url) => {
-      assert.match(String(url), /:streamGenerateContent\?alt=sse$/);
+    process.env.SUPABASE_URL = 'https://stream-test.supabase.co';
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'stream-test-service-role-secret';
+    global.fetch = async (url, options = {}) => {
+      const target = String(url);
+      if (target.endsWith('/auth/v1/user')) {
+        assert.equal(options.headers.Authorization, 'Bearer stream-test-account-token');
+        return { ok: true, json: async () => ({ id: '123e4567-e89b-42d3-a456-426614174000' }) };
+      }
+      if (target.endsWith('/rest/v1/rpc/consume_slickly_credit_v2')) {
+        return { ok: true, text: async () => JSON.stringify({
+          allowed: true, used: 1, remaining: 6, daily_limit: 7,
+          resets_at: '2026-11-22T00:00:00Z', plan: 'free',
+          monthly_used: 0, monthly_remaining: 0, monthly_limit: 0
+        }) };
+      }
+      if (target.endsWith('/rest/v1/rpc/record_slickly_provider_usage')) {
+        return { ok: true, text: async () => '[]' };
+      }
+      assert.match(target, /:streamGenerateContent\\?alt=sse$/);
       return {
         ok: true,
         status: 200,
         body: Readable.from([
-          Buffer.from('data: {"candidates":[{"content":{"parts":[{"text":"Hello "}]}}]}\n\n'),
-          Buffer.from('data: {"candidates":[{"content":{"parts":[{"text":"there"}]}}]}\n\n')
+          Buffer.from('data: {"candidates":[{"content":{"parts":[{"text":"Hello "}]}}]}\\n\\n'),
+          Buffer.from('data: {"candidates":[{"content":{"parts":[{"text":"there"}]}}]}\\n\\n')
         ])
       };
     };
@@ -86,6 +104,7 @@ async function testHostedStreamingHandler() {
     await handler({
       method: 'POST',
       headers: {
+        authorization: 'Bearer stream-test-account-token',
         'x-opencluely-install-id': '2f78a8d0-9913-4ab5-a2e3-cc3c02e5d601',
         'x-opencluely-stream': '1'
       },
