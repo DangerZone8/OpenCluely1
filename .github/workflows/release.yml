@@ -68,6 +68,12 @@ jobs:
       - name: Verify live Supabase and Google sign-in configuration
         run: node scripts/test-slickly-live-auth.js
 
+      - name: Prepare authenticated Slickly test account session
+        env:
+          SLICKLY_TEST_EMAIL: ${{ secrets.SLICKLY_TEST_EMAIL }}
+          SLICKLY_TEST_PASSWORD: ${{ secrets.SLICKLY_TEST_PASSWORD }}
+        run: node scripts/create-slickly-test-session.js
+
       - name: Verify Vercel update-feed routing
         run: node scripts/test-vercel-update-feed.js
 
