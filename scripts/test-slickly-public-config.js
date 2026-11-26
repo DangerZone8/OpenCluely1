@@ -22,22 +22,28 @@ function response() {
     const missing = response();
     publicConfig({ method: 'GET' }, missing);
     assert.equal(missing.statusCode, 503);
-    assert.deepEqual(JSON.parse(missing.body).missing, ['SUPABASE_URL', 'SUPABASE_ANON_KEY or SUPABASE_PUBLISHABLE_KEY']);
+    assert.deepEqual(JSON.parse(missing.body).missing, ['SUPABASE_URL (must be a valid HTTPS Supabase project URL)', 'SUPABASE_ANON_KEY or SUPABASE_PUBLISHABLE_KEY']);
 
-    process.env.SUPABASE_URL = 'https://example-project.supabase.co';
+    process.env.SUPABASE_URL = '  "https://example-project.supabase.co/auth/v1"  ';
     process.env.SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test_public_key_123456789';
     const ready = response();
     publicConfig({ method: 'GET' }, ready);
     assert.equal(ready.statusCode, 200);
     const body = JSON.parse(ready.body);
-    assert.equal(body.supabaseUrl, process.env.SUPABASE_URL);
+    assert.equal(body.supabaseUrl, 'https://example-project.supabase.co');
     assert.equal(body.supabaseAnonKey, process.env.SUPABASE_PUBLISHABLE_KEY);
     assert.equal(JSON.stringify(body).includes('never-return-this-server-secret'), false);
 
     const wrongMethod = response();
     publicConfig({ method: 'POST' }, wrongMethod);
     assert.equal(wrongMethod.statusCode, 405);
-    console.log('PASS: public Supabase config reports missing URL/public key and never exposes the service-role secret.');
+    process.env.SUPABASE_URL = 'http://example-project.supabase.co';
+    const insecure = response();
+    publicConfig({ method: 'GET' }, insecure);
+    assert.equal(insecure.statusCode, 503);
+    assert.match(JSON.parse(insecure.body).missing[0], /HTTPS/);
+
+    console.log('PASS: public Supabase config normalizes quoted/path URLs, rejects insecure URLs, supports publishable keys, and never exposes the service-role secret.');
   } finally {
     for (const name of names) {
       if (saved[name] === undefined) delete process.env[name];
