@@ -463,9 +463,13 @@ class ApplicationController {
       appVersion: app.getVersion(),
       logger,
     });
+    const { promptLoader } = require("./prompt-loader");
+    const applyContentPack = snapshot => promptLoader.setRemotePrompts(snapshot?.contentPack?.prompts || {});
+    applyContentPack(this.cloudConfigService.getSnapshot());
     const refresh = async () => {
       try {
         const snapshot = await this.cloudConfigService.refresh();
+        applyContentPack(snapshot);
         windowManager.broadcastToAllWindows("cloud-config-updated", snapshot);
       } catch (error) {
         logger.warn("Slickly cloud configuration refresh failed; cached settings remain active", {
