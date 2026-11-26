@@ -202,6 +202,7 @@ module.exports = async function handler(req, res) {
   let authenticatedAccount = null;
   let reservedFeature = 'chat';
   let anonymousUser = false;
+  let anonymousCreditsRemaining = null;
   try {
     const authorization = String(req.headers.authorization || '').trim();
     const hasAudio = hasAudioRequest;
@@ -219,7 +220,7 @@ module.exports = async function handler(req, res) {
       }
       const crypto = require('node:crypto');
       const identityHash = crypto.createHmac('sha256', process.env.SUPABASE_SERVICE_ROLE_KEY || '')
-        .update(ip + '\n' + installId)
+        .update(ip + '\n' + String(req.headers['user-agent'] || 'unknown'))
         .digest('hex');
       const result = await rpc({
         supabaseUrl: String(process.env.SUPABASE_URL || '').replace(/\/$/, ''),
@@ -243,6 +244,7 @@ module.exports = async function handler(req, res) {
         });
       }
       anonymousUser = true;
+      anonymousCreditsRemaining = Number(row.remaining) || 0;
       hostedProviderId = 'gemini';
     } else {
       const account = await authenticate(req);
@@ -265,7 +267,7 @@ module.exports = async function handler(req, res) {
       if (!row || typeof row.allowed !== 'boolean') {
         return respond(res, 503, { error: 'Slickly could not verify your AI allowance. No provider request was made.' });
       }
-      const premiumProvider = String(process.env.SLICKLY_PRO_HOSTED_AI_PROVIDER || 'deepseek').trim().toLowerCase();
+      const premiumProvider = String(process.env.SLICKLY_PRO_HOSTED_AI_PROVIDER || hostedProviderOverride || 'deepseek').trim().toLowerCase();
       const premiumKeyAvailable = premiumProvider === 'qwencloud'
         ? Boolean(process.env.SLICKLY_QWENCLOUD_API_KEY || process.env.QWENCLOUD_API_KEY)
         : premiumProvider === 'deepseek'
@@ -330,11 +332,12 @@ module.exports = async function handler(req, res) {
         res.setHeader('X-Accel-Buffering', 'no');
         res.setHeader('X-Content-Type-Options', 'nosniff');
         res.setHeader('X-OpenCluely-API-Revision', 'v177-hosted-multiprovider-2026-11-15-a');
-        res.write('data: ' + JSON.stringify({ text }) + '\n\n');
+        if (anonymousUser) res.setHeader('X-Slickly-Anonymous-Credits-Remaining', String(anonymousCreditsRemaining));
+        res.write('data: ' + JSON.stringify({ text, ...(anonymousUser ? { anonymous: { creditsRemaining: anonymousCreditsRemaining, creditsLimit: 5 } } : {}) }) + '\n\n');
         res.write('data: [DONE]\\n\\n');
         return res.end();
       }
-      return respond(res, 200, { text, model: provider.model, provider: provider.id });
+      return respond(res, 200, { text, model: provider.model, provider: provider.id, ...(anonymousUser ? { anonymous: { creditsRemaining: anonymousCreditsRemaining, creditsLimit: 5 } } : {}) });
     } catch (error) {
       const message = String(error?.message || error);
       console.error('[Slickly hosted provider error]', JSON.stringify({
@@ -425,6 +428,7 @@ module.exports = async function handler(req, res) {
           res.setHeader('X-Accel-Buffering', 'no');
           res.setHeader('X-Content-Type-Options', 'nosniff');
           res.setHeader('X-OpenCluely-API-Revision', 'v176-streaming-chat-2026-11-06-a');
+          if (anonymousUser) res.setHeader('X-Slickly-Anonymous-Credits-Remaining', String(anonymousCreditsRemaining));
           const decoder = new TextDecoder();
           let buffer = '';
           let streamedCharacters = 0;
@@ -554,7 +558,7 @@ module.exports = async function handler(req, res) {
               console.info('[Slickly Gemini usage]', JSON.stringify({ model, ...usage }));
               await recordProviderUsage(authenticatedAccount, reservedFeature, model, usage);
             }
-            return respond(res, 200, { text, model, ...(usage ? { usage } : {}) });
+            return respond(res, 200, { text, model, ...(usage ? { usage } : {}), ...(anonymousUser ? { anonymous: { creditsRemaining: anonymousCreditsRemaining, creditsLimit: 5 } } : {}) });
           }
           lastFailure = { status: 502, code: 'EMPTY_RESPONSE', message: 'The model returned no text.' };
           break;
