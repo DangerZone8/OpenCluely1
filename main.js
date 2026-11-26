@@ -466,9 +466,26 @@ class ApplicationController {
     const { promptLoader } = require("./prompt-loader");
     const initialSnapshot = this.cloudConfigService.getSnapshot();
     let lastAnnouncedRevision = initialSnapshot.revision;
+    const announcedEventIds = new Set();
     const applyContentPack = snapshot => promptLoader.setRemotePrompts(snapshot?.contentPack?.prompts || {});
+    const notifyActiveContentEvents = snapshot => {
+      if (!Notification.isSupported()) return;
+      const now = Date.now();
+      for (const event of snapshot?.contentPack?.events || []) {
+        if (Date.parse(event.startsAt) <= now && Date.parse(event.endsAt) > now &&
+            !announcedEventIds.has(event.id)) {
+          announcedEventIds.add(event.id);
+          try {
+            new Notification({ title: event.title, body: event.body }).show();
+          } catch (error) {
+            logger.warn("Could not display Slickly live event", { eventId: event.id, error: error.message });
+          }
+        }
+      }
+    };
     const applyCloudSnapshot = snapshot => {
       applyContentPack(snapshot);
+      notifyActiveContentEvents(snapshot);
       if (snapshot.revision !== lastAnnouncedRevision) {
         lastAnnouncedRevision = snapshot.revision;
         const announcement = snapshot.presentation?.announcement;
@@ -482,6 +499,7 @@ class ApplicationController {
       }
     };
     applyContentPack(initialSnapshot);
+    notifyActiveContentEvents(initialSnapshot);
     const refresh = async () => {
       try {
         const snapshot = await this.cloudConfigService.refresh();
