@@ -4,7 +4,16 @@ const assert = require('node:assert/strict');
 
 async function main() {
   const site = String(process.env.SLICKLY_SITE_URL || 'https://slicklyai.vercel.app').replace(/\/$/, '');
-  const supabaseUrl = String(process.env.SUPABASE_URL || '').replace(/\/$/, '');
+  const rawSupabaseUrl = String(process.env.SUPABASE_URL || '').trim().replace(/^["']|["']$/g, '');
+  let supabaseUrl = '';
+  try {
+    const parsedSupabaseUrl = new URL(rawSupabaseUrl);
+    if (parsedSupabaseUrl.protocol === 'https:' && parsedSupabaseUrl.hostname &&
+        !parsedSupabaseUrl.username && !parsedSupabaseUrl.password &&
+        !parsedSupabaseUrl.search && !parsedSupabaseUrl.hash) {
+      supabaseUrl = parsedSupabaseUrl.origin;
+    }
+  } catch {}
   const serviceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '');
   const accessToken = String(process.env.SLICKLY_E2E_ACCESS_TOKEN || '');
   const userId = String(process.env.SLICKLY_E2E_USER_ID || '');
