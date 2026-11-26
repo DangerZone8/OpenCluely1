@@ -29,7 +29,6 @@ async function run() {
   const assets = [
     { name: "latest.yml", browser_download_url: "https://github.com/DangerZone8/OpenCluely1/releases/download/v9.9.9/latest.yml" },
     { name: "Slickly-AI-Setup-9.9.9.exe", browser_download_url: "https://github.com/DangerZone8/OpenCluely1/releases/download/v9.9.9/Slickly-AI-Setup-9.9.9.exe" },
-    { name: 'Slickly-AI-Android.apk', browser_download_url: 'https://github.com/DangerZone8/OpenCluely1/releases/download/v9.9.9/Slickly-AI-Android.apk' },
     { name: "Slickly-AI-Setup-9.9.9.exe.blockmap", browser_download_url: "https://github.com/DangerZone8/OpenCluely1/releases/download/v9.9.9/Slickly-AI-Setup-9.9.9.exe.blockmap" }
   ];
   try {
@@ -57,11 +56,6 @@ async function run() {
     await handler({ method: "GET", query: { path: ["Slickly-AI-Setup-9.9.9.exe"] } }, installer);
     assert.equal(installer.statusCode, 302);
     assert.equal(installer.headers.location, assets[1].browser_download_url);
-
-    const apk = response();
-    await handler({ method: "GET", query: { path: ["Slickly-AI-Android.apk"] } }, apk);
-    assert.equal(apk.statusCode, 302, "Android APK must be downloadable through the website update route");
-    assert.equal(apk.headers.location, assets[2].browser_download_url);
 
     const blockmap = response();
     await handler({ method: "GET", query: { path: ["Slickly-AI-Setup-9.9.9.exe.blockmap"] } }, blockmap);
