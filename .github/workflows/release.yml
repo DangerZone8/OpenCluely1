@@ -509,6 +509,31 @@ jobs:
         working-directory: mobile
         run: npm install --no-audit --no-fund
 
+      - name: Sync native mobile app version with release
+        working-directory: mobile
+        shell: bash
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            VERSION="$REQUESTED_VERSION"
+          else
+            VERSION="$(tr -d '[:space:]' < ../.release-version)"
+          fi
+          VERSION_CODE="$(node -e "const [major,minor,patch]=process.argv[1].split('.').map(Number); if (![major,minor,patch].every(Number.isInteger) || major>2000 || minor>999 || patch>999) process.exit(1); process.stdout.write(String(major*1000000+minor*1000+patch));" "$VERSION")"
+          node - "$VERSION" "$VERSION_CODE" <<'NODE'
+          const fs = require('node:fs');
+          const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+          app.expo.version = process.argv[2];
+          app.expo.android = { ...(app.expo.android || {}), versionCode: Number(process.argv[3]) };
+          app.expo.ios = { ...(app.expo.ios || {}), buildNumber: process.argv[3] };
+          fs.writeFileSync('app.json', JSON.stringify(app, null, 2) + '\\n');
+          NODE
+          echo "PASS: mobile app version set to $VERSION (Android versionCode $VERSION_CODE)."
+
       - name: Generate branded desktop and mobile icons
         run: node scripts/generate-app-icons.js
 
