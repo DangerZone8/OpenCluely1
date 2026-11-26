@@ -152,7 +152,9 @@ class LLMService {
     const accessToken = this.accountAccessTokenProvider
       ? await this.accountAccessTokenProvider()
       : null;
-    if (!accessToken) throw new Error('Your Slickly account session has expired. Open Account and sign in again.');
+    // A missing session is valid for the hosted anonymous chat tier. The API
+    // enforces its five-credit chat-only allowance; account-only features are
+    // rejected server-side without a valid bearer token.
     const parts = (geminiRequest.contents || []).flatMap(message => Array.isArray(message?.parts) ? message.parts : []);
     const hasAudio = parts.some(part => String(part?.inlineData?.mimeType || part?.inline_data?.mime_type || '').toLowerCase().startsWith('audio/'));
     const requestedFeature = ['screen_aware', 'voice', 'screenshot', 'chat'].includes(featureOverride) ? featureOverride : null;
@@ -160,7 +162,7 @@ class LLMService {
     const payload = JSON.stringify({ model: modelName, request: geminiRequest, feature });
     const headers = {
       'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + accessToken,
+      ...(accessToken ? { Authorization: 'Bearer ' + accessToken } : {}),
       'Content-Length': Buffer.byteLength(payload),
       'x-opencluely-install-id': this.getRemoteInstallationId(),
       ...(containsImage ? { 'x-opencluely-feature': 'screen-vision' } : {}),
