@@ -24,32 +24,44 @@ async function main() {
   assert.ok(accessToken.length > 20, 'Disposable CI user access token is missing.');
   assert.match(userId, /^[0-9a-f-]{36}$/i, 'Disposable CI user ID is invalid.');
 
-  const eventId = 'ci-' + userId + '-' + Date.now();
-  const subscriptionResponse = await fetch(
-    supabaseUrl + '/rest/v1/rpc/apply_slickly_razorpay_event',
-    {
-      method: 'POST',
-      headers: {
-        apikey: serviceRoleKey,
-        Authorization: 'Bearer ' + serviceRoleKey,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        p_event_id: eventId,
-        p_user_id: userId,
-        p_provider_subscription_id: 'ci-sub-' + userId,
-        p_event_type: 'subscription.activated',
-        p_provider_status: 'active',
-        p_current_end: '2099-12-31T23:59:59.000Z',
-        p_event_created_at: Math.floor(Date.now() / 1000),
-        p_payload: { source: 'github-actions-ci', disposable: true }
-      })
-    }
+  // Provision only the disposable CI identity directly in the entitlement table.
+  // This tests production entitlement recognition without depending on a billing
+  // webhook/RPC route (the CI test is not a Razorpay webhook test).
+  const subscriptionUrl = supabaseUrl + '/rest/v1/slickly_subscriptions?on_conflict=user_id';
+  const subscriptionResponse = await fetch(subscriptionUrl, {
+    method: 'POST',
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: 'Bearer ' + serviceRoleKey,
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates,return=representation'
+    },
+    body: JSON.stringify({
+      user_id: userId,
+      provider: 'ci',
+      provider_subscription_id: 'ci-sub-' + userId,
+      status: 'active',
+      plan: 'pro',
+      current_period_end: '2099-12-31T23:59:59.000Z',
+      provider_event_created_at: Math.floor(Date.now() / 1000)
+    })
+  });
+  const subscriptionBody = await subscriptionResponse.json().catch(() => ({}));
+  if (!subscriptionResponse.ok) {
+    throw new Error('Could not provision disposable CI Pro entitlement (HTTP ' +
+      subscriptionResponse.status + '): ' + JSON.stringify(subscriptionBody).slice(0, 500));
+  }
+  const verifyResponse = await fetch(
+    subscriptionUrl.replace('?on_conflict=user_id', '&select=user_id,plan,status,current_period_end') +
+      '&user_id=eq.' + encodeURIComponent(userId),
+    { headers: { apikey: serviceRoleKey, Authorization: 'Bearer ' + serviceRoleKey } }
   );
-  const activation = await subscriptionResponse.json().catch(() => ({}));
-  if (!subscriptionResponse.ok || activation.applied !== true || activation.plan !== 'pro') {
-    throw new Error('Could not activate disposable CI Pro subscription (HTTP ' +
-      subscriptionResponse.status + '): ' + JSON.stringify(activation).slice(0, 500));
+  const verifiedRows = await verifyResponse.json().catch(() => []);
+  if (!verifyResponse.ok || !Array.isArray(verifiedRows) || !verifiedRows.some(row =>
+    row.user_id === userId && row.plan === 'pro' && row.status === 'active' &&
+    Date.parse(row.current_period_end) > Date.now())) {
+    throw new Error('Disposable CI Pro entitlement could not be verified (HTTP ' +
+      verifyResponse.status + '): ' + JSON.stringify(verifiedRows).slice(0, 500));
   }
 
   const expected = [
