@@ -26,11 +26,11 @@ async function main() {
     headers: { apikey: serviceRoleKey, Authorization: 'Bearer ' + serviceRoleKey },
     signal: AbortSignal.timeout(15000)
   });
-  if (![200, 204].includes(response.status)) {
+  if (![200, 204, 404].includes(response.status)) {
     const detail = await response.text();
     throw new Error('Temporary Slickly CI user cleanup failed (HTTP ' + response.status + '): ' + detail.slice(0, 300));
   }
-  console.log('PASS: temporary Slickly CI user deleted; no email was sent.');
+  console.log(response.status === 404 ? 'PASS: temporary Slickly CI user was already absent; no email was sent.' : 'PASS: temporary Slickly CI user deleted; no email was sent.');
 }
 
 main().catch(error => {
