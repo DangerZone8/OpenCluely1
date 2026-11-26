@@ -71,13 +71,12 @@ jobs:
 
       - name: Verify live Supabase and Google sign-in configuration
         env:
-          SLICKLY_SITE_URL: ${{ github.event_name == 'pull_request' && 'https://slicklyai-git-fix-slickly-mainli-18360d-vlordvoldemort1234-5397.vercel.app' || 'https://slicklyai.vercel.app' }}
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          SLICKLY_SITE_URL: ${{ github.event_name == 'pull_request' && 'https://slicklyai.vercel.app' || 'https://slicklyai.vercel.app' }}
         run: node scripts/test-slickly-live-auth.js
 
       - name: Prepare authenticated Slickly test account session
         env:
-          SLICKLY_SITE_URL: ${{ github.event_name == 'pull_request' && 'https://slicklyai-git-fix-slickly-mainli-18360d-vlordvoldemort1234-5397.vercel.app' || 'https://slicklyai.vercel.app' }}
+          SLICKLY_SITE_URL: ${{ github.event_name == 'pull_request' && 'https://slicklyai.vercel.app' || 'https://slicklyai.vercel.app' }}
           SLICKLY_TEST_EMAIL: ${{ secrets.SLICKLY_TEST_EMAIL }}
           SLICKLY_TEST_PASSWORD: ${{ secrets.SLICKLY_TEST_PASSWORD }}
         run: node scripts/create-slickly-test-session.js
@@ -133,7 +132,6 @@ jobs:
         env:
           SLICKLY_DIAGNOSTIC_ENDPOINT: https://slicklyai.vercel.app/api/gemini
           SLICKLY_EXPECTED_API_REVISION: v177-hosted-multiprovider-2026-11-15-a
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           SLICKLY_DIAGNOSTIC_DURATION_MS: '150000'
           SLICKLY_DIAGNOSTIC_INTERVAL_MS: '25000'
           SLICKLY_DIAGNOSTIC_INITIAL_DELAY_MS: '60000'
