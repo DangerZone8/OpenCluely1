@@ -64,6 +64,54 @@ async function main() {
       adminResponse.status + '): ' + (created.message || created.msg || created.error_description || 'Supabase Admin API rejected the request.'));
   }
 
+  // Release diagnostics exercise multiple real screen-vision requests.
+  // Provision the disposable CI identity as Pro so its tiny Free screenshot
+  // allowance cannot cause a false failure before the provider stability gate.
+  const subscriptionResponse = await fetch(supabaseUrl + '/rest/v1/slickly_subscriptions?on_conflict=user_id', {
+    method: 'POST',
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: 'Bearer ' + serviceRoleKey,
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates,return=representation'
+    },
+    body: JSON.stringify({
+      user_id: userId,
+      provider: 'ci',
+      provider_subscription_id: 'ci-sub-' + userId,
+      status: 'active',
+      plan: 'pro',
+      current_period_end: '2099-12-31T23:59:59.000Z',
+      provider_event_created_at: Math.floor(Date.now() / 1000)
+    }),
+    signal: AbortSignal.timeout(15000)
+  });
+  const subscriptionBody = await subscriptionResponse.json().catch(() => ({}));
+  if (!subscriptionResponse.ok) {
+    await fetch(supabaseUrl + '/auth/v1/admin/users/' + encodeURIComponent(userId), {
+      method: 'DELETE',
+      headers: { apikey: serviceRoleKey, Authorization: 'Bearer ' + serviceRoleKey },
+      signal: AbortSignal.timeout(10000)
+    }).catch(() => {});
+    throw new Error('Could not provision isolated CI Pro entitlement (HTTP ' +
+      subscriptionResponse.status + '): ' + (subscriptionBody.message || subscriptionBody.error || 'Supabase rejected the entitlement.'));
+  }
+  const entitlementCheck = await fetch(
+    supabaseUrl + '/rest/v1/slickly_subscriptions?select=user_id,plan,status,current_period_end&user_id=eq.' + encodeURIComponent(userId),
+    { headers: { apikey: serviceRoleKey, Authorization: 'Bearer ' + serviceRoleKey }, signal: AbortSignal.timeout(10000) }
+  );
+  const entitlementRows = await entitlementCheck.json().catch(() => []);
+  if (!entitlementCheck.ok || !Array.isArray(entitlementRows) || !entitlementRows.some(row =>
+    row.user_id === userId && row.plan === 'pro' && row.status === 'active' &&
+    Date.parse(row.current_period_end) > Date.now())) {
+    await fetch(supabaseUrl + '/auth/v1/admin/users/' + encodeURIComponent(userId), {
+      method: 'DELETE',
+      headers: { apikey: serviceRoleKey, Authorization: 'Bearer ' + serviceRoleKey },
+      signal: AbortSignal.timeout(10000)
+    }).catch(() => {});
+    throw new Error('Isolated CI Pro entitlement could not be verified.');
+  }
+
   try {
     const authUrl = new URL('/auth/v1/token', supabaseUrl);
     authUrl.searchParams.set('grant_type', 'password');
