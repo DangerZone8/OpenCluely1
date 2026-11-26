@@ -195,12 +195,11 @@ jobs:
       - name: Reset disposable CI account before retry
         if: steps.first-attempt.outcome == 'failure'
         env:
+          SLICKLY_SITE_URL: https://slicklyai.vercel.app
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        env:
-          SLICKLY_SITE_URL: https://slicklyai.vercel.app
         run: |
           node scripts/cleanup-slickly-test-session.js
           node scripts/create-slickly-test-session.js
