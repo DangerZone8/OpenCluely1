@@ -70,6 +70,7 @@ jobs:
         run: npm run check
 
       - name: Verify live Supabase and Google sign-in configuration
+        if: github.event_name != 'pull_request'
         env:
           SLICKLY_SITE_URL: ${{ github.event_name == 'pull_request' && 'https://slicklyai.vercel.app' || 'https://slicklyai.vercel.app' }}
         run: node scripts/test-slickly-live-auth.js
