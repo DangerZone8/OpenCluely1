@@ -3,6 +3,27 @@
 const assert = require('node:assert/strict');
 const llmService = require('../src/services/llm.service');
 
+function makeSilentWav() {
+  const sampleRate = 16000;
+  const sampleCount = sampleRate / 2;
+  const dataBytes = sampleCount * 2;
+  const wav = Buffer.alloc(44 + dataBytes);
+  wav.write('RIFF', 0);
+  wav.writeUInt32LE(36 + dataBytes, 4);
+  wav.write('WAVE', 8);
+  wav.write('fmt ', 12);
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(sampleRate, 24);
+  wav.writeUInt32LE(sampleRate * 2, 28);
+  wav.writeUInt16LE(2, 32);
+  wav.writeUInt16LE(16, 34);
+  wav.write('data', 36);
+  wav.writeUInt32LE(dataBytes, 40);
+  return wav;
+}
+
 async function main() {
   // Exercise the same hosted Gemini proxy used by keyless desktop screen/audio
   // flows. This is a real provider-backed request, not a mock, but deliberately
@@ -25,6 +46,14 @@ async function main() {
   assert.ok(response.trim().length > 0,
     'Hosted Gemini chat must return a non-empty real model response');
 
+  // Exercise the same authenticated hosted path with a small valid WAV payload.
+  // Silence is intentional: the test verifies the audio transport/provider path
+  // without embedding a human recording or spending a long transcription budget.
+  const audio = await llmService.processAudioWithGemini(makeSilentWav(), 'audio/wav');
+  assert.equal(typeof audio.response, 'string', 'Hosted voice analysis must return text');
+  assert.ok(audio.response.trim().length > 0,
+    'Hosted voice analysis must return a non-empty response for a valid audio clip');
+
   // Exercise the actual general-assistant prompt/history path through the
   // hosted provider, not just a raw marker request with no system instruction.
   let greeting;
@@ -44,8 +73,9 @@ async function main() {
   console.log(JSON.stringify({
     status: 'PASS',
     provider: 'Live Gemini through hosted Cleverly AI proxy (not mocked)',
-    providerRequests: 2,
+    providerRequests: 3,
     response,
+    audioAnalysis: audio.response.slice(0, 180),
     generalGreeting: greeting.response
   }, null, 2));
 }
