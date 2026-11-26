@@ -4,6 +4,7 @@ const path = require('path');
 class PromptLoader {
   constructor() {
     this.prompts = new Map();
+    this.remotePrompts = new Map();
     this.promptsLoaded = false;
     this.skillPromptSent = new Set();
     // Focus only on DSA
@@ -45,6 +46,27 @@ class PromptLoader {
   }
 
   /**
+   * Apply administrator-published, declarative prompt content from Slickly Cloud.
+   * Remote content is treated only as prompt text; it is never evaluated as code.
+   */
+  setRemotePrompts(prompts = {}) {
+    if (!prompts || typeof prompts !== 'object' || Array.isArray(prompts)) {
+      throw new Error('Remote prompt pack must be an object.');
+    }
+    const next = new Map();
+    for (const [skill, content] of Object.entries(prompts)) {
+      const normalized = this.normalizeSkillName(skill);
+      if (normalized !== 'dsa') continue;
+      if (typeof content !== 'string' || !content.trim() || content.length > 30000) {
+        throw new Error('Remote DSA prompt must be non-empty text no longer than 30,000 characters.');
+      }
+      next.set(normalized, content);
+    }
+    this.remotePrompts = next;
+    return { activeSkills: [...next.keys()] };
+  }
+
+  /**
    * Get the system prompt for a specific skill with optional programming language injection
    * @param {string} skillName - The name of the skill
    * @param {string|null} programmingLanguage - Optional programming language to inject
@@ -56,7 +78,7 @@ class PromptLoader {
     }
 
     const normalizedSkillName = this.normalizeSkillName(skillName);
-    let promptContent = this.prompts.get(normalizedSkillName);
+    let promptContent = this.remotePrompts.get(normalizedSkillName) || this.prompts.get(normalizedSkillName);
     
     if (!promptContent) {
       return null;
