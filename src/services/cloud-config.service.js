@@ -9,7 +9,7 @@ const DEFAULT_CONFIG = Object.freeze({
   schemaVersion: 1,
   revision: "default-1",
   minimumAppVersion: "1.0.0",
-  pollIntervalMs: 900000,
+  pollIntervalMs: 300000,
   rolloutPercent: 100,
   features: {
     cloudConfig: true,
