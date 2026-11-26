@@ -5,6 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { CloudConfigService, DEFAULT_CONFIG, validateConfig } = require("../src/services/cloud-config.service");
 const api = require("../api/cloud-config");
+const { PromptLoader } = require("../prompt-loader");
 
 function response() {
   return { statusCode: 200, headers: {}, body: "", setHeader(k,v){this.headers[k.toLowerCase()]=v;}, end(v){this.body=v||"";} };
@@ -14,6 +15,14 @@ async function run() {
   const valid = validateConfig(DEFAULT_CONFIG, "1.0.345", "stable-install");
   assert.equal(valid.features.premiumAi, false, "paid features must be off by default");
   assert.equal(valid.features.cloudConfig, true);
+  assert.deepEqual(valid.contentPack, { revision: "builtin-1", prompts: {} });
+  const remotePack = validateConfig({ ...DEFAULT_CONFIG, contentPack: { revision: "event-2", prompts: { dsa: "# Remotely published DSA prompt" } } }, "1.0.345", "stable-install");
+  assert.equal(remotePack.contentPack.revision, "event-2");
+  const promptLoader = new PromptLoader();
+  promptLoader.setRemotePrompts(remotePack.contentPack.prompts);
+  assert.equal(promptLoader.getSkillPrompt("dsa"), "# Remotely published DSA prompt", "remote prompt content should override bundled prompt without executing code");
+  assert.throws(() => validateConfig({ ...DEFAULT_CONFIG, contentPack: { revision: "bad", prompts: { arbitrary: "remote" } } }, "1.0.345"), /remote prompt/i);
+  assert.throws(() => promptLoader.setRemotePrompts({ dsa: "x".repeat(30001) }), /30,000/);
   assert.throws(() => validateConfig({ ...DEFAULT_CONFIG, schemaVersion: 99 }, "1.0.345"), /schema/);
   assert.throws(() => validateConfig({ ...DEFAULT_CONFIG, revision: "../bad" }, "1.0.345"), /revision/);
   assert.throws(() => validateConfig({ ...DEFAULT_CONFIG, rolloutPercent: 101 }, "1.0.345"), /rollout/);
@@ -29,11 +38,12 @@ async function run() {
     const cachePath = path.join(dir, "cache", "cloud.json");
     const service = new CloudConfigService({
       cachePath, appVersion: "1.0.345", installId: "test-install",
-      fetch: async () => ({ ok: true, json: async () => ({ ...DEFAULT_CONFIG, revision: "release-2", features: { ...DEFAULT_CONFIG.features, newSettingsExperience: true } }) })
+      fetch: async () => ({ ok: true, json: async () => ({ ...DEFAULT_CONFIG, revision: "release-2", features: { ...DEFAULT_CONFIG.features, newSettingsExperience: true }, contentPack: { revision: "remote-2", prompts: { dsa: "# Remote prompt v2" } } }) })
     });
     const next = await service.refresh();
     assert.equal(next.revision, "release-2");
     assert.equal(next.features.newSettingsExperience, true);
+    assert.equal(next.contentPack.prompts.dsa, "# Remote prompt v2");
     assert.ok(fs.existsSync(cachePath), "validated config should be cached atomically");
     const rollback = new CloudConfigService({
       cachePath, appVersion: "1.0.345", installId: "test-install",
@@ -80,6 +90,6 @@ async function run() {
     if (oldEnv === undefined) delete process.env.SLICKLY_CLOUD_CONFIG_JSON;
     else process.env.SLICKLY_CLOUD_CONFIG_JSON = oldEnv;
   }
-  console.log("Slickly cloud-config tests passed: schema validation, safe defaults, deterministic rollout, offline cache, stale minimum version, URL allowlist, and API method/error handling.");
+  console.log("Slickly cloud-config tests passed: schema validation, safe defaults, deterministic rollout, offline cache, stale minimum version, remote prompt content packs, URL allowlist, and API method/error handling.");
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });
