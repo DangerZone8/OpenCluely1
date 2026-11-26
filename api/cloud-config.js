@@ -14,7 +14,7 @@ const DEFAULT_CONFIG = {
     betaFeatures: false
   },
   presentation: { announcement: "", announcementUrl: "" },
-  contentPack: { revision: "builtin-1", prompts: {} }
+  contentPack: { revision: "builtin-1", prompts: {}, events: [] }
 };
 const FEATURE_KEYS = Object.keys(DEFAULT_CONFIG.features);
 
@@ -57,7 +57,25 @@ function sanitizeConfig(candidate) {
     }
     prompts[skill] = content;
   }
-  return { schemaVersion: 1, revision, minimumAppVersion, pollIntervalMs, rolloutPercent, features, presentation: { announcement, announcementUrl }, contentPack: { revision: contentRevision, prompts } };
+  const eventInput = Array.isArray(contentPackInput.events) ? contentPackInput.events : [];
+  if (eventInput.length > 10) throw new Error("Too many remote content events.");
+  const events = eventInput.map(event => {
+    if (!event || typeof event !== "object" || Array.isArray(event) ||
+        typeof event.id !== "string" || !/^[a-zA-Z0-9._-]{1,64}$/.test(event.id) ||
+        typeof event.title !== "string" || !event.title.trim() || event.title.length > 80 ||
+        typeof event.body !== "string" || !event.body.trim() || event.body.length > 500 ||
+        typeof event.startsAt !== "string" || !Number.isFinite(Date.parse(event.startsAt)) ||
+        typeof event.endsAt !== "string" || !Number.isFinite(Date.parse(event.endsAt)) ||
+        Date.parse(event.endsAt) <= Date.parse(event.startsAt)) {
+      throw new Error("Remote content event is invalid.");
+    }
+    return { id: event.id, title: event.title.trim(), body: event.body.trim(),
+      startsAt: new Date(event.startsAt).toISOString(), endsAt: new Date(event.endsAt).toISOString() };
+  });
+  if (new Set(events.map(event => event.id)).size !== events.length) {
+    throw new Error("Remote content event IDs must be unique.");
+  }
+  return { schemaVersion: 1, revision, minimumAppVersion, pollIntervalMs, rolloutPercent, features, presentation: { announcement, announcementUrl }, contentPack: { revision: contentRevision, prompts, events } };
 }
 
 module.exports = async function cloudConfig(req, res) {
