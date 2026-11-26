@@ -47,12 +47,14 @@ async function invoke(feature, stream, providerFetch, plan = 'pro') {
       authorization: 'Bearer test-access-token',
       'content-length': '512',
       'x-opencluely-install-id': installId,
-      'x-opencluely-feature': feature === 'screen-vision' ? 'screen-vision' : 'chat',
+      'x-opencluely-feature': feature === 'screen-vision' ? 'screen-vision' : feature === 'voice' ? 'voice' : 'chat',
       ...(stream ? { 'x-opencluely-stream': '1' } : {})
     },
     body: { request: { contents: [{ role: 'user', parts: feature === 'screen-vision'
       ? [{ text: 'Describe the test image.' }, { inlineData: { mimeType: 'image/png', data: 'aGVsbG8=' } }]
-      : [{ text: 'Reply with the short test phrase.' }] }] } }
+      : feature === 'voice'
+        ? [{ text: 'Briefly analyze this audio.' }, { inlineData: { mimeType: 'audio/wav', data: 'aGVsbG8=' } }]
+        : [{ text: 'Reply with the short test phrase.' }] }] } }
   }, res);
   return res;
 }
@@ -110,7 +112,38 @@ async function invoke(feature, stream, providerFetch, plan = 'pro') {
   assert.equal(JSON.parse(kimi.body).provider, 'kimi');
   assert.equal(JSON.parse(kimi.body).text, 'KIMI_HOSTED_OK');
 
-  console.log('PASS: Pro-only QwenCloud, DeepSeek and Kimi routing, authenticated atomic 1,000-credit reservation, streaming, screen vision, and server-only provider keys.');
+  // Raw audio is not accepted by the Qwen/DeepSeek/Kimi chat-completions APIs.
+  // Pro voice must still work through Gemini after reserving its weighted credits.
+  process.env.GEMINI_API_KEY = 'test-gemini-key';
+  process.env.SLICKLY_PRO_HOSTED_AI_PROVIDER = 'deepseek';
+  process.env.SLICKLY_DEEPSEEK_API_KEY = 'test-deepseek-key';
+  let geminiAudioCalls = 0;
+  let deepseekAudioCalls = 0;
+  const voice = await invoke('voice', false, async (url, options) => {
+    const target = String(url);
+    if (target.includes('generativelanguage.googleapis.com')) {
+      geminiAudioCalls += 1;
+      assert.equal(options.headers['x-goog-api-key'], 'test-gemini-key');
+      const payload = JSON.parse(options.body);
+      assert.ok(payload.contents[0].parts.some(part => part.inlineData?.mimeType === 'audio/wav'));
+      return { ok: true, json: async () => ({
+        candidates: [{ content: { parts: [{ text: 'VOICE_AUDIO_OK' }] } }],
+        usageMetadata: { promptTokenCount: 40, candidatesTokenCount: 12, totalTokenCount: 52 }
+      }) };
+    }
+    if (target.includes('/rest/v1/rpc/record_slickly_provider_usage')) {
+      return { ok: true, text: async () => 'null' };
+    }
+    if (target.includes('api.deepseek.com')) deepseekAudioCalls += 1;
+    throw new Error('Unexpected Pro voice provider request: ' + target);
+  }, 'pro');
+  assert.equal(voice.statusCode, 200);
+  assert.equal(JSON.parse(voice.body).text, 'VOICE_AUDIO_OK');
+  assert.equal(JSON.parse(voice.body).provider, 'gemini');
+  assert.equal(geminiAudioCalls, 1);
+  assert.equal(deepseekAudioCalls, 0);
+
+  console.log('PASS: Pro-only QwenCloud, DeepSeek and Kimi routing, authenticated atomic 1,000-credit reservation, streaming, screen vision, Pro voice fallback, and server-only provider keys.');
 })().catch(error => {
   console.error('HOSTED PROVIDER ROUTING TEST FAILED:', error);
   process.exitCode = 1;
