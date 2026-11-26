@@ -553,8 +553,45 @@ jobs:
           CI: '1'
         run: npx expo prebuild --platform android
 
+      - name: Configure stable production Android signing
+        working-directory: mobile/android
+        shell: bash
+        env:
+          SLICKLY_ANDROID_KEYSTORE_BASE64: ${{ secrets.SLICKLY_ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          : "${SLICKLY_ANDROID_KEYSTORE_BASE64:?Missing GitHub Actions secret SLICKLY_ANDROID_KEYSTORE_BASE64}"
+          : "${{ secrets.SLICKLY_ANDROID_KEYSTORE_PASSWORD }}"
+          : "${{ secrets.SLICKLY_ANDROID_KEY_ALIAS }}"
+          : "${{ secrets.SLICKLY_ANDROID_KEY_PASSWORD }}"
+          printf '%s' "$SLICKLY_ANDROID_KEYSTORE_BASE64" | base64 --decode > app/slickly-release.keystore
+          test -s app/slickly-release.keystore
+          cat >> app/build.gradle <<'GRADLE'
+
+          // Slickly production signing: never fall back to the per-run Android debug key.
+          android {
+            signingConfigs {
+              slicklyRelease {
+                storeFile file("slickly-release.keystore")
+                storePassword System.getenv("SLICKLY_ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("SLICKLY_ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("SLICKLY_ANDROID_KEY_PASSWORD")
+              }
+            }
+            buildTypes {
+              release {
+                signingConfig signingConfigs.slicklyRelease
+              }
+            }
+          }
+          GRADLE
+
       - name: Build signed release APK
         working-directory: mobile/android
+        env:
+          SLICKLY_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.SLICKLY_ANDROID_KEYSTORE_PASSWORD }}
+          SLICKLY_ANDROID_KEY_ALIAS: ${{ secrets.SLICKLY_ANDROID_KEY_ALIAS }}
+          SLICKLY_ANDROID_KEY_PASSWORD: ${{ secrets.SLICKLY_ANDROID_KEY_PASSWORD }}
         run: |
           chmod +x ./gradlew
           ./gradlew :app:assembleRelease --no-daemon
@@ -567,7 +604,12 @@ jobs:
           test -s "$APK"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -x "$APKSIGNER"
-          "$APKSIGNER" verify --verbose "$APK"
+          CERT_OUTPUT="$("$APKSIGNER" verify --verbose --print-certs "$APK")"
+          printf '%s\\n' "$CERT_OUTPUT"
+          if printf '%s' "$CERT_OUTPUT" | grep -qi 'CN=Android Debug'; then
+            echo "::error::Refusing to publish an APK signed with the ephemeral Android debug certificate."
+            exit 1
+          fi
           mkdir -p mobile-release
           cp "$APK" mobile-release/Slickly-AI-Android.apk
           echo "PASS: Android APK is non-empty, signed, and ready for device installation."
