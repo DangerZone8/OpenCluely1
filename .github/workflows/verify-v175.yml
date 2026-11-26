@@ -186,6 +186,16 @@ jobs:
           # job independently gates the primary endpoint itself.
           SLICKLY_E2E_SUSTAINED: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
         run: xvfb-run -a npm run test:screen-ai-desktop-e2e
+      - name: Reset disposable CI account before retry
+        if: steps.first-attempt.outcome == 'failure'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node scripts/cleanup-slickly-test-session.js
+          node scripts/create-slickly-test-session.js
       - name: Retry the complete desktop UI flow once after a transient failure
         if: steps.first-attempt.outcome == 'failure'
         env:
