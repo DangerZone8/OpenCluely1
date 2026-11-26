@@ -139,7 +139,7 @@ async function invoke(feature, stream, providerFetch, plan = 'pro') {
   }, 'pro');
   assert.equal(voice.statusCode, 200);
   assert.equal(JSON.parse(voice.body).text, 'VOICE_AUDIO_OK');
-  assert.equal(JSON.parse(voice.body).provider, 'gemini');
+  assert.match(JSON.parse(voice.body).model, /^gemini-/);
   assert.equal(geminiAudioCalls, 1);
   assert.equal(deepseekAudioCalls, 0);
 
