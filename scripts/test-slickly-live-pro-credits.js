@@ -52,8 +52,7 @@ async function main() {
       subscriptionResponse.status + '): ' + JSON.stringify(subscriptionBody).slice(0, 500));
   }
   const verifyResponse = await fetch(
-    subscriptionUrl.replace('?on_conflict=user_id', '&select=user_id,plan,status,current_period_end') +
-      '&user_id=eq.' + encodeURIComponent(userId),
+    supabaseUrl + '/rest/v1/slickly_subscriptions?select=user_id,plan,status,current_period_end&user_id=eq.' + encodeURIComponent(userId),
     { headers: { apikey: serviceRoleKey, Authorization: 'Bearer ' + serviceRoleKey } }
   );
   const verifiedRows = await verifyResponse.json().catch(() => []);
