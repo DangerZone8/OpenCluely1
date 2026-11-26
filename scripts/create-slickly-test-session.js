@@ -4,11 +4,27 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 
 async function main() {
-  const supabaseUrl = String(process.env.SUPABASE_URL || '').replace(/\/$/, '');
-  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || '';
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-  if (!/^https:\/\/[a-z0-9.-]+$/i.test(supabaseUrl) || !anonKey || !serviceRoleKey) {
-    throw new Error('GitHub Actions must provide SUPABASE_URL, SUPABASE_ANON_KEY (or SUPABASE_PUBLISHABLE_KEY), and SUPABASE_SERVICE_ROLE_KEY. No personal test email or password is required.');
+  const rawSupabaseUrl = String(process.env.SUPABASE_URL || '').trim();
+  let supabaseUrl = '';
+  try {
+    const parsed = new URL(rawSupabaseUrl);
+    if (parsed.protocol === 'https:' && parsed.hostname && !parsed.username && !parsed.password &&
+        (!parsed.pathname || parsed.pathname === '/') && !parsed.search && !parsed.hash) {
+      supabaseUrl = parsed.origin;
+    }
+  } catch {}
+  const anonKey = String(process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || '').trim();
+  const serviceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+  if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+    throw new Error('Invalid/missing GitHub Actions Supabase configuration (safe diagnostics only): ' +
+      JSON.stringify({
+        SUPABASE_URL_present: Boolean(rawSupabaseUrl),
+        SUPABASE_URL_valid_https_origin: Boolean(supabaseUrl),
+        SUPABASE_ANON_KEY_present: Boolean(process.env.SUPABASE_ANON_KEY),
+        SUPABASE_PUBLISHABLE_KEY_present: Boolean(process.env.SUPABASE_PUBLISHABLE_KEY),
+        usable_public_key_present: Boolean(anonKey),
+        SUPABASE_SERVICE_ROLE_KEY_present: Boolean(serviceRoleKey)
+      }) + '. No secret values, personal test email, or password are logged.');
   }
 
   const email = 'slickly-ci-' + (process.env.GITHUB_RUN_ID || 'local') + '-' +
