@@ -558,12 +558,15 @@ jobs:
         shell: bash
         env:
           SLICKLY_ANDROID_KEYSTORE_BASE64: ${{ secrets.SLICKLY_ANDROID_KEYSTORE_BASE64 }}
+          SLICKLY_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.SLICKLY_ANDROID_KEYSTORE_PASSWORD }}
+          SLICKLY_ANDROID_KEY_ALIAS: ${{ secrets.SLICKLY_ANDROID_KEY_ALIAS }}
+          SLICKLY_ANDROID_KEY_PASSWORD: ${{ secrets.SLICKLY_ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           : "${SLICKLY_ANDROID_KEYSTORE_BASE64:?Missing GitHub Actions secret SLICKLY_ANDROID_KEYSTORE_BASE64}"
-          : "${{ secrets.SLICKLY_ANDROID_KEYSTORE_PASSWORD }}"
-          : "${{ secrets.SLICKLY_ANDROID_KEY_ALIAS }}"
-          : "${{ secrets.SLICKLY_ANDROID_KEY_PASSWORD }}"
+          : "${SLICKLY_ANDROID_KEYSTORE_PASSWORD:?Missing GitHub Actions secret SLICKLY_ANDROID_KEYSTORE_PASSWORD}"
+          : "${SLICKLY_ANDROID_KEY_ALIAS:?Missing GitHub Actions secret SLICKLY_ANDROID_KEY_ALIAS}"
+          : "${SLICKLY_ANDROID_KEY_PASSWORD:?Missing GitHub Actions secret SLICKLY_ANDROID_KEY_PASSWORD}"
           printf '%s' "$SLICKLY_ANDROID_KEYSTORE_BASE64" | base64 --decode > app/slickly-release.keystore
           test -s app/slickly-release.keystore
           cat >> app/build.gradle <<'GRADLE'
