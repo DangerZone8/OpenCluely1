@@ -61,6 +61,14 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - name: Create disposable confirmed CI user (no email sent)
+        id: create-test-user
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/create-slickly-test-session.js
       - name: Verify deployed API revision and real screen-vision response
         id: livevision
         env:
@@ -74,6 +82,12 @@ jobs:
           SLICKLY_EXPECTED_API_REVISION: v177-hosted-multiprovider-2026-11-15-a
           ALLOW_OLD_API_REVISION: 'true'
         run: npm run test:screen-vision-live
+      - name: Delete disposable CI user
+        if: always() && steps.create-test-user.outcome == 'success'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/cleanup-slickly-test-session.js
 
   production-fast-chat:
     name: Production AI verification — fast chat
@@ -106,6 +120,12 @@ jobs:
             exit 1
           fi
           npm run test:gemini-live
+      - name: Verify live Pro 1,000-credit budget and feature weights
+        env:
+          SLICKLY_SITE_URL: https://slicklyai.vercel.app
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/test-slickly-live-pro-credits.js
       - name: Delete disposable CI user
         if: always() && steps.create-test-user.outcome == 'success'
         env:
@@ -154,6 +174,12 @@ jobs:
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node scripts/create-slickly-test-session.js
+      - name: Give disposable desktop E2E user Pro test quotas
+        env:
+          SLICKLY_SITE_URL: https://slicklyai.vercel.app
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/test-slickly-live-pro-credits.js
       - name: Install virtual-desktop runtime
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb xauth libgtk-3-0 libnss3 libxss1 libasound2t64 libgbm1
       - name: Exercise both actual desktop screen-AI buttons against production
@@ -166,6 +192,18 @@ jobs:
           # job independently gates the primary endpoint itself.
           SLICKLY_E2E_SUSTAINED: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
         run: xvfb-run -a npm run test:screen-ai-desktop-e2e
+      - name: Reset disposable CI account before retry
+        if: steps.first-attempt.outcome == 'failure'
+        env:
+          SLICKLY_SITE_URL: https://slicklyai.vercel.app
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node scripts/cleanup-slickly-test-session.js
+          node scripts/create-slickly-test-session.js
+          node scripts/test-slickly-live-pro-credits.js
       - name: Retry the complete desktop UI flow once after a transient failure
         if: steps.first-attempt.outcome == 'failure'
         env:
@@ -202,6 +240,12 @@ jobs:
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node scripts/create-slickly-test-session.js
+      - name: Give stability diagnostic user Pro test quotas
+        env:
+          SLICKLY_SITE_URL: https://slicklyai.vercel.app
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/test-slickly-live-pro-credits.js
       - name: Probe production chat and screen vision for 150 seconds
         env:
           SLICKLY_DIAGNOSTIC_ENDPOINT: ${{ github.event_name == 'pull_request' && 'https://slicklyai.vercel.app/api/gemini' || 'https://slicklyai.vercel.app/api/gemini' }}

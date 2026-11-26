@@ -68,6 +68,9 @@ async function main() {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
+        ...(process.env.SLICKLY_E2E_ACCESS_TOKEN
+          ? { authorization: 'Bearer ' + process.env.SLICKLY_E2E_ACCESS_TOKEN }
+          : {}),
         'x-opencluely-install-id': installId,
         'x-opencluely-feature': 'screen-vision',
         ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET

@@ -300,6 +300,14 @@ module.exports = async function handler(req, res) {
     return safeError(res, error);
   }
 
+  // QwenCloud, DeepSeek, and Kimi chat-completions APIs do not accept raw
+  // audio. Keep authenticated Pro voice working by using Gemini's native
+  // multimodal endpoint for audio requests; the same server-side 4-credit
+  // reservation has already been consumed above.
+  if (hasAudioRequest && hostedProviderId !== 'gemini') {
+    hostedProviderId = 'gemini';
+  }
+
   // Optional hosted-provider routing. The default remains Gemini until an
   // authorised operator configures a provider and its server-only API key.
   // Provider keys are never accepted from the request body or returned to clients.

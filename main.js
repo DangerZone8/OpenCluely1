@@ -1,7 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const { fileURLToPath } = require("url");
-const { app, BrowserWindow, globalShortcut, session, ipcMain, dialog, desktopCapturer, Tray, Menu, shell } = require("electron");
+const { app, BrowserWindow, globalShortcut, session, ipcMain, dialog, desktopCapturer, Tray, Menu, shell, Notification } = require("electron");
 const { autoUpdater } = require("electron-updater");
 
 // ── Resolve a stable .env location ──
@@ -463,9 +463,47 @@ class ApplicationController {
       appVersion: app.getVersion(),
       logger,
     });
+    const { promptLoader } = require("./prompt-loader");
+    const initialSnapshot = this.cloudConfigService.getSnapshot();
+    let lastAnnouncedRevision = initialSnapshot.revision;
+    const announcedEventIds = new Set();
+    const applyContentPack = snapshot => promptLoader.setRemotePrompts(snapshot?.contentPack?.prompts || {});
+    const notifyActiveContentEvents = snapshot => {
+      if (!Notification.isSupported()) return;
+      const now = Date.now();
+      for (const event of snapshot?.contentPack?.events || []) {
+        if (Date.parse(event.startsAt) <= now && Date.parse(event.endsAt) > now &&
+            !announcedEventIds.has(event.id)) {
+          announcedEventIds.add(event.id);
+          try {
+            new Notification({ title: event.title, body: event.body }).show();
+          } catch (error) {
+            logger.warn("Could not display Slickly live event", { eventId: event.id, error: error.message });
+          }
+        }
+      }
+    };
+    const applyCloudSnapshot = snapshot => {
+      applyContentPack(snapshot);
+      notifyActiveContentEvents(snapshot);
+      if (snapshot.revision !== lastAnnouncedRevision) {
+        lastAnnouncedRevision = snapshot.revision;
+        const announcement = snapshot.presentation?.announcement;
+        if (announcement && Notification.isSupported()) {
+          try {
+            new Notification({ title: "Slickly AI", body: announcement }).show();
+          } catch (error) {
+            logger.warn("Could not display Slickly cloud announcement", { error: error.message });
+          }
+        }
+      }
+    };
+    applyContentPack(initialSnapshot);
+    notifyActiveContentEvents(initialSnapshot);
     const refresh = async () => {
       try {
         const snapshot = await this.cloudConfigService.refresh();
+        applyCloudSnapshot(snapshot);
         windowManager.broadcastToAllWindows("cloud-config-updated", snapshot);
       } catch (error) {
         logger.warn("Slickly cloud configuration refresh failed; cached settings remain active", {

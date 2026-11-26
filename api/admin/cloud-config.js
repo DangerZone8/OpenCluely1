@@ -3,13 +3,10 @@
 const { json, authenticate, getConfig, safeError } = require('../_lib/slickly-auth');
 const { sanitizeConfig, DEFAULT_CONFIG } = require('../cloud-config');
 
-function hasGoogleIdentity(user) {
-  return user?.app_metadata?.provider === 'google' ||
-    (Array.isArray(user?.app_metadata?.providers) && user.app_metadata.providers.includes('google'));
-}
-
 function isAdmin(user) {
-  if (!hasGoogleIdentity(user)) return false;
+  // Cloud content publishing uses the existing verified email/password account.
+  // Google OAuth is deliberately not a dependency of the desktop release.
+  if (!user?.email || !user?.email_confirmed_at) return false;
   const emails = [
     process.env.SLICKLY_ADMIN_EMAILS || '',
     process.env.SLICKLY_REFERRAL_ADMIN_EMAILS || ''

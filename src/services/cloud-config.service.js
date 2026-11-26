@@ -9,7 +9,7 @@ const DEFAULT_CONFIG = Object.freeze({
   schemaVersion: 1,
   revision: "default-1",
   minimumAppVersion: "1.0.0",
-  pollIntervalMs: 900000,
+  pollIntervalMs: 300000,
   rolloutPercent: 100,
   features: {
     cloudConfig: true,
@@ -21,7 +21,8 @@ const DEFAULT_CONFIG = Object.freeze({
   presentation: {
     announcement: "",
     announcementUrl: ""
-  }
+  },
+  contentPack: { revision: "builtin-1", prompts: {}, events: [] }
 });
 const FEATURE_KEYS = Object.keys(DEFAULT_CONFIG.features);
 
@@ -72,6 +73,37 @@ function validateConfig(input, appVersion, installId = "local") {
   const announcementUrl = typeof presentation.announcementUrl === "string" &&
     /^https:\/\/(?:slicklyai\.vercel\.app|github\.com\/DangerZone8\/OpenCluely1)(?:\/|$)/.test(presentation.announcementUrl)
     ? presentation.announcementUrl : "";
+  const contentPackInput = input.contentPack && typeof input.contentPack === "object" && !Array.isArray(input.contentPack)
+    ? input.contentPack : {};
+  const contentRevision = typeof contentPackInput.revision === "string" && /^[a-zA-Z0-9._-]{1,80}$/.test(contentPackInput.revision)
+    ? contentPackInput.revision : "builtin-1";
+  const promptInput = contentPackInput.prompts && typeof contentPackInput.prompts === "object" && !Array.isArray(contentPackInput.prompts)
+    ? contentPackInput.prompts : {};
+  const prompts = {};
+  for (const [skill, content] of Object.entries(promptInput)) {
+    if (skill !== "dsa" || typeof content !== "string" || !content.trim() || content.length > 30000) {
+      throw new Error("Invalid remote prompt content.");
+    }
+    prompts[skill] = content;
+  }
+  const eventInput = Array.isArray(contentPackInput.events) ? contentPackInput.events : [];
+  if (eventInput.length > 10) throw new Error("Too many remote content events.");
+  const events = eventInput.map(event => {
+    if (!event || typeof event !== "object" || Array.isArray(event) ||
+        typeof event.id !== "string" || !/^[a-zA-Z0-9._-]{1,64}$/.test(event.id) ||
+        typeof event.title !== "string" || !event.title.trim() || event.title.length > 80 ||
+        typeof event.body !== "string" || !event.body.trim() || event.body.length > 500 ||
+        typeof event.startsAt !== "string" || !Number.isFinite(Date.parse(event.startsAt)) ||
+        typeof event.endsAt !== "string" || !Number.isFinite(Date.parse(event.endsAt)) ||
+        Date.parse(event.endsAt) <= Date.parse(event.startsAt)) {
+      throw new Error("Invalid remote content event.");
+    }
+    return { id: event.id, title: event.title.trim(), body: event.body.trim(),
+      startsAt: new Date(event.startsAt).toISOString(), endsAt: new Date(event.endsAt).toISOString() };
+  });
+  if (new Set(events.map(event => event.id)).size !== events.length) {
+    throw new Error("Remote content event IDs must be unique.");
+  }
   const bucket = crypto.createHash("sha256").update(String(installId)).digest().readUInt32BE(0) % 100;
   const inRollout = bucket < input.rolloutPercent;
   return {
@@ -83,6 +115,7 @@ function validateConfig(input, appVersion, installId = "local") {
     inRollout,
     features: Object.fromEntries(FEATURE_KEYS.map(key => [key, inRollout && features[key]])),
     presentation: { announcement, announcementUrl },
+    contentPack: { revision: contentRevision, prompts, events },
     fetchedAt: new Date().toISOString()
   };
 }
