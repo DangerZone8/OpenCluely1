@@ -35,7 +35,7 @@ async function run() {
   const envNames = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'GEMINI_API_KEY', 'SLICKLY_HOSTED_AI_PROVIDER'];
   const saved = Object.fromEntries(envNames.map(name => [name, process.env[name]]));
   const oldFetch = global.fetch;
-  const calls = { auth: 0, rpc: 0, provider: 0, args: null };
+  const calls = { auth: 0, rpc: 0, anonymousRpc: 0, provider: 0, args: null };
   try {
     process.env.SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-test-secret';
@@ -46,6 +46,12 @@ async function run() {
         calls.auth += 1;
         assert.match(options.headers.Authorization, /^Bearer valid-access-token$/);
         return { ok: true, json: async () => ({ id: '123e4567-e89b-42d3-a456-426614174000' }) };
+      }
+      if (String(url).includes('/rest/v1/rpc/consume_slickly_anonymous_chat_credit')) {
+        calls.anonymousRpc += 1;
+        const args = JSON.parse(options.body);
+        assert.equal(args.p_credit_limit, 5);
+        return { ok: true, text: async () => JSON.stringify([{ allowed: false, used: 5, remaining: 0 }]) };
       }
       if (String(url).includes('/rest/v1/rpc/consume_slickly_credit_v2')) {
         calls.rpc += 1;
@@ -63,9 +69,12 @@ async function run() {
 
     const unauthenticated = response();
     await handler(request('123e4567-e89b-42d3-a456-426614174001', null, 'chat', [{ text: 'hello' }]), unauthenticated);
-    assert.equal(unauthenticated.statusCode, 401);
-    assert.equal(calls.rpc, 0, 'unauthenticated requests must not reserve credits');
-    assert.equal(calls.provider, 0, 'unauthenticated requests must not reach the provider');
+    assert.equal(unauthenticated.statusCode, 429);
+    assert.equal(JSON.parse(unauthenticated.body).code, 'ANONYMOUS_CHAT_CREDITS_EXHAUSTED');
+    assert.equal(calls.auth, 0, 'anonymous chat must not require a Supabase user session');
+    assert.equal(calls.anonymousRpc, 1, 'anonymous chat must consume its server-side five-credit allowance');
+    assert.equal(calls.rpc, 0, 'anonymous users must not consume signed-in account credits');
+    assert.equal(calls.provider, 0, 'the provider must not be called after anonymous credits are exhausted');
 
     const exhausted = response();
     await handler(request('123e4567-e89b-42d3-a456-426614174002', 'Bearer valid-access-token', 'screen_aware', [
@@ -154,7 +163,7 @@ async function run() {
     assert.equal(usageArgs.p_total_tokens, 165);
     assert.equal(JSON.stringify(usageArgs).includes('hello'), false);
 
-    console.log('PASS: hosted Gemini requires Supabase auth, reserves weighted credits before provider access, preserves voice output limits and records privacy-minimised provider usage.');
+    console.log('PASS: anonymous chat allowance is checked without login; signed-in Gemini reserves weighted credits before provider access, preserves voice output limits and records privacy-minimised provider usage.');
 
   } finally {
     global.fetch = oldFetch;
