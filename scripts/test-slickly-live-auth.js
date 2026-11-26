@@ -47,6 +47,7 @@ async function main() {
   assert.equal(settingsResponse.status, 200, 'Supabase Auth settings must be readable for sign-in verification.');
   const settings = await settingsResponse.json();
   assert.equal(settings.external?.email, true, 'Supabase email/password sign-in provider must be enabled.');
+  assert.equal(settings.external?.google, true, 'Supabase Google OAuth provider must be enabled in Authentication → Providers.');
   assert.equal(settings.mailer_autoconfirm, true,
     'Supabase Confirm email must be disabled (auto-confirm enabled) so email/password signup returns an active session.');
   assert.notEqual(settings.disable_signup, true, 'Supabase must allow new account signups.');
@@ -60,8 +61,10 @@ async function main() {
       redirect: 'manual'
     });
     const location = response.headers.get('location');
+    const responseBody = location ? '' : (await response.text().catch(() => '')).replace(/\\s+/g, ' ').slice(0, 400);
     assert.ok([302, 303].includes(response.status) && location,
-      'Supabase Google OAuth must be enabled and accept the ' + label + ' redirect (HTTP ' + response.status + ').');
+      'Supabase Google OAuth must accept the ' + label + ' redirect (HTTP ' + response.status +
+      (responseBody ? '; response=' + responseBody : '') + ').');
     const destination = new URL(location);
     assert.match(destination.hostname, /(^|\.)google\.com$/i,
       'Supabase ' + label + ' OAuth must redirect to Google, not an error or unrelated host.');
