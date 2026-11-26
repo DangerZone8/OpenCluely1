@@ -3,6 +3,18 @@
 const assert = require('node:assert/strict');
 const llmService = require('../src/services/llm.service');
 
+async function withTransientRetry(label, operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    const message = String(error?.message || error);
+    if (!/(timed out|connection timed out|fetch failed|network error|HTTP 5\\d\\d)/i.test(message)) throw error;
+    console.warn('Transient live ' + label + ' failure; retrying once:', message.slice(0, 220));
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    return operation();
+  }
+}
+
 function makeToneWav() {
   const sampleRate = 16000;
   const sampleCount = sampleRate / 2;
@@ -41,10 +53,10 @@ async function main() {
   llmService.setAccountAccessTokenProvider(() => accessToken);
 
   const prompt = 'Reply with exactly LIVE_GEMINI_CHAT_OK and no other text.';
-  const response = await llmService.executeRemoteRequest({
+  const response = await withTransientRetry('chat', () => llmService.executeRemoteRequest({
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     generationConfig: { temperature: 0, maxOutputTokens: 24 }
-  });
+  }));
 
   assert.equal(typeof response, 'string', 'Hosted Gemini chat must return text');
   assert.ok(response.trim().length > 0,
@@ -52,7 +64,8 @@ async function main() {
 
   // Exercise the same authenticated hosted path with a short audible 440 Hz tone.
   // It validates audio transport/provider handling without embedding a human recording.
-  const audio = await llmService.processAudioWithGemini(makeToneWav(), 'audio/wav');
+  const audio = await withTransientRetry('audio', () =>
+    llmService.processAudioWithGemini(makeToneWav(), 'audio/wav'));
   assert.equal(typeof audio.response, 'string', 'Hosted voice analysis must return text');
   assert.ok(audio.response.trim().length > 0,
     'Hosted voice analysis must return a non-empty response for a valid audio clip');
@@ -63,7 +76,8 @@ async function main() {
   // hosted provider, not just a raw marker request with no system instruction.
   let greeting;
   try {
-    greeting = await llmService.processGeneralAssistantStream('hi', []);
+    greeting = await withTransientRetry('general assistant', () =>
+      llmService.processGeneralAssistantStream('hi', []));
   } finally {
     llmService.remoteOnly = previousRemoteOnly;
     llmService.setAccountAccessTokenProvider(null);
