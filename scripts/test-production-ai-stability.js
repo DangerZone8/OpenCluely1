@@ -36,6 +36,9 @@ async function request(feature, index) {
         'content-type': 'application/json',
         'x-opencluely-install-id': crypto.randomUUID(),
         'x-opencluely-feature': feature,
+        ...(process.env.SLICKLY_E2E_ACCESS_TOKEN
+          ? { Authorization: 'Bearer ' + process.env.SLICKLY_E2E_ACCESS_TOKEN }
+          : {}),
         ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
           ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
           : {})
