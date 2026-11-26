@@ -8,7 +8,7 @@ async function withTransientRetry(label, operation) {
     return await operation();
   } catch (error) {
     const message = String(error?.message || error);
-    if (!/(timed out|connection timed out|fetch failed|network error|HTTP 5\\d\\d)/i.test(message)) throw error;
+    if (!/(timed out|connection timed out|fetch failed|network error|HTTP 5\d\d)/i.test(message)) throw error;
     console.warn('Transient live ' + label + ' failure; retrying once:', message.slice(0, 220));
     await new Promise(resolve => setTimeout(resolve, 2000));
     return operation();
