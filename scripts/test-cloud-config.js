@@ -15,9 +15,11 @@ async function run() {
   const valid = validateConfig(DEFAULT_CONFIG, "1.0.345", "stable-install");
   assert.equal(valid.features.premiumAi, false, "paid features must be off by default");
   assert.equal(valid.features.cloudConfig, true);
-  assert.deepEqual(valid.contentPack, { revision: "builtin-1", prompts: {} });
-  const remotePack = validateConfig({ ...DEFAULT_CONFIG, contentPack: { revision: "event-2", prompts: { dsa: "# Remotely published DSA prompt" } } }, "1.0.345", "stable-install");
+  assert.deepEqual(valid.contentPack, { revision: "builtin-1", prompts: {}, events: [] });
+  const remotePack = validateConfig({ ...DEFAULT_CONFIG, contentPack: { revision: "event-2", prompts: { dsa: "# Remotely published DSA prompt" }, events: [{ id: "winter-event", title: "Winter event", body: "A limited-time desktop event.", startsAt: "2026-11-01T00:00:00.000Z", endsAt: "2026-12-01T00:00:00.000Z" }] } }, "1.0.345", "stable-install");
   assert.equal(remotePack.contentPack.revision, "event-2");
+  assert.equal(remotePack.contentPack.events[0].id, "winter-event");
+  assert.throws(() => validateConfig({ ...DEFAULT_CONFIG, contentPack: { revision: "bad-event", events: [{ id: "x", title: "Bad", body: "Bad", startsAt: "not-a-date", endsAt: "also-bad" }] } }, "1.0.345"), /content event/i);
   const promptLoader = new PromptLoader();
   promptLoader.setRemotePrompts(remotePack.contentPack.prompts);
   assert.equal(promptLoader.getSkillPrompt("dsa"), "# Remotely published DSA prompt", "remote prompt content should override bundled prompt without executing code");
@@ -38,12 +40,13 @@ async function run() {
     const cachePath = path.join(dir, "cache", "cloud.json");
     const service = new CloudConfigService({
       cachePath, appVersion: "1.0.345", installId: "test-install",
-      fetch: async () => ({ ok: true, json: async () => ({ ...DEFAULT_CONFIG, revision: "release-2", features: { ...DEFAULT_CONFIG.features, newSettingsExperience: true }, contentPack: { revision: "remote-2", prompts: { dsa: "# Remote prompt v2" } } }) })
+      fetch: async () => ({ ok: true, json: async () => ({ ...DEFAULT_CONFIG, revision: "release-2", features: { ...DEFAULT_CONFIG.features, newSettingsExperience: true }, contentPack: { revision: "remote-2", prompts: { dsa: "# Remote prompt v2" }, events: [{ id: "season-2", title: "Season 2", body: "New live content.", startsAt: "2026-11-01T00:00:00.000Z", endsAt: "2026-12-01T00:00:00.000Z" }] } }) })
     });
     const next = await service.refresh();
     assert.equal(next.revision, "release-2");
     assert.equal(next.features.newSettingsExperience, true);
     assert.equal(next.contentPack.prompts.dsa, "# Remote prompt v2");
+    assert.equal(next.contentPack.events[0].title, "Season 2");
     assert.ok(fs.existsSync(cachePath), "validated config should be cached atomically");
     const rollback = new CloudConfigService({
       cachePath, appVersion: "1.0.345", installId: "test-install",
