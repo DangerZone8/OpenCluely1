@@ -22,7 +22,7 @@ async function run() {
     process.env.SLICKLY_ADMIN_EMAILS='admin@slickly.example';
     delete process.env.SLICKLY_CLOUD_CONFIG_JSON;
     global.fetch=async(url,options={})=>{
-      if(String(url).endsWith('/auth/v1/user')) return {ok:true,json:async()=>({id:'123e4567-e89b-42d3-a456-426614174000',email:'admin@slickly.example',app_metadata:{provider:'google',providers:['google']}})};
+      if(String(url).endsWith('/auth/v1/user')) return {ok:true,json:async()=>({id:'123e4567-e89b-42d3-a456-426614174000',email:'admin@slickly.example',email_confirmed_at:'2026-11-01T00:00:00Z',app_metadata:{provider:'email',providers:['email']}})};
       if(String(url).includes('/rest/v1/slickly_cloud_config')) {
         if(options.method==='POST') {
           const row=JSON.parse(options.body);stored=row.config;revision=row.revision_number;
@@ -41,21 +41,20 @@ async function run() {
     await admin({method:'GET',headers:{authorization:'Bearer token'}},denied);
     assert.equal(denied.statusCode,403);
 
-    // Turning off email confirmation must not let someone claim an allowlisted
-    // admin email with a password-only account.
+    // An allowlisted but unverified email must not inherit admin access.
     global.fetch=async(url,options={})=>{
       if(String(url).endsWith('/auth/v1/user')) return {ok:true,json:async()=>({
-        id:'123e4567-e89b-42d3-a456-426614174000',email:'admin@slickly.example',
+        id:'123e4567-e89b-42d3-a456-426614174000',email:'admin@slickly.example',email_confirmed_at:null,
         app_metadata:{provider:'email',providers:['email']}
       })};
       throw new Error('Unexpected fetch '+url);
     };
     const passwordSpoof=response();
     await admin({method:'GET',headers:{authorization:'Bearer token'}},passwordSpoof);
-    assert.equal(passwordSpoof.statusCode,403,'email/password account must not inherit admin access from an unverified email');
+    assert.equal(passwordSpoof.statusCode,403,'unverified email/password account must not inherit admin access');
 
     global.fetch=async(url,options={})=>{
-      if(String(url).endsWith('/auth/v1/user')) return {ok:true,json:async()=>({id:'123e4567-e89b-42d3-a456-426614174000',email:'admin@slickly.example',app_metadata:{provider:'google',providers:['google']}})};
+      if(String(url).endsWith('/auth/v1/user')) return {ok:true,json:async()=>({id:'123e4567-e89b-42d3-a456-426614174000',email:'admin@slickly.example',email_confirmed_at:'2026-11-01T00:00:00Z',app_metadata:{provider:'email',providers:['email']}})};
       if(String(url).includes('/rest/v1/slickly_cloud_config')) {
         if(options.method==='POST') {const row=JSON.parse(options.body);stored=row.config;revision=row.revision_number;return {ok:true,json:async()=>[row]};}
         return {ok:true,json:async()=>stored?[{config:stored,revision_number:revision,updated_at:'2026-11-14T00:00:00Z'}]:[]};
@@ -66,12 +65,14 @@ async function run() {
     await admin({method:'PUT',headers:{authorization:'Bearer token'},body:{config:{
       schemaVersion:1,revision:'admin-test',minimumAppVersion:'1.0.0',pollIntervalMs:60000,rolloutPercent:25,
       features:{cloudConfig:true,newSettingsExperience:true,premiumAi:false,advancedScreenAnalysis:true,betaFeatures:false},
-      presentation:{announcement:'Hello',announcementUrl:'https://slicklyai.vercel.app/'}
+      presentation:{announcement:'Hello',announcementUrl:'https://slicklyai.vercel.app/'},
+      contentPack:{revision:'event-pack-1',prompts:{dsa:'# Event prompt'}}
     }}},put);
     assert.equal(put.statusCode,200);
     assert.equal(JSON.parse(put.body).revision,'admin-1');
     assert.equal(stored.rolloutPercent,25);
     assert.equal(stored.features.newSettingsExperience,true);
+    assert.equal(stored.contentPack.prompts.dsa,'# Event prompt');
 
     const invalid=response();
     await admin({method:'PUT',headers:{authorization:'Bearer token'},body:{config:{schemaVersion:1,revision:'bad',minimumAppVersion:'x',pollIntervalMs:1,rolloutPercent:200,features:{},presentation:{}}}},invalid);
@@ -86,6 +87,6 @@ async function run() {
     global.fetch=originalFetch;
     for(const [k,v] of Object.entries(saved)){if(v===undefined)delete process.env[k];else process.env[k]=v;}
   }
-  console.log('Slickly cloud admin tests passed: allowlist enforcement, config validation, persisted revisions and public config propagation.');
+  console.log('Slickly cloud admin tests passed: verified email allowlist enforcement without Google OAuth, config validation, persisted revisions, remote content packs and public config propagation.');
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});
