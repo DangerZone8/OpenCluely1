@@ -4,10 +4,10 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 
 async function main() {
-  const supabaseUrl = String(process.env.SUPABASE_URL || '').replace(/\\/$/, '');
+  const supabaseUrl = String(process.env.SUPABASE_URL || '').replace(/\/$/, '');
   const anonKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || '';
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-  if (!/^https:\\/\\/[a-z0-9.-]+$/i.test(supabaseUrl) || !anonKey || !serviceRoleKey) {
+  if (!/^https:\/\/[a-z0-9.-]+$/i.test(supabaseUrl) || !anonKey || !serviceRoleKey) {
     throw new Error('GitHub Actions must provide SUPABASE_URL, SUPABASE_ANON_KEY (or SUPABASE_PUBLISHABLE_KEY), and SUPABASE_SERVICE_ROLE_KEY. No personal test email or password is required.');
   }
 
