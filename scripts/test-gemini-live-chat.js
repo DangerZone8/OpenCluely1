@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const llmService = require('../src/services/llm.service');
 
-function makeSilentWav() {
+function makeToneWav() {
   const sampleRate = 16000;
   const sampleCount = sampleRate / 2;
   const dataBytes = sampleCount * 2;
@@ -21,6 +21,10 @@ function makeSilentWav() {
   wav.writeUInt16LE(16, 34);
   wav.write('data', 36);
   wav.writeUInt32LE(dataBytes, 40);
+  for (let sample = 0; sample < sampleCount; sample += 1) {
+    const amplitude = Math.round(Math.sin(2 * Math.PI * 440 * sample / sampleRate) * 0.2 * 32767);
+    wav.writeInt16LE(amplitude, 44 + sample * 2);
+  }
   return wav;
 }
 
@@ -46,13 +50,14 @@ async function main() {
   assert.ok(response.trim().length > 0,
     'Hosted Gemini chat must return a non-empty real model response');
 
-  // Exercise the same authenticated hosted path with a small valid WAV payload.
-  // Silence is intentional: the test verifies the audio transport/provider path
-  // without embedding a human recording or spending a long transcription budget.
-  const audio = await llmService.processAudioWithGemini(makeSilentWav(), 'audio/wav');
+  // Exercise the same authenticated hosted path with a short audible 440 Hz tone.
+  // It validates audio transport/provider handling without embedding a human recording.
+  const audio = await llmService.processAudioWithGemini(makeToneWav(), 'audio/wav');
   assert.equal(typeof audio.response, 'string', 'Hosted voice analysis must return text');
   assert.ok(audio.response.trim().length > 0,
     'Hosted voice analysis must return a non-empty response for a valid audio clip');
+  assert.doesNotMatch(audio.response, /haven't attached|have not attached|please upload.*audio|provide the audio clip/i,
+    'Hosted voice analysis must recognize that the audio payload was actually attached: ' + audio.response);
 
   // Exercise the actual general-assistant prompt/history path through the
   // hosted provider, not just a raw marker request with no system instruction.
