@@ -240,6 +240,12 @@ jobs:
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node scripts/create-slickly-test-session.js
+      - name: Give stability diagnostic user Pro test quotas
+        env:
+          SLICKLY_SITE_URL: https://slicklyai.vercel.app
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/test-slickly-live-pro-credits.js
       - name: Probe production chat and screen vision for 150 seconds
         env:
           SLICKLY_DIAGNOSTIC_ENDPOINT: ${{ github.event_name == 'pull_request' && 'https://slicklyai.vercel.app/api/gemini' || 'https://slicklyai.vercel.app/api/gemini' }}
