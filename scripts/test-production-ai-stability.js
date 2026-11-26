@@ -60,7 +60,7 @@ async function request(feature, index) {
         providerStatus: body.providerStatus ?? null,
         providerCode: body.providerCode ?? null,
         retryAfter: response.headers.get('retry-after'),
-        message: String(body.providerMessage || body.error || body.text || raw).replace(/\\s+/g, ' ').slice(0, 180)
+        message: String(body.providerMessage || body.error || body.text || raw).replace(/\s+/g, ' ').slice(0, 180)
       };
       console.log(JSON.stringify(result));
       lastResult = result;
