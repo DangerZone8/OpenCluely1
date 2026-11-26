@@ -60,7 +60,7 @@ async function run() {
     const blockmap = response();
     await handler({ method: "GET", query: { path: ["Slickly-AI-Setup-9.9.9.exe.blockmap"] } }, blockmap);
     assert.equal(blockmap.statusCode, 302);
-    assert.equal(blockmap.headers.location, assets[3].browser_download_url);
+    assert.equal(blockmap.headers.location, assets[2].browser_download_url);
 
     const traversal = response();
     await handler({ method: "GET", query: { path: ["..", "secrets"] } }, traversal);
