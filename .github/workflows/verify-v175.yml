@@ -88,11 +88,13 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - name: Prepare authenticated Slickly test account session
+      - name: Create disposable confirmed CI user (no email sent)
+        id: create-test-user
         env:
-          SLICKLY_SITE_URL: ${{ github.event_name == 'pull_request' && 'https://slicklyai.vercel.app' || 'https://slicklyai.vercel.app' }}
-          SLICKLY_TEST_EMAIL: ${{ secrets.SLICKLY_TEST_EMAIL }}
-          SLICKLY_TEST_PASSWORD: ${{ secrets.SLICKLY_TEST_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node scripts/create-slickly-test-session.js
       - name: Verify live Gemini fast-chat behavior independently of screen vision
         env:
@@ -104,6 +106,12 @@ jobs:
             exit 1
           fi
           npm run test:gemini-live
+      - name: Delete disposable CI user
+        if: always() && steps.create-test-user.outcome == 'success'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/cleanup-slickly-test-session.js
 
   direct-gemini-diagnostic:
     name: Test Gemini directly from GitHub Actions
@@ -138,10 +146,13 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - name: Prepare authenticated Slickly test account session
+      - name: Create disposable confirmed CI user (no email sent)
+        id: create-test-user
         env:
-          SLICKLY_TEST_EMAIL: ${{ secrets.SLICKLY_TEST_EMAIL }}
-          SLICKLY_TEST_PASSWORD: ${{ secrets.SLICKLY_TEST_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node scripts/create-slickly-test-session.js
       - name: Install virtual-desktop runtime
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb xauth libgtk-3-0 libnss3 libxss1 libasound2t64 libgbm1
@@ -164,6 +175,12 @@ jobs:
           echo "::warning::The first real desktop E2E attempt failed. Re-running the entire UI flow once; the check still fails if the retry fails."
           sleep 20
           xvfb-run -a npm run test:screen-ai-desktop-e2e
+      - name: Delete disposable CI user
+        if: always() && steps.create-test-user.outcome == 'success'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/cleanup-slickly-test-session.js
 
   production-stability-diagnostic:
     name: Diagnose chat and screen AI stability over 2.5 minutes
