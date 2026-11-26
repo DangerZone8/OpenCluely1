@@ -15,29 +15,32 @@ async function main() {
   assert.ok(accessToken.length > 20, 'Disposable CI user access token is missing.');
   assert.match(userId, /^[0-9a-f-]{36}$/i, 'Disposable CI user ID is invalid.');
 
+  const eventId = 'ci-' + userId + '-' + Date.now();
   const subscriptionResponse = await fetch(
-    supabaseUrl + '/rest/v1/slickly_subscriptions?on_conflict=user_id',
+    supabaseUrl + '/rest/v1/rpc/apply_slickly_razorpay_event',
     {
       method: 'POST',
       headers: {
         apikey: serviceRoleKey,
         Authorization: 'Bearer ' + serviceRoleKey,
-        'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates,return=representation'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        user_id: userId,
-        provider: 'razorpay',
-        status: 'active',
-        plan: 'pro',
-        current_period_end: '2099-12-31T23:59:59.000Z'
+        p_event_id: eventId,
+        p_user_id: userId,
+        p_provider_subscription_id: 'ci-sub-' + userId,
+        p_event_type: 'subscription.activated',
+        p_provider_status: 'active',
+        p_current_end: '2099-12-31T23:59:59.000Z',
+        p_event_created_at: Math.floor(Date.now() / 1000),
+        p_payload: { source: 'github-actions-ci', disposable: true }
       })
     }
   );
-  if (!subscriptionResponse.ok) {
-    const detail = (await subscriptionResponse.text()).slice(0, 500);
-    throw new Error('Could not promote disposable CI user to temporary Pro status (HTTP ' +
-      subscriptionResponse.status + '): ' + detail);
+  const activation = await subscriptionResponse.json().catch(() => ({}));
+  if (!subscriptionResponse.ok || activation.applied !== true || activation.plan !== 'pro') {
+    throw new Error('Could not activate disposable CI Pro subscription (HTTP ' +
+      subscriptionResponse.status + '): ' + JSON.stringify(activation).slice(0, 500));
   }
 
   const expected = [
