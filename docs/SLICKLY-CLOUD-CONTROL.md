@@ -8,11 +8,13 @@ The desktop client polls `https://slicklyai.vercel.app/api/cloud-config` on star
 
 Only declarative settings are accepted:
 - allowlisted feature flags
-- a short announcement string
-- an announcement URL restricted to Slickly's website or this GitHub repository
+- a short announcement string and an allowlisted announcement URL
+- versioned content packs containing allowlisted prompt text and up to 10 time-windowed live event cards (plain-text title/body)
 - polling interval, rollout percentage, revision, and minimum supported app version
 
-No downloaded JavaScript, native modules, shell commands, arbitrary URLs, or executable plug-ins are evaluated. The existing electron-updater remains responsible for Electron/runtime/native-code changes and continues using signed release artifacts and its existing platform manifests.
+Live event cards are delivered to desktop renderers through the existing `cloud-config-updated` event; active events can also trigger a native desktop notification. They are data, not downloaded UI code. The client validates event IDs, lengths, timestamps, uniqueness, app compatibility, rollout cohort, and revision before caching or applying them. Content updates are fetched on startup and at the configured polling interval; the default is five minutes.
+
+No downloaded JavaScript, HTML, native modules, shell commands, arbitrary URLs, or executable plug-ins are evaluated. The existing electron-updater remains responsible for Electron/runtime/native-code changes and continues using signed release artifacts and its existing platform manifests.
 
 ## Publishing a configuration change
 
