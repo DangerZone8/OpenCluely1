@@ -551,7 +551,6 @@ jobs:
           | Platform | File | Notes |
           |---|---|---|
           | **Windows** | `Slickly-AI-Setup-*.exe` | NSIS installer — installs app + adds to Start Menu |
-          | **Android** | `Slickly-AI-Android.apk` | Install from the Slickly website; Android may ask you to approve this download source |
           | **Linux** | `*.deb` | Debian/Ubuntu — auto-pulls system deps (Python, ffmpeg, GTK) |
           | **Linux** | `*.AppImage` | Universal — no install, just `chmod +x` and run |
           | **macOS** | `*.dmg` / `*.zip` | Intel and Apple Silicon builds; unsigned, so first launch may require approval in Privacy & Security |
@@ -602,8 +601,6 @@ jobs:
           # supported Windows auto-update target.
           # Use only the canonical matrix installer; the PR smoke-test artifact shares its filename.
           find artifacts/slickly-ai-windows-latest -type f -name 'Slickly-AI-Setup-*.exe' \
-            -exec cp -v {} release/ \;
-          find artifacts/slickly-ai-android-apk -type f -name 'Slickly-AI-Android.apk' \
             -exec cp -v {} release/ \;
           find artifacts -type f -name 'slickly-ai_*_amd64.deb' \
             -exec cp -v {} release/ \;
