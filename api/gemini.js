@@ -196,15 +196,14 @@ module.exports = async function handler(req, res) {
     Array.isArray(item?.parts) && item.parts.some(part => part && (part.inlineData || part.fileData))
   );
 
-  // The hosted endpoint is the final enforcement boundary. Never trust a
-  // desktop-only credit check: authenticate the Supabase access token and
-  // reserve weighted usage atomically before contacting any AI provider.
+  // The hosted endpoint is the final enforcement boundary. Authenticated users
+  // reserve account credits; signed-out users receive a one-time five-credit
+  // chat-only allowance keyed by a server HMAC of install ID + trusted client IP.
   let authenticatedAccount = null;
   let reservedFeature = 'chat';
+  let anonymousUser = false;
   try {
-    const account = await authenticate(req);
-    authenticatedAccount = account;
-    const { user, supabaseUrl, serviceRoleKey } = account;
+    const authorization = String(req.headers.authorization || '').trim();
     const hasAudio = hasAudioRequest;
     const requestedFeature = String(body.feature || '');
     const feature = hasAudio
@@ -213,53 +212,87 @@ module.exports = async function handler(req, res) {
         ? (requestedFeature === 'screen_aware' ? 'screen_aware' : 'screenshot')
         : 'chat';
     reservedFeature = feature;
-    // Every image request is charged at the screenshot weight even when the
-    // live-screen quota bucket is selected. This prevents a client from
-    // understating multimodal cost by changing its feature label.
-    const featureUnits = hasAudio ? 4 : isVisionRequest ? 3 : 1;
-    const dailyLimit = Object.prototype.hasOwnProperty.call(PRO_DAILY_LIMITS, feature)
-      ? PRO_DAILY_LIMITS[feature] : PRO_DAILY_LIMITS.chat;
-    const result = await rpc({ supabaseUrl, serviceRoleKey }, 'consume_slickly_credit_v2', {
-      p_user_id: user.id,
-      p_feature: feature,
-      p_free_daily_limit: FREE_DAILY_LIMITS[feature],
-      p_pro_daily_limit: dailyLimit,
-      p_feature_units: featureUnits,
-      p_pro_monthly_budget: PRO_MONTHLY_BUDGET
-    });
-    const row = Array.isArray(result) ? result[0] : result;
-    if (!row || typeof row.allowed !== 'boolean') {
-      return respond(res, 503, { error: 'Slickly could not verify your AI allowance. No provider request was made.' });
-    }
-    // Keep Free on economical Gemini. Pro may use a separately configured premium model.
-    // Missing premium credentials safely fall back to Gemini instead of breaking requests.
-    const premiumProvider = String(process.env.SLICKLY_PRO_HOSTED_AI_PROVIDER || 'deepseek').trim().toLowerCase();
-    const premiumKeyAvailable = premiumProvider === 'qwencloud'
-      ? Boolean(process.env.SLICKLY_QWENCLOUD_API_KEY || process.env.QWENCLOUD_API_KEY)
-      : premiumProvider === 'deepseek'
-        ? Boolean(process.env.SLICKLY_DEEPSEEK_API_KEY || process.env.DEEPSEEK_API_KEY)
-        : premiumProvider === 'kimi'
-          ? Boolean(process.env.SLICKLY_MOONSHOT_API_KEY || process.env.MOONSHOT_API_KEY)
-          : false;
-    hostedProviderId = hostedProviderOverride || (row.plan === 'pro' && premiumKeyAvailable ? premiumProvider : 'gemini');
-    if (!row.allowed) {
-      const monthlyExhausted = row.limit_reason === 'monthly_budget';
-      return respond(res, 429, {
-        error: monthlyExhausted
-          ? 'Your 1,000 monthly Pro credits are used up. They reset at the start of next month.'
-          : 'You have used today’s ' + feature.replace('_', ' ') + ' credits.',
-        code: monthlyExhausted ? 'MONTHLY_BUDGET_EXHAUSTED' : 'DAILY_CREDITS_EXHAUSTED',
-        feature,
-        remaining: Number(row.remaining) || 0,
-        limit: Number(row.daily_limit) || dailyLimit,
-        resetsAt: row.resets_at || null,
-        plan: row.plan || 'free',
-        monthly: row.plan === 'pro' ? {
-          used: Number(row.monthly_used) || 0,
-          limit: Number(row.monthly_limit) || PRO_MONTHLY_BUDGET,
-          remaining: Number(row.monthly_remaining) || 0
-        } : null
+
+    if (!authorization) {
+      if (feature !== 'chat' || hasAudio || isVisionRequest || requestedFeature && requestedFeature !== 'chat') {
+        return respond(res, 401, { error: 'Sign in to use screen AI, screenshots, voice, and other account features. Anonymous access is limited to chat.' });
+      }
+      const crypto = require('node:crypto');
+      const identityHash = crypto.createHmac('sha256', process.env.SUPABASE_SERVICE_ROLE_KEY || '')
+        .update(ip + '\n' + installId)
+        .digest('hex');
+      const result = await rpc({
+        supabaseUrl: String(process.env.SUPABASE_URL || '').replace(/\/$/, ''),
+        serviceRoleKey: String(process.env.SUPABASE_SERVICE_ROLE_KEY || '')
+      }, 'consume_slickly_anonymous_chat_credit', {
+        p_identity_hash: identityHash,
+        p_credit_limit: 5
       });
+      const row = Array.isArray(result) ? result[0] : result;
+      if (!row || typeof row.allowed !== 'boolean') {
+        return respond(res, 503, { error: 'Slickly could not verify your anonymous chat allowance. No AI request was made.' });
+      }
+      if (!row.allowed) {
+        return respond(res, 429, {
+          error: 'Your 5 free anonymous chat credits have been used. Sign in to continue using SlicklyAI.',
+          code: 'ANONYMOUS_CHAT_CREDITS_EXHAUSTED',
+          feature: 'chat',
+          remaining: 0,
+          limit: 5,
+          plan: 'anonymous'
+        });
+      }
+      anonymousUser = true;
+      hostedProviderId = 'gemini';
+    } else {
+      const account = await authenticate(req);
+      authenticatedAccount = account;
+      const { user, supabaseUrl, serviceRoleKey } = account;
+      // Every image request is charged at the screenshot weight even when the
+      // live-screen quota bucket is selected.
+      const featureUnits = hasAudio ? 4 : isVisionRequest ? 3 : 1;
+      const dailyLimit = Object.prototype.hasOwnProperty.call(PRO_DAILY_LIMITS, feature)
+        ? PRO_DAILY_LIMITS[feature] : PRO_DAILY_LIMITS.chat;
+      const result = await rpc({ supabaseUrl, serviceRoleKey }, 'consume_slickly_credit_v2', {
+        p_user_id: user.id,
+        p_feature: feature,
+        p_free_daily_limit: FREE_DAILY_LIMITS[feature],
+        p_pro_daily_limit: dailyLimit,
+        p_feature_units: featureUnits,
+        p_pro_monthly_budget: PRO_MONTHLY_BUDGET
+      });
+      const row = Array.isArray(result) ? result[0] : result;
+      if (!row || typeof row.allowed !== 'boolean') {
+        return respond(res, 503, { error: 'Slickly could not verify your AI allowance. No provider request was made.' });
+      }
+      const premiumProvider = String(process.env.SLICKLY_PRO_HOSTED_AI_PROVIDER || 'deepseek').trim().toLowerCase();
+      const premiumKeyAvailable = premiumProvider === 'qwencloud'
+        ? Boolean(process.env.SLICKLY_QWENCLOUD_API_KEY || process.env.QWENCLOUD_API_KEY)
+        : premiumProvider === 'deepseek'
+          ? Boolean(process.env.SLICKLY_DEEPSEEK_API_KEY || process.env.DEEPSEEK_API_KEY)
+          : premiumProvider === 'kimi'
+            ? Boolean(process.env.SLICKLY_MOONSHOT_API_KEY || process.env.MOONSHOT_API_KEY)
+            : false;
+      hostedProviderId = row.plan === 'pro' && premiumKeyAvailable ? premiumProvider : 'gemini';
+      if (!row.allowed) {
+        const monthlyExhausted = row.limit_reason === 'monthly_budget';
+        return respond(res, 429, {
+          error: monthlyExhausted
+            ? 'Your 1,000 monthly Pro credits are used up. They reset at the start of next month.'
+            : 'You have used today’s ' + feature.replace('_', ' ') + ' credits.',
+          code: monthlyExhausted ? 'MONTHLY_BUDGET_EXHAUSTED' : 'DAILY_CREDITS_EXHAUSTED',
+          feature,
+          remaining: Number(row.remaining) || 0,
+          limit: Number(row.daily_limit) || dailyLimit,
+          resetsAt: row.resets_at || null,
+          plan: row.plan || 'free',
+          monthly: row.plan === 'pro' ? {
+            used: Number(row.monthly_used) || 0,
+            limit: Number(row.monthly_limit) || PRO_MONTHLY_BUDGET,
+            remaining: Number(row.monthly_remaining) || 0
+          } : null
+        });
+      }
     }
   } catch (error) {
     return safeError(res, error);
