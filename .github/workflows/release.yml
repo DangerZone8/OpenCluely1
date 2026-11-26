@@ -530,7 +530,7 @@ jobs:
           app.expo.version = process.argv[2];
           app.expo.android = { ...(app.expo.android || {}), versionCode: Number(process.argv[3]) };
           app.expo.ios = { ...(app.expo.ios || {}), buildNumber: process.argv[3] };
-          fs.writeFileSync('app.json', JSON.stringify(app, null, 2) + '\\n');
+          fs.writeFileSync('app.json', JSON.stringify(app, null, 2) + '\n');
           NODE
           echo "PASS: mobile app version set to $VERSION (Android versionCode $VERSION_CODE)."
 
