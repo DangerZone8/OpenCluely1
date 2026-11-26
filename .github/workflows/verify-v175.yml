@@ -30,6 +30,8 @@ jobs:
         run: npm run check
 
   production-api-revision:
+    # Pull-request source is validated locally; public live-service smoke tests use the public production alias
+    # so no Vercel Preview bypass secret or protected Preview access is required.
     name: Production API revision (quota-free)
     needs: source-checks
     if: github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch'))
@@ -42,9 +44,8 @@ jobs:
           node-version: '24'
       - name: Verify production revision without calling Gemini
         env:
-          VERIFY_ONLY_ENDPOINT: https://slicklyai.vercel.app/api/gemini
-          SLICKLY_EXPECTED_API_REVISION: v175-fast-chat-2026-10-27-n
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          VERIFY_ONLY_ENDPOINT: ${{ github.event_name == 'pull_request' && 'https://slicklyai.vercel.app/api/gemini' || 'https://slicklyai.vercel.app/api/gemini' }}
+          SLICKLY_EXPECTED_API_REVISION: v177-hosted-multiprovider-2026-11-15-a
         run: node scripts/test-production-api-revision.js
 
   production-screen-vision:
@@ -63,14 +64,14 @@ jobs:
       - name: Verify deployed API revision and real screen-vision response
         id: livevision
         env:
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-          VERIFY_ONLY_ENDPOINT: https://slicklyai.vercel.app/api/gemini
+          VERIFY_ONLY_ENDPOINT: ${{ github.event_name == 'pull_request' && 'https://slicklyai.vercel.app/api/gemini' || 'https://slicklyai.vercel.app/api/gemini' }}
+          SLICKLY_EXPECTED_API_REVISION: v177-hosted-multiprovider-2026-11-15-a
           ALLOW_OLD_API_REVISION: 'false'
         run: npm run test:screen-vision-live
       - name: Diagnose backup endpoints if production screen vision fails
         if: always() && steps.livevision.outcome == 'failure'
         env:
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          SLICKLY_EXPECTED_API_REVISION: v177-hosted-multiprovider-2026-11-15-a
           ALLOW_OLD_API_REVISION: 'true'
         run: npm run test:screen-vision-live
 
@@ -87,17 +88,30 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - name: Create disposable confirmed CI user (no email sent)
+        id: create-test-user
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/create-slickly-test-session.js
       - name: Verify live Gemini fast-chat behavior independently of screen vision
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-          OPENCLUELY_AI_ENDPOINT: https://slicklyai.vercel.app/api/gemini
+          OPENCLUELY_AI_ENDPOINT: ${{ github.event_name == 'pull_request' && 'https://slicklyai.vercel.app/api/gemini' || 'https://slicklyai.vercel.app/api/gemini' }}
         run: |
           if [ -z "$GEMINI_API_KEY" ]; then
             echo "::error::GEMINI_API_KEY Actions secret is missing; direct Gemini and live-chat verification cannot be claimed."
             exit 1
           fi
           npm run test:gemini-live
+      - name: Delete disposable CI user
+        if: always() && steps.create-test-user.outcome == 'success'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/cleanup-slickly-test-session.js
 
   direct-gemini-diagnostic:
     name: Test Gemini directly from GitHub Actions
@@ -132,13 +146,20 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - name: Create disposable confirmed CI user (no email sent)
+        id: create-test-user
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/create-slickly-test-session.js
       - name: Install virtual-desktop runtime
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb xauth libgtk-3-0 libnss3 libxss1 libasound2t64 libgbm1
       - name: Exercise both actual desktop screen-AI buttons against production
         id: first-attempt
         continue-on-error: true
         env:
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           # Let the desktop exercise its real HTTPS failover if the primary
           # alias transiently times out. The preceding production-screen-vision
@@ -148,13 +169,18 @@ jobs:
       - name: Retry the complete desktop UI flow once after a transient failure
         if: steps.first-attempt.outcome == 'failure'
         env:
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SLICKLY_E2E_SUSTAINED: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
         run: |
           echo "::warning::The first real desktop E2E attempt failed. Re-running the entire UI flow once; the check still fails if the retry fails."
           sleep 20
           xvfb-run -a npm run test:screen-ai-desktop-e2e
+      - name: Delete disposable CI user
+        if: always() && steps.create-test-user.outcome == 'success'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/cleanup-slickly-test-session.js
 
   production-stability-diagnostic:
     name: Diagnose chat and screen AI stability over 2.5 minutes
@@ -162,18 +188,31 @@ jobs:
     needs: [source-checks, desktop-screen-ai-e2e]
     if: always() && needs.source-checks.result == 'success' && (github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')))
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Create disposable confirmed CI user (no email sent)
+        id: create-test-user
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/create-slickly-test-session.js
       - name: Probe production chat and screen vision for 150 seconds
         env:
-          SLICKLY_DIAGNOSTIC_ENDPOINT: https://slicklyai.vercel.app/api/gemini
-          SLICKLY_EXPECTED_API_REVISION: v175-fast-chat-2026-10-27-n
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          SLICKLY_DIAGNOSTIC_ENDPOINT: ${{ github.event_name == 'pull_request' && 'https://slicklyai.vercel.app/api/gemini' || 'https://slicklyai.vercel.app/api/gemini' }}
+          SLICKLY_EXPECTED_API_REVISION: v177-hosted-multiprovider-2026-11-15-a
           SLICKLY_DIAGNOSTIC_DURATION_MS: '150000'
           SLICKLY_DIAGNOSTIC_INTERVAL_MS: '25000'
           SLICKLY_DIAGNOSTIC_INITIAL_DELAY_MS: '60000'
         run: node scripts/test-production-ai-stability.js
+      - name: Delete disposable CI user
+        if: always() && steps.create-test-user.outcome == 'success'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/cleanup-slickly-test-session.js

@@ -29,8 +29,7 @@ class LLMService {
 
   async consumeCreditForRequest(geminiRequest, featureOverride = null) {
     if (!geminiRequest || typeof geminiRequest !== 'object' || featureOverride === 'already_consumed') return;
-    // Hosted requests reserve credits inside /api/gemini, immediately before
-    // provider execution. Local-provider requests continue to reserve here.
+    // Hosted requests reserve credits inside /api/gemini, immediately before provider execution.
     if (this.remoteOnly) return;
     if (!this.accountAccessTokenProvider) return;
     const existing = this.creditClaims.get(geminiRequest);
@@ -153,9 +152,9 @@ class LLMService {
     const accessToken = this.accountAccessTokenProvider
       ? await this.accountAccessTokenProvider()
       : null;
-    if (!accessToken) {
-      throw new Error('Your Slickly account session has expired. Open Account and sign in again.');
-    }
+    // A missing session is valid for the hosted anonymous chat tier. The API
+    // enforces its five-credit chat-only allowance; account-only features are
+    // rejected server-side without a valid bearer token.
     const parts = (geminiRequest.contents || []).flatMap(message => Array.isArray(message?.parts) ? message.parts : []);
     const hasAudio = parts.some(part => String(part?.inlineData?.mimeType || part?.inline_data?.mime_type || '').toLowerCase().startsWith('audio/'));
     const requestedFeature = ['screen_aware', 'voice', 'screenshot', 'chat'].includes(featureOverride) ? featureOverride : null;
@@ -163,7 +162,7 @@ class LLMService {
     const payload = JSON.stringify({ model: modelName, request: geminiRequest, feature });
     const headers = {
       'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + accessToken,
+      ...(accessToken ? { Authorization: 'Bearer ' + accessToken } : {}),
       'Content-Length': Buffer.byteLength(payload),
       'x-opencluely-install-id': this.getRemoteInstallationId(),
       ...(containsImage ? { 'x-opencluely-feature': 'screen-vision' } : {}),
@@ -1821,6 +1820,12 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
     }
     if (audioBuffer.length > 20 * 1024 * 1024) {
       throw new Error('Audio clip exceeds the 20 MB analysis limit. Record a shorter clip.');
+    }
+    if (this.remoteOnly && audioBuffer.length > 2500000) {
+      throw new Error('Hosted voice analysis supports audio clips up to 2.5 MB. Please record a shorter clip or configure your own Gemini API key.');
+    }
+    if (this.remoteOnly && audioBuffer.length > 2500000) {
+      throw new Error('Hosted voice analysis supports audio clips up to 2.5 MB. Please record a shorter clip or configure your own Gemini API key.');
     }
     if (!/^audio\/(webm|wav|mpeg|mp4|ogg|flac|aiff|aac)(?:;[^\r\n]*)?$/i.test(mimeType)) {
       throw new Error('Unsupported audio format: ' + mimeType);

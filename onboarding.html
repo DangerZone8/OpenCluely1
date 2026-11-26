@@ -245,6 +245,18 @@
             visibility: hidden;
         }
 
+        .welcome-hero { min-height: unset; padding: 12px 0 8px; }
+        .welcome-auth { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-top:22px; }
+        .welcome-auth .btn { min-width:190px; justify-content:center; }
+        .welcome-plans { width:min(100%,520px); display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:22px; text-align:left; }
+        .welcome-plan { background:var(--bg-card); border:1px solid var(--border); border-radius:14px; padding:14px; }
+        .welcome-plan.pro { border-color:var(--accent); }
+        .welcome-plan h3 { font-size:13px; margin:0 0 5px; }
+        .welcome-plan .price { font-size:20px; font-weight:800; color:var(--text); }
+        .welcome-plan p { margin:5px 0 0; color:var(--text-dim); font-size:11px; line-height:1.45; }
+        .welcome-plans-link { margin-top:10px; font-size:12px; color:var(--accent); text-decoration:none; }
+        @media(max-width:520px){ .welcome-plans{grid-template-columns:1fr;} .welcome-auth .btn{width:100%;} }
+
         /* ── Form controls ── */
         .field {
             margin-bottom: 20px;
@@ -722,27 +734,33 @@
 
             <!-- SCREEN 1: Welcome -->
             <section class="screen active" data-screen="welcome">
-                <div class="hero">
+                <div class="hero welcome-hero">
                     <div class="hero-logo"><i class="fas fa-bolt"></i></div>
-                    <h1>Welcome to Slickly AI</h1>
-                    <p class="tagline">
-                        Your AI-powered interview &amp; problem-solving copilot.
-                        Let's get you set up in about a minute.
-                    </p>
+                    <h1>Welcome to SlicklyAI</h1>
+                    <p class="tagline">Your AI copilot for clear answers, problem-solving and everyday productivity.</p>
                     <div class="feature-row">
-                        <div class="feature-pill"><i class="fas fa-keyboard"></i> Live answers</div>
-                        <div class="feature-pill"><i class="fas fa-microphone"></i> Voice input</div>
-                        <div class="feature-pill"><i class="fas fa-shield-halved"></i> Local &amp; private</div>
+                        <div class="feature-pill"><i class="fas fa-keyboard"></i> AI chat</div>
+                        <div class="feature-pill"><i class="fas fa-microphone"></i> Voice</div>
+                        <div class="feature-pill"><i class="fas fa-desktop"></i> Screen-aware help</div>
                     </div>
-                    <button class="btn primary hero-cta" id="heroCtaBtn" type="button">
-                        Get Started <i class="fas fa-arrow-right"></i>
-                    </button>
-                    <button class="btn hero-cta" id="openAiNowBtn" type="button">
-                        Open AI now <i class="fas fa-comment-dots"></i>
-                    </button>
-                    <p class="hint" style="text-align:center;margin-top:8px;">
-                        You can finish setup later. Slickly AI's hosted AI does not require you to enter a Gemini API key.
-                    </p>
+                    <div class="welcome-auth">
+                        <button class="btn primary" id="googleSignInBtn" type="button"><i class="fab fa-google"></i> Continue with Google</button>
+                        <button class="btn" id="emailSignInBtn" type="button"><i class="fas fa-envelope"></i> Sign in with email</button>
+                    </div>
+                    <div class="welcome-plans">
+                        <div class="welcome-plan">
+                            <h3>Slickly Free</h3><div class="price">₹0</div>
+                            <p>Start using Slickly with daily AI credits. No subscription required.</p>
+                        </div>
+                        <div class="welcome-plan pro">
+                            <h3>Slickly Pro</h3><div class="price">₹399 <small>/ month</small></div>
+                            <p>1,000 shared monthly AI credits and higher daily request limits.</p>
+                        </div>
+                    </div>
+                    <a class="welcome-plans-link" href="#" id="viewPlansBtn">Compare plans and features ↗</a>
+                    <button class="btn primary hero-cta" id="heroCtaBtn" type="button">Get Started <i class="fas fa-arrow-right"></i></button>
+                    <button class="btn hero-cta" id="openAiNowBtn" type="button">Open AI now <i class="fas fa-comment-dots"></i></button>
+                    <p class="hint" style="text-align:center;margin-top:8px;">Sign in to sync your account and Pro subscription across supported Slickly apps. Hosted AI does not require your own Gemini API key.</p>
                 </div>
             </section>
 
@@ -927,22 +945,6 @@
                         <!-- populated dynamically -->
                     </div>
 
-                    <div class="star-card">
-                        <div class="star-icon"><i class="fas fa-star"></i></div>
-                        <h3>Enjoying Slickly AI?</h3>
-                        <p>
-                            If this saved you time in an interview or a coding session,
-                            a quick ⭐ on GitHub helps others find it.
-                        </p>
-                        <div class="actions">
-                            <button class="btn primary" id="starBtn" type="button">
-                                <i class="fab fa-github"></i> Star on GitHub
-                            </button>
-                            <button class="btn ghost" id="skipStarBtn" type="button">
-                                Maybe later
-                            </button>
-                        </div>
-                    </div>
                 </div>
             </section>
         </div>
@@ -962,16 +964,6 @@
             </div>
         </div>
 
-        <!-- ── Footer ── -->
-        <div class="footer">
-            <div class="dev">
-                Built by <a href="https://techycsr.dev" target="_blank" rel="noreferrer"><strong>@TechyCSR</strong></a>
-                <span style="opacity:0.5; margin: 0 8px;">·</span>
-                <a href="https://github.com/DangerZone8/OpenCluely1" target="_blank" rel="noreferrer">
-                    <i class="fab fa-github"></i> GitHub
-                </a>
-            </div>
-        </div>
     </div>
 
     <script src="./onboarding.js"></script>

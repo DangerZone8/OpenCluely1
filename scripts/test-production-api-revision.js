@@ -1,12 +1,14 @@
 'use strict';
 
 const endpoint = process.env.VERIFY_ONLY_ENDPOINT || 'https://slicklyai.vercel.app/api/gemini';
-const expected = process.env.SLICKLY_EXPECTED_API_REVISION || 'v175-fast-chat-2026-10-27-n';
+const expected = process.env.SLICKLY_EXPECTED_API_REVISION || 'v177-hosted-multiprovider-2026-11-15-a';
 
 async function main() {
-  const headers = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
-    ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
-    : {};
+  const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || '';
+  if (new URL(endpoint).hostname.includes('-git-') && !bypassSecret) {
+    throw new Error('VERCEL_AUTOMATION_BYPASS_SECRET GitHub Actions secret is missing; protected Vercel Preview cannot be checked.');
+  }
+  const headers = bypassSecret ? { 'x-vercel-protection-bypass': bypassSecret } : {};
   const response = await fetch(endpoint, {
     method: 'GET',
     headers,

@@ -22,7 +22,7 @@ async function run() {
     process.env.SLICKLY_ADMIN_EMAILS='admin@slickly.example';
     delete process.env.SLICKLY_CLOUD_CONFIG_JSON;
     global.fetch=async(url,options={})=>{
-      if(String(url).endsWith('/auth/v1/user')) return {ok:true,json:async()=>({id:'123e4567-e89b-42d3-a456-426614174000',email:'admin@slickly.example'})};
+      if(String(url).endsWith('/auth/v1/user')) return {ok:true,json:async()=>({id:'123e4567-e89b-42d3-a456-426614174000',email:'admin@slickly.example',app_metadata:{provider:'google',providers:['google']}})};
       if(String(url).includes('/rest/v1/slickly_cloud_config')) {
         if(options.method==='POST') {
           const row=JSON.parse(options.body);stored=row.config;revision=row.revision_number;
@@ -41,8 +41,21 @@ async function run() {
     await admin({method:'GET',headers:{authorization:'Bearer token'}},denied);
     assert.equal(denied.statusCode,403);
 
+    // Turning off email confirmation must not let someone claim an allowlisted
+    // admin email with a password-only account.
     global.fetch=async(url,options={})=>{
-      if(String(url).endsWith('/auth/v1/user')) return {ok:true,json:async()=>({id:'123e4567-e89b-42d3-a456-426614174000',email:'admin@slickly.example'})};
+      if(String(url).endsWith('/auth/v1/user')) return {ok:true,json:async()=>({
+        id:'123e4567-e89b-42d3-a456-426614174000',email:'admin@slickly.example',
+        app_metadata:{provider:'email',providers:['email']}
+      })};
+      throw new Error('Unexpected fetch '+url);
+    };
+    const passwordSpoof=response();
+    await admin({method:'GET',headers:{authorization:'Bearer token'}},passwordSpoof);
+    assert.equal(passwordSpoof.statusCode,403,'email/password account must not inherit admin access from an unverified email');
+
+    global.fetch=async(url,options={})=>{
+      if(String(url).endsWith('/auth/v1/user')) return {ok:true,json:async()=>({id:'123e4567-e89b-42d3-a456-426614174000',email:'admin@slickly.example',app_metadata:{provider:'google',providers:['google']}})};
       if(String(url).includes('/rest/v1/slickly_cloud_config')) {
         if(options.method==='POST') {const row=JSON.parse(options.body);stored=row.config;revision=row.revision_number;return {ok:true,json:async()=>[row]};}
         return {ok:true,json:async()=>stored?[{config:stored,revision_number:revision,updated_at:'2026-11-14T00:00:00Z'}]:[]};

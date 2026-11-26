@@ -1,64 +1,95 @@
-# Slickly Pro ₹399/month fair-use and profitability audit
+# Slickly Pro ₹399/month profitability and fair-use audit
 
-**Decision: keep ₹399/month as a controlled fair-use plan, not an unlimited-use promise.** The previous daily quota design (60 screen, 60 voice, 100 screenshot and 200 chat calls every day) could exceed subscription revenue if a customer used the full allowance. Those quotas have been replaced in code with daily burst ceilings and a shared monthly weighted allowance.
+**Decision: ₹399/month is plausible only as a bounded fair-use plan. It is not unlimited AI usage, and profitability is not yet proven.**
 
 ## Enforced Pro allowance
 
 | Feature | Daily ceiling | Monthly units per request | Maximum if used alone |
 |---|---:|---:|---:|
-| Screen-aware AI | 10 | 2 | 250 calls |
-| Voice | 3 | 4 | 125 calls |
-| Screenshots | 5 | 3 | 166 calls |
-| Chat | 20 | 1 | 500 calls |
-| **Shared monthly budget** | — | — | **500 weighted units** |
+| Screen-aware AI | 20 | 3 | 500 calls |
+| Voice | 6 | 4 | 375 calls |
+| Screenshots | 10 | 3 | 500 calls |
+| Chat | 40 | 1 | 1,000 calls |
+| **Shared monthly credits** | — | **1,000 credits** | — |
 
-The 500-unit budget is shared across features, resets on the first day of each UTC calendar month, and is enforced by a Postgres transaction alongside per-feature daily limits. The server chooses feature weights and the monthly allowance; the client cannot request a cheaper weight. The account page displays the remaining monthly allowance. The database migration is `supabase/migrations/202611180001_slickly_monthly_pro_budget.sql`.
+The allowance is shared across features and resets on the first day of each UTC calendar month. The database RPC enforces daily and monthly limits atomically. The hosted Gemini endpoint now independently authenticates the Supabase access token and reserves credits before contacting the AI provider; the desktop-only credit check is not treated as a security boundary.
 
-These units are intentionally not called tokens or rupees. They are conservative relative request weights. A screen frame costs 2 units, voice 4, a screenshot 3 and text chat 1.
+All image requests are charged at 3 units, including live screen requests. Voice requests cost 4 units and text chat costs 1. These weights are conservative relative request weights, not exact token-dollar metering.
 
-## Provider price reference and scenario assumptions
+The migration is `supabase/migrations/202611180001_slickly_monthly_pro_budget.sql`. Apply it after the existing account, referral and cloud-config migrations.
 
-The hosted endpoint selects Google Gemini 3.1 Flash-Lite. Google's published paid Standard pricing currently lists:
+## Provider price reference
+
+Google's published Gemini 3.1 Flash-Lite Standard paid pricing lists:
 - Text/image/video input: $0.25 per 1 million tokens.
 - Audio input: $0.50 per 1 million tokens.
-- Output (including thinking tokens): $1.50 per 1 million tokens.
+- Output, including thinking tokens: $1.50 per 1 million tokens.
 
 Source: [Google Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing).
 
-Illustrative per-call token assumptions (not measured Slickly telemetry):
-- Screen-aware: 1,000 input + 250 output tokens.
-- Voice: 1,600 audio input + 250 output tokens.
-- Screenshot: 2,000 input + 400 output tokens.
-- Chat: 1,500 text input + 400 output tokens.
+The hosted endpoint caps text/image output at 512 tokens and audio-request output at 2,048 tokens. Request bodies are limited to 4 MB; inline media is separately bounded. These caps reduce runaway payloads but do not replace provider-side spending alerts or real token accounting.
 
-At an illustrative ₹94.08/USD conversion, the modeled costs are approximately:
-- Screen-aware: ₹0.059 per call (2 units).
-- Voice: ₹0.111 per call (4 units).
-- Screenshot: ₹0.104 per call (3 units).
-- Chat: ₹0.092 per call (1 unit).
+## Illustrative variable AI cost
 
-If a customer spent the entire 500-unit budget on only one feature, the model-only scenario would be approximately ₹14–₹46/month depending on the feature mix. A 2× planning buffer gives approximately ₹28–₹92/month. This is a planning sensitivity, not a bill estimate or guaranteed maximum: long prompts, large images, audio duration, retries, provider-side reasoning and alternate providers can materially change costs.
+These are modeling assumptions, not measured production telemetry:
+- Screen-aware request: 1,000 text/image input tokens + 512 output tokens.
+- Voice request: 1,600 audio input tokens + 2,048 output tokens.
+- Screenshot request: 2,000 text/image input tokens + 512 output tokens.
+- Chat request: 1,500 text input tokens + 512 output tokens.
+- Illustrative conversion: ₹94.08 per USD.
 
-## What this changes financially
+| Feature | Estimated model cost/call | Calls at 1,000-credit cap | Estimated model cost if all credits go to this feature |
+|---|---:|---:|---:|
+| Screen-aware AI | ₹0.096 | 333 | ₹31.97 |
+| Voice | ₹0.364 | 250 | ₹91.00 |
+| Screenshots | ₹0.119 | 333 | ₹39.63 |
+| Chat | ₹0.108 | 1,000 | ₹108.00 |
 
-The old plan exposed 12,600 daily-quota calls over 30 days, with a modeled worst-case AI cost of about ₹1,166/month under the prior assumptions. That was not sustainable at ₹399.
+A 2× planning buffer would put this illustrative model-only range at roughly ₹64–₹182/month. These estimates are scaled to the 1,000-credit cap; they remain illustrative rather than measured costs. This is not a guaranteed cost ceiling: prompt length, media duration/resolution, provider retries, hidden reasoning tokens, model changes and request patterns can materially change actual charges. The shared weighted budget is a product-use guardrail, not a rupee-denominated provider-spend cap.
 
-The new design:
-1. Reduces per-feature daily burst ceilings.
-2. Adds a shared 500-unit monthly cap, preventing customers from independently exhausting every feature's daily pool throughout the month.
-3. Uses higher weights for multimodal requests than text chat.
-4. Shows the remaining allowance to customers before they hit the cap.
+## Measuring actual provider costs after migration
 
-This materially reduces exposure, but does **not** prove the subscription is profitable. The request weights are proxies rather than true dollar metering. A fixed token ceiling and provider-reported usage accounting are still needed before claiming a guaranteed gross margin.
+After applying the provider-usage migration, this query estimates daily Gemini model spend by feature. It uses the current published Standard prices and treats voice input as audio-priced input; it is an estimate, not an invoice reconciliation.
 
-## Launch gates
+```sql
+select
+  usage_date,
+  feature,
+  provider,
+  model,
+  sum(requests) as requests,
+  sum(prompt_tokens) as prompt_tokens,
+  sum(output_tokens) as output_tokens,
+  round((
+    sum(prompt_tokens) * case when feature = 'voice' then 0.50 else 0.25 end
+    + sum(output_tokens) * 1.50
+  ) / 1000000.0, 6) as estimated_usd
+from public.slickly_provider_usage_daily
+group by usage_date, feature, provider, model
+order by usage_date desc, feature;
+```
 
-1. Apply all Supabase migrations, including the monthly budget migration, in order.
-2. Confirm the deployed Vercel Production environment has the correct Supabase URL, public key and server-only service-role key.
-3. Keep `SLICKLY_BILLING_ENABLED` disabled while testing.
-4. Run a staging cohort and compare Gemini usage metadata and provider invoices against per-account weighted units.
-5. Add durable token/cost aggregation by feature and account, without storing prompts, screenshots, audio or secrets.
-6. Set provider-side quotas/alerts and an operational monthly spend ceiling. Billing alerts alone are notifications, not a hard spend cap.
-7. Include hosting, payment processing, taxes, refunds, chargebacks and support before declaring net profitability.
+The current endpoint persists Gemini usage metadata for successful streaming and non-streaming responses. Alternate providers must expose their own usage metadata before their costs can be reconciled in this table. Reconcile these estimates with the provider invoice and account for any usage that lacks metadata.
 
-**Conclusion:** ₹399 is a plausible price for a bounded fair-use plan, not an unlimited plan. The new 500-unit budget is a substantial safety improvement, but the product should not be marketed as guaranteed profitable until real provider invoices and customer usage distributions validate the model.
+## What ₹399 needs to cover
+
+The ₹399 subscription price is gross revenue, not net contribution. Before describing Pro as profitable, subtract:
+- AI provider usage from real usage metadata and invoices.
+- Payment gateway fees, applicable taxes and refunds/chargebacks.
+- Hosting, database, storage, monitoring and update-delivery costs.
+- Customer support and operational overhead.
+
+The customer mix also matters: a large share of voice or image usage costs more than chat-heavy usage under these assumptions.
+
+## Release gates
+
+1. Apply all Supabase migrations in order, including the monthly Pro budget migration.
+2. Configure the Supabase URL, public key and server-only service-role key in the Slickly Vercel Production environment.
+3. Disable email confirmation in Supabase only after accepting that password-only accounts will not prove control of their email address. Google OAuth identity is required for allowlisted admin access.
+4. Complete Google OAuth provider setup and redirect allowlisting with the project owner's Google credentials.
+5. Run a staging cohort and compare provider-reported token usage and actual invoices with the weighted allowance.
+6. Apply `supabase/migrations/202611180002_slickly_provider_usage_telemetry.sql` and validate that provider-reported token counts are being aggregated by account, feature, provider and model without storing prompts, screenshots, audio or secrets.
+7. Set provider-side spend alerts/quotas and an operational monthly spend ceiling. Alerts are not a hard spend cap.
+8. Complete live tests for sign-in, session refresh, purchase, renewal, cancellation, refunds and credit concurrency before enabling live billing.
+
+**Conclusion:** ₹399 may work with the 1,000-credit shared fair-use plan, but the modeled cost is not proof of profit. Keep live billing disabled until the external setup, staging telemetry and real cost review are complete.

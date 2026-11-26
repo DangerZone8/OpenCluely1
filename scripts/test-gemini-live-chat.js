@@ -7,6 +7,14 @@ async function main() {
   // Exercise the same hosted Gemini proxy used by keyless desktop screen/audio
   // flows. This is a real provider-backed request, not a mock, but deliberately
   // uses one provider call so CI does not burn a multi-turn quota budget on every push.
+  const accessToken = process.env.SLICKLY_E2E_ACCESS_TOKEN;
+  if (!accessToken) {
+    throw new Error('Authenticated CI session is missing. Run scripts/create-slickly-test-session.js first.');
+  }
+  const previousRemoteOnly = llmService.remoteOnly;
+  llmService.remoteOnly = true;
+  llmService.setAccountAccessTokenProvider(() => accessToken);
+
   const prompt = 'Reply with exactly LIVE_GEMINI_CHAT_OK and no other text.';
   const response = await llmService.executeRemoteRequest({
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -19,13 +27,12 @@ async function main() {
 
   // Exercise the actual general-assistant prompt/history path through the
   // hosted provider, not just a raw marker request with no system instruction.
-  const previousRemoteOnly = llmService.remoteOnly;
-  llmService.remoteOnly = true;
   let greeting;
   try {
     greeting = await llmService.processGeneralAssistantStream('hi', []);
   } finally {
     llmService.remoteOnly = previousRemoteOnly;
+    llmService.setAccountAccessTokenProvider(null);
   }
   assert.equal(typeof greeting.response, 'string', 'General assistant must return a real greeting');
   assert.ok(greeting.response.trim().length > 0, 'General assistant greeting must not be empty');
@@ -37,7 +44,7 @@ async function main() {
   console.log(JSON.stringify({
     status: 'PASS',
     provider: 'Live Gemini through hosted Cleverly AI proxy (not mocked)',
-    providerRequests: 1,
+    providerRequests: 2,
     response,
     generalGreeting: greeting.response
   }, null, 2));

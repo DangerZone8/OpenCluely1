@@ -23,6 +23,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Test source before packaging or publishing
@@ -64,6 +68,21 @@ jobs:
 
       - name: Run repository checks
         run: npm run check
+
+      - name: Verify live Supabase and Google sign-in configuration
+        if: github.event_name != 'pull_request'
+        env:
+          SLICKLY_SITE_URL: ${{ github.event_name == 'pull_request' && 'https://slicklyai.vercel.app' || 'https://slicklyai.vercel.app' }}
+        run: node scripts/test-slickly-live-auth.js
+
+      - name: Create disposable confirmed CI user (no email sent)
+        id: create-test-user
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/create-slickly-test-session.js
 
       - name: Verify Vercel update-feed routing
         run: node scripts/test-vercel-update-feed.js
@@ -115,12 +134,18 @@ jobs:
         if: github.event_name != 'pull_request'
         env:
           SLICKLY_DIAGNOSTIC_ENDPOINT: https://slicklyai.vercel.app/api/gemini
-          SLICKLY_EXPECTED_API_REVISION: v175-fast-chat-2026-10-27-n
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          SLICKLY_EXPECTED_API_REVISION: v177-hosted-multiprovider-2026-11-15-a
           SLICKLY_DIAGNOSTIC_DURATION_MS: '150000'
           SLICKLY_DIAGNOSTIC_INTERVAL_MS: '25000'
           SLICKLY_DIAGNOSTIC_INITIAL_DELAY_MS: '60000'
         run: node scripts/test-production-ai-stability.js
+
+      - name: Delete disposable CI user
+        if: always() && steps.create-test-user.outcome == 'success'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/cleanup-slickly-test-session.js
 
       - name: Verify package metadata
         if: always()
@@ -439,10 +464,88 @@ jobs:
           path: ${{ matrix.artifact_glob }}
           if-no-files-found: error
 
+  mobile-android:
+    name: Build installable Android APK
+    if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up Java for Android Gradle
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install required Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          fi
+          test -x "$SDKMANAGER"
+          # sdkmanager exits after accepting all licences; `yes` then receives SIGPIPE.
+          # Disable pipefail for this expected producer-side close, while preserving
+          # sdkmanager's exit status as the pipeline status.
+          set +o pipefail
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          set -o pipefail
+          "$SDKMANAGER" --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Install mobile dependencies
+        working-directory: mobile
+        run: npm install --no-audit --no-fund
+
+      - name: Generate branded desktop and mobile icons
+        run: node scripts/generate-app-icons.js
+
+      - name: Generate native Android project
+        working-directory: mobile
+        env:
+          CI: '1'
+        run: npx expo prebuild --platform android
+
+      - name: Build signed release APK
+        working-directory: mobile/android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Verify APK signature and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="mobile/android/app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose "$APK"
+          mkdir -p mobile-release
+          cp "$APK" mobile-release/Slickly-AI-Android.apk
+          echo "PASS: Android APK is non-empty, signed, and ready for device installation."
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: slickly-ai-android-apk
+          path: mobile-release/Slickly-AI-Android.apk
+          if-no-files-found: error
+          retention-days: 30
+
   release:
     name: Create GitHub Release
-    needs: [test, preflight, build]
-    if: ${{ !cancelled() && needs.test.result == 'success' && needs.preflight.result == 'success' && needs.build.result == 'success' && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) }}
+    needs: [test, preflight, build, mobile-android]
+    if: ${{ !cancelled() && needs.test.result == 'success' && needs.preflight.result == 'success' && needs.build.result == 'success' && needs.mobile-android.result == 'success' && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (full history for changelog)
@@ -528,6 +631,7 @@ jobs:
           | Platform | File | Notes |
           |---|---|---|
           | **Windows** | `Slickly-AI-Setup-*.exe` | NSIS installer — installs app + adds to Start Menu |
+          | **Android** | `Slickly-AI-Android.apk` | Install from the Slickly website; Android may ask you to approve this download source |
           | **Linux** | `*.deb` | Debian/Ubuntu — auto-pulls system deps (Python, ffmpeg, GTK) |
           | **Linux** | `*.AppImage` | Universal — no install, just `chmod +x` and run |
           | **macOS** | `*.dmg` / `*.zip` | Intel and Apple Silicon builds; unsigned, so first launch may require approval in Privacy & Security |
@@ -578,6 +682,8 @@ jobs:
           # supported Windows auto-update target.
           # Use only the canonical matrix installer; the PR smoke-test artifact shares its filename.
           find artifacts/slickly-ai-windows-latest -type f -name 'Slickly-AI-Setup-*.exe' \
+            -exec cp -v {} release/ \;
+          find artifacts/slickly-ai-android-apk -type f -name 'Slickly-AI-Android.apk' \
             -exec cp -v {} release/ \;
           find artifacts -type f -name 'slickly-ai_*_amd64.deb' \
             -exec cp -v {} release/ \;

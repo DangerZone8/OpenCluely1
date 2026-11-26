@@ -1,6 +1,17 @@
 'use strict';
 
+const { authenticate, rpc, safeError } = require('./_lib/slickly-auth');
+
+const FREE_DAILY_LIMITS = Object.freeze({ screen_aware: 2, voice: 2, screenshot: 3, chat: 7 });
+const PRO_DAILY_LIMITS = Object.freeze({ screen_aware: 20, voice: 6, screenshot: 10, chat: 40 });
+const PRO_MONTHLY_BUDGET = 1000;
+
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
+const MAX_PROMPT_TEXT_CHARS = 20000;
+const MAX_INLINE_MEDIA_CHARS = 3500000;
+const MAX_CONTENT_MESSAGES = 20;
+const MAX_OUTPUT_TOKENS = 512;
+const MAX_AUDIO_OUTPUT_TOKENS = 2048;
 const WINDOW_MS = 60 * 1000;
 const MAX_PER_WINDOW = 10;
 // A single live-screen session sends about 9 frames/minute at the 6.5s UI interval.
@@ -23,6 +34,27 @@ function respond(res, status, body) {
   // Fingerprint the deployed handler so production-alias drift is observable in E2E logs.
   res.setHeader('X-OpenCluely-API-Revision', 'v177-hosted-multiprovider-2026-11-15-a');
   res.end(JSON.stringify(body));
+}
+
+async function recordProviderUsage(account, feature, model, usage) {
+  if (!account || !usage) return;
+  try {
+    await rpc({ supabaseUrl: account.supabaseUrl, serviceRoleKey: account.serviceRoleKey },
+      'record_slickly_provider_usage', {
+        p_user_id: account.user.id,
+        p_feature: feature,
+        p_provider: 'gemini',
+        p_model: String(model || 'unknown').slice(0, 128),
+        p_prompt_tokens: Number(usage.promptTokens) || 0,
+        p_output_tokens: Number(usage.outputTokens) || 0,
+        p_total_tokens: Number(usage.totalTokens) || 0
+      });
+  } catch (error) {
+    // Telemetry must never turn a completed AI response into a failed request.
+    console.warn('[Slickly provider usage telemetry]', JSON.stringify({
+      provider: 'gemini', feature, message: String(error?.message || error).slice(0, 140)
+    }));
+  }
 }
 
 function rateLimit(key, now, maxPerWindow = MAX_PER_WINDOW, maxPerDay = MAX_PER_DAY) {
@@ -77,8 +109,12 @@ module.exports = async function handler(req, res) {
     .filter(entry => entry.value)
     .filter((entry, index, all) => all.findIndex(candidate => candidate.value === entry.value) === index);
   const keys = keyEntries.map(entry => entry.value);
-  const hostedProviderId = String(process.env.SLICKLY_HOSTED_AI_PROVIDER || 'gemini').trim().toLowerCase();
-  if (!keys.length && hostedProviderId === 'gemini') {
+  const hostedProviderOverride = String(process.env.SLICKLY_HOSTED_AI_PROVIDER || '').trim().toLowerCase();
+  let hostedProviderId = 'gemini';
+  if (!keys.length && !hostedProviderOverride &&
+      !process.env.SLICKLY_QWENCLOUD_API_KEY && !process.env.QWENCLOUD_API_KEY &&
+      !process.env.SLICKLY_DEEPSEEK_API_KEY && !process.env.DEEPSEEK_API_KEY &&
+      !process.env.SLICKLY_MOONSHOT_API_KEY && !process.env.MOONSHOT_API_KEY) {
     return respond(res, 503, {
       error: 'The Slickly AI service is not configured in this deployment. Verify the Production environment variables and redeploy.',
       configuredNames: {
@@ -130,10 +166,139 @@ module.exports = async function handler(req, res) {
   if (!request || typeof request !== 'object' || !Array.isArray(request.contents) || request.contents.length === 0) {
     return respond(res, 400, { error: 'AI request is missing content.' });
   }
+  if (request.contents.length > MAX_CONTENT_MESSAGES) {
+    return respond(res, 413, { error: 'This request contains too much conversation history. Start a new chat or shorten the context.' });
+  }
+  const requestParts = request.contents.flatMap(item => Array.isArray(item?.parts) ? item.parts : []);
+  const hasAudioRequest = requestParts.some(part => String(part?.inlineData?.mimeType || part?.inline_data?.mime_type || '').toLowerCase().startsWith('audio/'));
+  const promptTextChars = request.contents.reduce((total, item) =>
+    total + (Array.isArray(item?.parts) ? item.parts.reduce((sum, part) => sum + (typeof part?.text === 'string' ? part.text.length : 0), 0) : 0), 0) +
+    (typeof request.systemInstruction === 'string' ? request.systemInstruction.length : 0);
+  if (promptTextChars > MAX_PROMPT_TEXT_CHARS) {
+    return respond(res, 413, { error: 'The request context is too long. Shorten the conversation or send a more focused question.' });
+  }
+  const inlineMediaChars = request.contents.reduce((total, item) =>
+    total + (Array.isArray(item?.parts) ? item.parts.reduce((sum, part) =>
+      sum + (typeof part?.inlineData?.data === 'string' ? part.inlineData.data.length : 0), 0) : 0), 0);
+  if (inlineMediaChars > MAX_INLINE_MEDIA_CHARS) {
+    return respond(res, 413, { error: 'The attached image or audio is too large. Capture a smaller frame or shorter clip.' });
+  }
+  const requestedOutputTokens = Number(request.generationConfig?.maxOutputTokens);
+  const outputTokenLimit = hasAudioRequest ? MAX_AUDIO_OUTPUT_TOKENS : MAX_OUTPUT_TOKENS;
+  request.generationConfig = {
+    ...(request.generationConfig && typeof request.generationConfig === 'object' ? request.generationConfig : {}),
+    maxOutputTokens: Number.isFinite(requestedOutputTokens) && requestedOutputTokens > 0
+      ? Math.min(Math.floor(requestedOutputTokens), outputTokenLimit)
+      : outputTokenLimit
+  };
 
   const isVisionRequest = request.contents.some(item =>
     Array.isArray(item?.parts) && item.parts.some(part => part && (part.inlineData || part.fileData))
   );
+
+  // The hosted endpoint is the final enforcement boundary. Authenticated users
+  // reserve account credits; signed-out users receive a one-time five-credit
+  // chat-only allowance keyed by a server HMAC of install ID + trusted client IP.
+  let authenticatedAccount = null;
+  let reservedFeature = 'chat';
+  let anonymousUser = false;
+  let anonymousCreditsRemaining = null;
+  try {
+    const authorization = String(req.headers.authorization || '').trim();
+    const hasAudio = hasAudioRequest;
+    const requestedFeature = String(body.feature || '');
+    const feature = hasAudio
+      ? 'voice'
+      : isVisionRequest
+        ? (requestedFeature === 'screen_aware' ? 'screen_aware' : 'screenshot')
+        : 'chat';
+    reservedFeature = feature;
+
+    if (!authorization) {
+      if (feature !== 'chat' || hasAudio || isVisionRequest || requestedFeature && requestedFeature !== 'chat') {
+        return respond(res, 401, { error: 'Sign in to use screen AI, screenshots, voice, and other account features. Anonymous access is limited to chat.' });
+      }
+      const crypto = require('node:crypto');
+      const identityHash = crypto.createHmac('sha256', process.env.SUPABASE_SERVICE_ROLE_KEY || '')
+        .update(ip + '\n' + String(req.headers['user-agent'] || 'unknown'))
+        .digest('hex');
+      const result = await rpc({
+        supabaseUrl: String(process.env.SUPABASE_URL || '').replace(/\/$/, ''),
+        serviceRoleKey: String(process.env.SUPABASE_SERVICE_ROLE_KEY || '')
+      }, 'consume_slickly_anonymous_chat_credit', {
+        p_identity_hash: identityHash,
+        p_credit_limit: 5
+      });
+      const row = Array.isArray(result) ? result[0] : result;
+      if (!row || typeof row.allowed !== 'boolean') {
+        return respond(res, 503, { error: 'Slickly could not verify your anonymous chat allowance. No AI request was made.' });
+      }
+      if (!row.allowed) {
+        return respond(res, 429, {
+          error: 'Your 5 free anonymous chat credits have been used. Sign in to continue using SlicklyAI.',
+          code: 'ANONYMOUS_CHAT_CREDITS_EXHAUSTED',
+          feature: 'chat',
+          remaining: 0,
+          limit: 5,
+          plan: 'anonymous'
+        });
+      }
+      anonymousUser = true;
+      anonymousCreditsRemaining = Number(row.remaining) || 0;
+      hostedProviderId = 'gemini';
+    } else {
+      const account = await authenticate(req);
+      authenticatedAccount = account;
+      const { user, supabaseUrl, serviceRoleKey } = account;
+      // Every image request is charged at the screenshot weight even when the
+      // live-screen quota bucket is selected.
+      const featureUnits = hasAudio ? 4 : isVisionRequest ? 3 : 1;
+      const dailyLimit = Object.prototype.hasOwnProperty.call(PRO_DAILY_LIMITS, feature)
+        ? PRO_DAILY_LIMITS[feature] : PRO_DAILY_LIMITS.chat;
+      const result = await rpc({ supabaseUrl, serviceRoleKey }, 'consume_slickly_credit_v2', {
+        p_user_id: user.id,
+        p_feature: feature,
+        p_free_daily_limit: FREE_DAILY_LIMITS[feature],
+        p_pro_daily_limit: dailyLimit,
+        p_feature_units: featureUnits,
+        p_pro_monthly_budget: PRO_MONTHLY_BUDGET
+      });
+      const row = Array.isArray(result) ? result[0] : result;
+      if (!row || typeof row.allowed !== 'boolean') {
+        return respond(res, 503, { error: 'Slickly could not verify your AI allowance. No provider request was made.' });
+      }
+      const premiumProvider = String(process.env.SLICKLY_PRO_HOSTED_AI_PROVIDER || hostedProviderOverride || 'deepseek').trim().toLowerCase();
+      const premiumKeyAvailable = premiumProvider === 'qwencloud'
+        ? Boolean(process.env.SLICKLY_QWENCLOUD_API_KEY || process.env.QWENCLOUD_API_KEY)
+        : premiumProvider === 'deepseek'
+          ? Boolean(process.env.SLICKLY_DEEPSEEK_API_KEY || process.env.DEEPSEEK_API_KEY)
+          : premiumProvider === 'kimi'
+            ? Boolean(process.env.SLICKLY_MOONSHOT_API_KEY || process.env.MOONSHOT_API_KEY)
+            : false;
+      hostedProviderId = row.plan === 'pro' && premiumKeyAvailable ? premiumProvider : 'gemini';
+      if (!row.allowed) {
+        const monthlyExhausted = row.limit_reason === 'monthly_budget';
+        return respond(res, 429, {
+          error: monthlyExhausted
+            ? 'Your 1,000 monthly Pro credits are used up. They reset at the start of next month.'
+            : 'You have used today’s ' + feature.replace('_', ' ') + ' credits.',
+          code: monthlyExhausted ? 'MONTHLY_BUDGET_EXHAUSTED' : 'DAILY_CREDITS_EXHAUSTED',
+          feature,
+          remaining: Number(row.remaining) || 0,
+          limit: Number(row.daily_limit) || dailyLimit,
+          resetsAt: row.resets_at || null,
+          plan: row.plan || 'free',
+          monthly: row.plan === 'pro' ? {
+            used: Number(row.monthly_used) || 0,
+            limit: Number(row.monthly_limit) || PRO_MONTHLY_BUDGET,
+            remaining: Number(row.monthly_remaining) || 0
+          } : null
+        });
+      }
+    }
+  } catch (error) {
+    return safeError(res, error);
+  }
 
   // Optional hosted-provider routing. The default remains Gemini until an
   // authorised operator configures a provider and its server-only API key.
@@ -167,11 +332,12 @@ module.exports = async function handler(req, res) {
         res.setHeader('X-Accel-Buffering', 'no');
         res.setHeader('X-Content-Type-Options', 'nosniff');
         res.setHeader('X-OpenCluely-API-Revision', 'v177-hosted-multiprovider-2026-11-15-a');
-        res.write('data: ' + JSON.stringify({ text }) + '\n\n');
+        if (anonymousUser) res.setHeader('X-Slickly-Anonymous-Credits-Remaining', String(anonymousCreditsRemaining));
+        res.write('data: ' + JSON.stringify({ text, ...(anonymousUser ? { anonymous: { creditsRemaining: anonymousCreditsRemaining, creditsLimit: 5 } } : {}) }) + '\n\n');
         res.write('data: [DONE]\\n\\n');
         return res.end();
       }
-      return respond(res, 200, { text, model: provider.model, provider: provider.id });
+      return respond(res, 200, { text, model: provider.model, provider: provider.id, ...(anonymousUser ? { anonymous: { creditsRemaining: anonymousCreditsRemaining, creditsLimit: 5 } } : {}) });
     } catch (error) {
       const message = String(error?.message || error);
       console.error('[Slickly hosted provider error]', JSON.stringify({
@@ -262,9 +428,11 @@ module.exports = async function handler(req, res) {
           res.setHeader('X-Accel-Buffering', 'no');
           res.setHeader('X-Content-Type-Options', 'nosniff');
           res.setHeader('X-OpenCluely-API-Revision', 'v176-streaming-chat-2026-11-06-a');
+          if (anonymousUser) res.setHeader('X-Slickly-Anonymous-Credits-Remaining', String(anonymousCreditsRemaining));
           const decoder = new TextDecoder();
           let buffer = '';
           let streamedCharacters = 0;
+          let streamUsage = null;
           const emitLine = (line) => {
             const trimmed = line.trim();
             if (!trimmed.startsWith('data:')) return;
@@ -272,6 +440,13 @@ module.exports = async function handler(req, res) {
             if (!payload || payload === '[DONE]') return;
             let packet;
             try { packet = JSON.parse(payload); } catch { return; }
+            if (packet.usageMetadata && typeof packet.usageMetadata === 'object') {
+              streamUsage = {
+                promptTokens: Number(packet.usageMetadata.promptTokenCount) || 0,
+                outputTokens: Number(packet.usageMetadata.candidatesTokenCount) || 0,
+                totalTokens: Number(packet.usageMetadata.totalTokenCount) || 0
+              };
+            }
             const piece = (packet.candidates || [])
               .flatMap(candidate => candidate.content && Array.isArray(candidate.content.parts)
                 ? candidate.content.parts : [])
@@ -295,6 +470,7 @@ module.exports = async function handler(req, res) {
             }
             buffer += decoder.decode();
             if (buffer.trim()) emitLine(buffer);
+            if (streamUsage) await recordProviderUsage(authenticatedAccount, reservedFeature, model, streamUsage);
             if (!res.destroyed) {
               res.write('data: [DONE]\n\n');
               res.end();
@@ -372,7 +548,18 @@ module.exports = async function handler(req, res) {
             .filter(Boolean)
             .join('\\n')
             .trim();
-          if (text) return respond(res, 200, { text, model });
+          if (text) {
+            const usage = result.usageMetadata && typeof result.usageMetadata === 'object' ? {
+              promptTokens: Number(result.usageMetadata.promptTokenCount) || 0,
+              outputTokens: Number(result.usageMetadata.candidatesTokenCount) || 0,
+              totalTokens: Number(result.usageMetadata.totalTokenCount) || 0
+            } : null;
+            if (usage) {
+              console.info('[Slickly Gemini usage]', JSON.stringify({ model, ...usage }));
+              await recordProviderUsage(authenticatedAccount, reservedFeature, model, usage);
+            }
+            return respond(res, 200, { text, model, ...(usage ? { usage } : {}), ...(anonymousUser ? { anonymous: { creditsRemaining: anonymousCreditsRemaining, creditsLimit: 5 } } : {}) });
+          }
           lastFailure = { status: 502, code: 'EMPTY_RESPONSE', message: 'The model returned no text.' };
           break;
         }
