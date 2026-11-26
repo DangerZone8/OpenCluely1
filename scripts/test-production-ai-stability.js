@@ -22,50 +22,67 @@ function classify(status, body) {
 }
 
 async function request(feature, index) {
-  const request = feature === 'screen-vision'
-    ? { contents: [{ role: 'user', parts: [
-        { text: 'Automated sustained screen-vision diagnostic. Briefly describe this test image.' },
-        { inlineData: { mimeType: 'image/png', data: image } }
-      ] }], generationConfig: { temperature: 0, maxOutputTokens: 48 } }
-    : { contents: [{ role: 'user', parts: [{ text: 'Reply with exactly: SLICKLY_CHAT_OK' }] }], generationConfig: { temperature: 0, maxOutputTokens: 24 } };
-  const started = Date.now();
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-opencluely-install-id': crypto.randomUUID(),
-        'x-opencluely-feature': feature,
-        ...(process.env.SLICKLY_E2E_ACCESS_TOKEN
-          ? { Authorization: 'Bearer ' + process.env.SLICKLY_E2E_ACCESS_TOKEN }
-          : {}),
-        ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
-          ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
-          : {})
-      },
-      body: JSON.stringify({ model: 'gemini-3.5-flash-lite', request }),
-      signal: AbortSignal.timeout(30000)
-    });
-    const raw = await response.text();
-    let body = {};
-    try { body = JSON.parse(raw); } catch {}
-    const revision = response.headers.get('x-opencluely-api-revision');
-    const result = {
-      attempt: index, feature, status: response.status,
-      classification: classify(response.status, body),
-      durationMs: Date.now() - started, revision,
-      providerStatus: body.providerStatus ?? null,
-      providerCode: body.providerCode ?? null,
-      retryAfter: response.headers.get('retry-after'),
-      message: String(body.providerMessage || body.error || body.text || raw).replace(/\s+/g, ' ').slice(0, 180)
-    };
-    console.log(JSON.stringify(result));
-    return result;
-  } catch (error) {
-    const result = { attempt: index, feature, status: 0, classification: 'CLIENT_NETWORK_OR_TIMEOUT', durationMs: Date.now() - started, message: String(error.message).slice(0, 180) };
-    console.log(JSON.stringify(result));
-    return result;
+  const maxAttempts = 2;
+  let lastResult = null;
+  for (let retry = 0; retry < maxAttempts; retry += 1) {
+    const request = feature === 'screen-vision'
+      ? { contents: [{ role: 'user', parts: [
+          { text: 'Automated sustained screen-vision diagnostic. Briefly describe this test image.' },
+          { inlineData: { mimeType: 'image/png', data: image } }
+        ] }], generationConfig: { temperature: 0, maxOutputTokens: 48 } }
+      : { contents: [{ role: 'user', parts: [{ text: 'Reply with exactly: SLICKLY_CHAT_OK' }] }], generationConfig: { temperature: 0, maxOutputTokens: 24 } };
+    const started = Date.now();
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-opencluely-install-id': crypto.randomUUID(),
+          'x-opencluely-feature': feature,
+          ...(process.env.SLICKLY_E2E_ACCESS_TOKEN
+            ? { Authorization: 'Bearer ' + process.env.SLICKLY_E2E_ACCESS_TOKEN }
+            : {}),
+          ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+            ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+            : {})
+        },
+        body: JSON.stringify({ model: 'gemini-3.5-flash-lite', request }),
+        signal: AbortSignal.timeout(30000)
+      });
+      const raw = await response.text();
+      let body = {};
+      try { body = JSON.parse(raw); } catch {}
+      const revision = response.headers.get('x-opencluely-api-revision');
+      const result = {
+        attempt: index, retryAttempt: retry + 1, feature, status: response.status,
+        classification: classify(response.status, body),
+        durationMs: Date.now() - started, revision,
+        providerStatus: body.providerStatus ?? null,
+        providerCode: body.providerCode ?? null,
+        retryAfter: response.headers.get('retry-after'),
+        message: String(body.providerMessage || body.error || body.text || raw).replace(/\\s+/g, ' ').slice(0, 180)
+      };
+      console.log(JSON.stringify(result));
+      lastResult = result;
+    } catch (error) {
+      lastResult = {
+        attempt: index, retryAttempt: retry + 1, feature, status: 0,
+        classification: 'CLIENT_NETWORK_OR_TIMEOUT',
+        durationMs: Date.now() - started,
+        message: String(error.message).slice(0, 180)
+      };
+      console.log(JSON.stringify(lastResult));
+    }
+
+    if (lastResult.classification === 'OK' || lastResult.classification === 'QUOTA_OR_RATE_LIMIT') {
+      return lastResult;
+    }
+    const transient = ['UPSTREAM_TIMEOUT_OR_5XX', 'CLIENT_NETWORK_OR_TIMEOUT'].includes(lastResult.classification);
+    if (!transient || retry + 1 >= maxAttempts) return lastResult;
+    console.warn('Transient production ' + feature + ' failure; retrying once:', lastResult.message);
+    await new Promise(resolve => setTimeout(resolve, 2000));
   }
+  return lastResult;
 }
 
 async function main() {
