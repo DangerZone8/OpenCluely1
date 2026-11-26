@@ -4,27 +4,38 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 
 async function main() {
-  const rawSupabaseUrl = String(process.env.SUPABASE_URL || '').trim();
+  // Supabase project URLs are sometimes pasted with a trailing API path or quotes.
+  // Normalize to the HTTPS origin expected by Supabase Auth instead of rejecting
+  // an otherwise valid project URL because of harmless formatting.
+  const rawSupabaseUrl = String(process.env.SUPABASE_URL || '').trim().replace(/^["']|["']$/g, '');
   let supabaseUrl = '';
+  let parsedUrl = null;
+  let urlParseError = '';
   try {
-    const parsed = new URL(rawSupabaseUrl);
-    if (parsed.protocol === 'https:' && parsed.hostname && !parsed.username && !parsed.password &&
-        (!parsed.pathname || parsed.pathname === '/') && !parsed.search && !parsed.hash) {
-      supabaseUrl = parsed.origin;
+    parsedUrl = new URL(rawSupabaseUrl);
+    if (parsedUrl.protocol === 'https:' && parsedUrl.hostname &&
+        !parsedUrl.username && !parsedUrl.password && !parsedUrl.search && !parsedUrl.hash) {
+      supabaseUrl = parsedUrl.origin;
     }
-  } catch {}
+  } catch (error) {
+    urlParseError = error.name || 'URL_PARSE_ERROR';
+  }
   const anonKey = String(process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || '').trim();
   const serviceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     throw new Error('Invalid/missing GitHub Actions Supabase configuration (safe diagnostics only): ' +
       JSON.stringify({
         SUPABASE_URL_present: Boolean(rawSupabaseUrl),
-        SUPABASE_URL_valid_https_origin: Boolean(supabaseUrl),
+        SUPABASE_URL_protocol: parsedUrl?.protocol || null,
+        SUPABASE_URL_hostname_present: Boolean(parsedUrl?.hostname),
+        SUPABASE_URL_path_present: Boolean(parsedUrl?.pathname && parsedUrl.pathname !== '/'),
+        SUPABASE_URL_has_query_or_fragment: Boolean(parsedUrl?.search || parsedUrl?.hash),
+        SUPABASE_URL_parse_error: urlParseError || null,
         SUPABASE_ANON_KEY_present: Boolean(process.env.SUPABASE_ANON_KEY),
         SUPABASE_PUBLISHABLE_KEY_present: Boolean(process.env.SUPABASE_PUBLISHABLE_KEY),
         usable_public_key_present: Boolean(anonKey),
         SUPABASE_SERVICE_ROLE_KEY_present: Boolean(serviceRoleKey)
-      }) + '. No secret values, personal test email, or password are logged.');
+      }) + '. No secret values, hostnames, personal test email, or password are logged.');
   }
 
   const email = 'slickly-ci-' + (process.env.GITHUB_RUN_ID || 'local') + '-' +
