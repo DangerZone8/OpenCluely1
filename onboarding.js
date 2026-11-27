@@ -497,18 +497,31 @@
       window.open(url, '_blank', 'noopener,noreferrer');
     }
   }
-  $('#googleSignInBtn').addEventListener('click', async () => {
-    try {
-      if (window.electronAPI?.openSlicklyAccount) await window.electronAPI.openSlicklyAccount('google');
-      else openSlicklyPage('/account.html?auth=google');
-    } catch (error) { console.error('Could not open Google sign-in:', error); }
-  });
   $('#emailSignInBtn').addEventListener('click', async () => {
     try {
       if (window.electronAPI?.openSlicklyAccount) await window.electronAPI.openSlicklyAccount('email');
       else openSlicklyPage('/account.html?auth=email');
     } catch (error) { console.error('Could not open email sign-in:', error); }
   });
+  const openAiNowBtn = $('#openAiNowBtn');
+  if (openAiNowBtn) {
+    openAiNowBtn.addEventListener('click', async () => {
+      openAiNowBtn.disabled = true;
+      openAiNowBtn.textContent = 'Opening Slickly AI…';
+      try {
+        if (!window.electronAPI?.switchToChat) throw new Error('The AI chat window is unavailable in this app build.');
+        await window.electronAPI.completeFirstRun();
+        await window.electronAPI.switchToChat();
+        await window.electronAPI.closeOnboarding();
+      } catch (error) {
+        console.error('Could not open guest AI chat:', error);
+        openAiNowBtn.disabled = false;
+        openAiNowBtn.textContent = 'Continue as guest · Open AI';
+        const hint = document.querySelector('.welcome-hero .hint');
+        if (hint) hint.textContent = error.message || 'Could not open AI chat. Please try again.';
+      }
+    });
+  }
   $('#viewPlansBtn').addEventListener('click', (event) => {
     event.preventDefault();
     openSlicklyPage('/pricing.html');
