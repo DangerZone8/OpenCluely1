@@ -43,7 +43,9 @@ class LLMService {
     const feature = ['screen_aware','voice','screenshot','chat'].includes(featureOverride) ? featureOverride : (audio ? 'voice' : image ? 'screen_aware' : 'chat');
     const claim = (async () => {
       const token = await this.accountAccessTokenProvider();
-      if (!token) throw new Error('Your Slickly account session has expired. Open Account and sign in again.');
+      // Guests are metered by the hosted API's five-chat allowance. Do not
+      // require a session here or allow a configured local key to bypass it.
+      if (!token) return null;
       const response = await fetch('https://slicklyai.vercel.app/api/credits', {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
@@ -804,7 +806,7 @@ class LLMService {
   }
 
   /** General-purpose chat without the selected skill's specialized prompt. */
-  async processGeneralAssistantStream(text, sessionMemory = [], onDelta = null) {
+  async processGeneralAssistantStream(text, sessionMemory = [], onDelta = null, featureOverride = null) {
     if (!this.isInitialized) throw new Error('LLM service not initialized. Check Gemini API key configuration.');
     const startTime = Date.now();
     this.requestCount++;
@@ -843,7 +845,7 @@ class LLMService {
     try {
       const response = await this.executeStreamingRequest(request, (delta) => {
         if (typeof onDelta === 'function' && delta) onDelta(delta);
-      });
+      }, featureOverride);
       return { response, metadata: { skill: 'general', programmingLanguage: null, processingTime: Date.now() - startTime, requestId: this.requestCount, usedFallback: false, streamed: true } };
     } catch (error) {
       this.errorCount++;
@@ -1302,6 +1304,9 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
 
   async executeRequest(geminiRequest, featureOverride = null) {
     await this.consumeCreditForRequest(geminiRequest, featureOverride);
+    if (this.accountAccessTokenProvider && !(await this.accountAccessTokenProvider())) {
+      return this.executeRemoteRequest(geminiRequest, this.model, null, featureOverride);
+    }
     const provider = getProvider();
     if (provider.id !== 'gemini') {
       const text = await executeProviderRequest(geminiRequest);
@@ -1565,6 +1570,9 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
    */
   async executeStreamingRequest(geminiRequest, onDelta, featureOverride = null) {
     await this.consumeCreditForRequest(geminiRequest, featureOverride);
+    if (this.accountAccessTokenProvider && !(await this.accountAccessTokenProvider())) {
+      return this.executeRemoteRequest(geminiRequest, this.model, onDelta, featureOverride);
+    }
     const provider = getProvider();
     if (provider.id !== 'gemini') {
       const fullText = await this.executeRequest(geminiRequest);
