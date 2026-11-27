@@ -40,7 +40,7 @@ async function run(){
     const token=String(options.headers.Authorization||'').replace(/^Bearer /,'');
     const userId=token==='admin-token'?ids.admin:token==='base-customer-token'?ids.baseCustomer:ids.referralCustomer;
     const email=userId===ids.admin?'admin@slickly.example':userId===ids.baseCustomer?'base@slickly.example':'customer@slickly.example';
-    return{ok:true,json:async()=>({id:userId,email,app_metadata:{provider:userId===ids.admin?'google':'email',providers:userId===ids.admin?['google']:['email']}})};
+    return{ok:true,json:async()=>({id:userId,email,email_confirmed_at:'2026-11-01T00:00:00Z',app_metadata:{provider:'email',providers:['email']}})};
    }
    if(u.includes('/rest/v1/slickly_subscriptions?')){
     const userId=decodeURIComponent((u.match(/user_id=eq\.([^&]+)/)||[])[1]||'');

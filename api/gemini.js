@@ -2,7 +2,7 @@
 
 const { authenticate, rpc, safeError } = require('./_lib/slickly-auth');
 
-const FREE_DAILY_LIMITS = Object.freeze({ screen_aware: 2, voice: 2, screenshot: 3, chat: 7 });
+const FREE_DAILY_LIMITS = Object.freeze({ screen_aware: 0, voice: 2, screenshot: 0, chat: 7 });
 const PRO_DAILY_LIMITS = Object.freeze({ screen_aware: 20, voice: 6, screenshot: 10, chat: 40 });
 const PRO_MONTHLY_BUDGET = 1000;
 
@@ -211,7 +211,7 @@ module.exports = async function handler(req, res) {
       ? 'voice'
       : isVisionRequest
         ? (requestedFeature === 'screen_aware' ? 'screen_aware' : 'screenshot')
-        : 'chat';
+        : requestedFeature === 'voice' ? 'voice' : 'chat';
     reservedFeature = feature;
 
     if (!authorization) {
@@ -219,8 +219,11 @@ module.exports = async function handler(req, res) {
         return respond(res, 401, { error: 'Sign in to use screen AI, screenshots, voice, and other account features. Anonymous access is limited to chat.' });
       }
       const crypto = require('node:crypto');
+      const installationId = String(req.headers['x-opencluely-install-id'] || '').trim().toLowerCase();
+      const identitySeed = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(installationId)
+        ? installationId : String(req.headers['user-agent'] || 'unknown');
       const identityHash = crypto.createHmac('sha256', process.env.SUPABASE_SERVICE_ROLE_KEY || '')
-        .update(ip + '\n' + String(req.headers['user-agent'] || 'unknown'))
+        .update(ip + '\n' + identitySeed)
         .digest('hex');
       const result = await rpc({
         supabaseUrl: String(process.env.SUPABASE_URL || '').replace(/\/$/, ''),
@@ -252,7 +255,7 @@ module.exports = async function handler(req, res) {
       const { user, supabaseUrl, serviceRoleKey } = account;
       // Every image request is charged at the screenshot weight even when the
       // live-screen quota bucket is selected.
-      const featureUnits = hasAudio ? 4 : isVisionRequest ? 3 : 1;
+      const featureUnits = hasAudio || feature === 'voice' ? 4 : isVisionRequest ? 3 : 1;
       const dailyLimit = Object.prototype.hasOwnProperty.call(PRO_DAILY_LIMITS, feature)
         ? PRO_DAILY_LIMITS[feature] : PRO_DAILY_LIMITS.chat;
       const result = await rpc({ supabaseUrl, serviceRoleKey }, 'consume_slickly_credit_v2', {
@@ -277,6 +280,9 @@ module.exports = async function handler(req, res) {
             : false;
       hostedProviderId = row.plan === 'pro' && premiumKeyAvailable ? premiumProvider : 'gemini';
       if (!row.allowed) {
+        if (row.plan !== 'pro' && FREE_DAILY_LIMITS[feature] === 0) {
+          return respond(res, 403, { error: 'Screen AI and screenshots are Slickly Pro features. Upgrade to unlock the full assistant.', code: 'PRO_REQUIRED', feature, remaining: 0, limit: 0, plan: row.plan || 'free' });
+        }
         const monthlyExhausted = row.limit_reason === 'monthly_budget';
         return respond(res, 429, {
           error: monthlyExhausted

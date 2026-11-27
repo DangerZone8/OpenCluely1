@@ -497,12 +497,6 @@
       window.open(url, '_blank', 'noopener,noreferrer');
     }
   }
-  $('#googleSignInBtn').addEventListener('click', async () => {
-    try {
-      if (window.electronAPI?.openSlicklyAccount) await window.electronAPI.openSlicklyAccount('google');
-      else openSlicklyPage('/account.html?auth=google');
-    } catch (error) { console.error('Could not open Google sign-in:', error); }
-  });
   $('#emailSignInBtn').addEventListener('click', async () => {
     try {
       if (window.electronAPI?.openSlicklyAccount) await window.electronAPI.openSlicklyAccount('email');
@@ -523,20 +517,23 @@
     heroCtaBtn.addEventListener('click', () => nextBtn.click());
   }
 
-  // Let users open the conversation directly instead of relying on the
-  // Ctrl+Shift+V shortcut. Setup can be completed later from Settings.
+  // Guest entry: complete first-run state, open the real chat window, then close onboarding.
   const openAiNowBtn = $('#openAiNowBtn');
   if (openAiNowBtn) {
     openAiNowBtn.addEventListener('click', async () => {
+      openAiNowBtn.disabled = true;
+      openAiNowBtn.textContent = 'Opening Slickly AI…';
       try {
-        if (window.electronAPI && window.electronAPI.closeOnboarding) {
-          await window.electronAPI.closeOnboarding();
-        }
-        if (window.electronAPI && window.electronAPI.switchToChat) {
-          await window.electronAPI.switchToChat();
-        }
+        if (!window.electronAPI?.switchToChat) throw new Error('The AI chat window is unavailable in this app build.');
+        await window.electronAPI.completeFirstRun();
+        await window.electronAPI.switchToChat();
+        await window.electronAPI.closeOnboarding();
       } catch (error) {
-        console.error('Could not open AI chat from welcome screen:', error);
+        console.error('Could not open guest AI chat:', error);
+        openAiNowBtn.disabled = false;
+        openAiNowBtn.textContent = 'Continue as guest · Open AI';
+        const hint = document.querySelector('.welcome-hero .hint');
+        if (hint) hint.textContent = error.message || 'Could not open AI chat. Please try again.';
       }
     });
   }

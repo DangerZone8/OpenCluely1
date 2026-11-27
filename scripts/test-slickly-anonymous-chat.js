@@ -12,6 +12,8 @@ assert.match(api, /hostedProviderId = 'gemini'/);
 assert.match(api, /feature !== 'chat' \|\| hasAudio \|\| isVisionRequest/);
 assert.match(api, /ANONYMOUS_CHAT_CREDITS_EXHAUSTED/);
 assert.match(api, /createHmac\('sha256'/);
+assert.match(api, /x-opencluely-install-id/,'anonymous allowance identity must include the desktop installation ID');
+assert.match(api, /requestedFeature === 'voice'/,'authenticated Whisper transcripts must use the voice credit bucket');
 assert.match(client, /accessToken \? \{ Authorization: 'Bearer ' \+ accessToken \} : \{\}/);
 assert.match(migration, /credits_used <= 5/);
 assert.match(migration, /credits_used < 5/);
