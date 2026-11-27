@@ -21,7 +21,6 @@ button{width:100%;min-height:46px;border:1px solid var(--ink);border-radius:5px;
   <section class="card" id="auth">
     <h1>Your account.</h1>
     <p class="muted">Sign in once. Your Slickly Pro subscription belongs to your account, so you can restore it on a replacement laptop.</p>
-    <button id="google">Continue with Google</button>
     <div class="field"><label for="email">Email address</label><input id="email" type="email" autocomplete="email" placeholder="you@example.com"></div>
     <div class="field"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" minlength="8" placeholder="At least 8 characters"></div>
     <div class="inline"><button class="secondary" id="emailSignIn">Sign in</button><button id="emailSignUp">Create account</button></div>
@@ -62,12 +61,12 @@ button{width:100%;min-height:46px;border:1px solid var(--ink);border-radius:5px;
   </section>
   <div class="status" id="status" role="status">Loading account services…</div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.onerror=null;var fallback=document.createElement('script');fallback.src='https://unpkg.com/@supabase/supabase-js@2';document.head.appendChild(fallback)"></script>
 <script>
 (async function(){
   const $=id=>document.getElementById(id);
   const status=(message)=>{$('status').textContent=message;$('status').classList.remove('hidden')};
-  let client=null,session=null,appliedReferralCode='';
+  let client=null,session=null,appliedReferralCode='',initializationError='',signInAction=null,signUpAction=null;
   const authHeaders=async()=>{
     let accessToken=session?.access_token;
     // In the desktop app the encrypted main-process session is the sole
@@ -80,11 +79,14 @@ button{width:100%;min-height:46px;border:1px solid var(--ink);border-radius:5px;
     if(!accessToken)throw new Error('Your Slickly account session has expired. Please sign in again.');
     return {Authorization:'Bearer '+accessToken,'Content-Type':'application/json'};
   };
+  $('emailSignIn').addEventListener('click',async()=>{if(!signInAction){status(initializationError||'Account services are still initializing. Please try again in a moment.');return;}await signInAction();});
+  $('emailSignUp').addEventListener('click',async()=>{if(!signUpAction){status(initializationError||'Account services are still initializing. Please try again in a moment.');return;}await signUpAction();});
   try{
     const cfgRes=await fetch('/api/public-config',{cache:'no-store'});
     const cfg=await cfgRes.json();
     if(!cfgRes.ok)throw new Error(cfg.error||'Account services are not configured.');
-    if(!window.supabase?.createClient)throw new Error('Sign-in library did not load. Refresh and try again.');
+    if(!window.supabase?.createClient){await new Promise((resolve,reject)=>{const fallback=document.createElement('script');fallback.src='https://unpkg.com/@supabase/supabase-js@2';fallback.onload=()=>window.supabase?.createClient?resolve():reject(new Error('Sign-in library did not initialize.'));fallback.onerror=()=>reject(new Error('Sign-in library could not load from either CDN. Check your connection and retry.'));document.head.appendChild(fallback);});}
+    if(!window.supabase?.createClient)throw new Error('Sign-in library did not initialize. Refresh and try again.');
     client=window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:!window.slicklyDesktopAccount,detectSessionInUrl:true}});
     const syncDesktopSession=async(next)=>{
       if(!window.slicklyDesktopAccount)return;
@@ -102,33 +104,7 @@ button{width:100%;min-height:46px;border:1px solid var(--ink);border-radius:5px;
     if(session)await syncDesktopSession(session);
     const {data:authData}=client.auth.onAuthStateChange((_event,next)=>{session=next;void syncDesktopSession(next);render();});
     window.__slicklyAuthSubscription=authData.subscription;
-    if(window.slicklyDesktopAccount?.onOAuthCode){
-      window.slicklyDesktopAccount.onOAuthCode(async code=>{
-        try{
-          const {data,error}=await client.auth.exchangeCodeForSession(code);
-          if(error)throw error;
-          session=data.session;
-          await syncDesktopSession(session);
-          status('Google sign-in successful.');
-          await render();
-        }catch(error){status('Google sign-in could not be completed: '+error.message);}
-      });
-    }
-    $('google').onclick=async()=>{
-      const button=$('google');button.disabled=true;status('Opening Google sign-in…');
-      try{
-        const redirectTo=window.slicklyDesktopAccount?'slickly://auth/callback':location.origin+location.pathname;
-        const {data,error}=await client.auth.signInWithOAuth({provider:'google',options:{redirectTo,skipBrowserRedirect:!!window.slicklyDesktopAccount}});
-        if(error)throw error;
-        if(window.slicklyDesktopAccount){
-          if(!data?.url)throw new Error('Supabase did not return a Google authorization URL.');
-          await window.slicklyDesktopAccount.openOAuthUrl(data.url);
-          status('Finish signing in with Google in your browser. Return to Slickly when the browser confirms success.');
-        }
-      }catch(error){status(error.message||'Google sign-in could not be started.');}
-      finally{button.disabled=false;}
-    };
-    $('emailSignIn').onclick=async()=>{
+    signInAction=async()=>{
       const email=$('email').value.trim(),password=$('password').value;
       if(!email||!password){status('Enter your email address and password.');return;}
       const button=$('emailSignIn');button.disabled=true;status('Signing in…');
@@ -139,7 +115,7 @@ button{width:100%;min-height:46px;border:1px solid var(--ink);border-radius:5px;
       }catch(error){status(error.message||'Could not sign in.');}
       finally{button.disabled=false;}
     };
-    $('emailSignUp').onclick=async()=>{
+    signUpAction=async()=>{
       const email=$('email').value.trim(),password=$('password').value;
       if(!email||!password){status('Enter your email address and choose a password.');return;}
       if(password.length<8){status('Choose a password with at least 8 characters.');return;}
@@ -202,7 +178,7 @@ button{width:100%;min-height:46px;border:1px solid var(--ink);border-radius:5px;
     async function render(){
       $('auth').classList.toggle('hidden',!!session);$('dashboard').classList.toggle('hidden',!session);
       $('referralAdmin').classList.add('hidden');
-      if(!session){status('Sign in with Google or your email and password.');return;}
+      if(!session){status('Sign in with your email address and password, or create a free account.');return;}
       $('identity').textContent=session.user.email||'Signed in to Slickly';
       try{
         const r=await fetch('/api/account/me',{headers:await authHeaders(),cache:'no-store'});const d=await r.json();if(!r.ok)throw new Error(d.error||'Could not load credits.');
@@ -218,10 +194,9 @@ button{width:100%;min-height:46px;border:1px solid var(--ink);border-radius:5px;
       }catch(e){status(e.message);}
     }
     const authIntent=new URLSearchParams(location.search).get('auth');
-    if(authIntent==='google') setTimeout(()=>$('google').click(),0);
-    else if(authIntent==='email') { $('email').focus(); $('email').scrollIntoView({block:'center',behavior:'smooth'}); }
+    if(authIntent==='email') { $('email').focus(); $('email').scrollIntoView({block:'center',behavior:'smooth'}); }
     await render();
-  }catch(e){status(e.message||'Account services are unavailable.');}
+  }catch(e){initializationError=e.message||'Account services are unavailable.';status(initializationError);}
 })();
 </script>
 </body>
