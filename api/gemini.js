@@ -280,6 +280,9 @@ module.exports = async function handler(req, res) {
             : false;
       hostedProviderId = row.plan === 'pro' && premiumKeyAvailable ? premiumProvider : 'gemini';
       if (!row.allowed) {
+        if (row.plan !== 'pro' && FREE_DAILY_LIMITS[feature] === 0) {
+          return respond(res, 403, { error: 'Screen AI and screenshots are Slickly Pro features. Upgrade to unlock the full assistant.', code: 'PRO_REQUIRED', feature, remaining: 0, limit: 0, plan: row.plan || 'free' });
+        }
         const monthlyExhausted = row.limit_reason === 'monthly_budget';
         return respond(res, 429, {
           error: monthlyExhausted
