@@ -31,11 +31,15 @@ assert.match(processMethod, /return \{ success: true, response: llmResult\.respo
 assert.match(processMethod, /return \{ success: false, error:/,
   'failed typed chat must return a failure result');
 
-const speechStart = main.indexOf('async processTranscriptionWithLLM(text, sessionHistory)');
+const speechStart = main.indexOf('async processTranscriptionWithLLM(text)');
 assert.notEqual(speechStart, -1, 'spoken-chat processing method must exist');
 const speechEnd = main.indexOf('broadcastOCRSuccess(ocrResult)', speechStart);
 assert.notEqual(speechEnd, -1, 'spoken-chat processing method must have a clear boundary');
 const speechMethod = main.slice(speechStart, speechEnd);
+assert.ok(speechMethod.includes("sessionManager.addUserInput(cleanText, 'speech', 'general')"),
+  'spoken chat must persist one complete coalesced utterance as one conversation turn');
+assert.ok(speechMethod.includes('sessionManager.getConversationHistory(32)'),
+  'spoken chat must pass enough previous turns for contextual follow-up questions');
 assert.ok(speechMethod.includes('await llmService.processGeneralAssistantStream('),
   'spoken chat must use the general assistant instead of the skill-only filter prompt');
 assert.ok(!speechMethod.includes('processTranscriptionWithIntelligentResponseStream('),
