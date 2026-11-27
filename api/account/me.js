@@ -3,7 +3,7 @@
 const { json, authenticate, safeError } = require('../_lib/slickly-auth');
 
 const LIMITS = {
-  free: { screen_aware: 2, voice: 2, screenshot: 3, chat: 7 },
+  free: { screen_aware: 0, voice: 2, screenshot: 0, chat: 7 },
   pro: { screen_aware: 20, voice: 6, screenshot: 10, chat: 40 }
 };
 
@@ -41,7 +41,7 @@ module.exports = async function accountMe(req, res) {
     }]));
     return json(res, 200, {
       user: { id: user.id, email: user.email || null },
-      isReferralAdmin: (user.app_metadata?.provider === 'google' || (Array.isArray(user.app_metadata?.providers) && user.app_metadata.providers.includes('google'))) && [process.env.SLICKLY_REFERRAL_ADMIN_EMAILS || '', process.env.SLICKLY_ADMIN_EMAILS || ''].join(',').split(',').map(value => value.trim().toLowerCase()).includes(String(user.email || '').toLowerCase()),
+      isReferralAdmin: [process.env.SLICKLY_REFERRAL_ADMIN_EMAILS || '', process.env.SLICKLY_ADMIN_EMAILS || ''].join(',').split(',').map(value => value.trim().toLowerCase()).includes(String(user.email || '').toLowerCase()),
       plan,
       subscription: row ? { status: row.status, currentPeriodEnd: row.current_period_end } : null,
       credits,
