@@ -503,6 +503,21 @@
       else openSlicklyPage('/account.html?auth=email');
     } catch (error) { console.error('Could not open email sign-in:', error); }
   });
+  $('#viewPlansBtn').addEventListener('click', (event) => {
+    event.preventDefault();
+    openSlicklyPage('/pricing.html');
+  });
+
+  // ── Wire up: Hero CTA (welcome screen) ────────────────────────────
+  // The big inline "Get Started" button on the welcome screen reuses
+  // the existing nav-button handler so all validation, persistence,
+  // and navigation logic stays in one place.
+  const heroCtaBtn = $('#heroCtaBtn');
+  if (heroCtaBtn) {
+    heroCtaBtn.addEventListener('click', () => nextBtn.click());
+  }
+
+  // Guest entry: complete first-run state, open the real chat window, then close onboarding.
   const openAiNowBtn = $('#openAiNowBtn');
   if (openAiNowBtn) {
     openAiNowBtn.addEventListener('click', async () => {
@@ -519,37 +534,6 @@
         openAiNowBtn.textContent = 'Continue as guest · Open AI';
         const hint = document.querySelector('.welcome-hero .hint');
         if (hint) hint.textContent = error.message || 'Could not open AI chat. Please try again.';
-      }
-    });
-  }
-  $('#viewPlansBtn').addEventListener('click', (event) => {
-    event.preventDefault();
-    openSlicklyPage('/pricing.html');
-  });
-
-  // ── Wire up: Hero CTA (welcome screen) ────────────────────────────
-  // The big inline "Get Started" button on the welcome screen reuses
-  // the existing nav-button handler so all validation, persistence,
-  // and navigation logic stays in one place.
-  const heroCtaBtn = $('#heroCtaBtn');
-  if (heroCtaBtn) {
-    heroCtaBtn.addEventListener('click', () => nextBtn.click());
-  }
-
-  // Let users open the conversation directly instead of relying on the
-  // Ctrl+Shift+V shortcut. Setup can be completed later from Settings.
-  const openAiNowBtn = $('#openAiNowBtn');
-  if (openAiNowBtn) {
-    openAiNowBtn.addEventListener('click', async () => {
-      try {
-        if (window.electronAPI && window.electronAPI.closeOnboarding) {
-          await window.electronAPI.closeOnboarding();
-        }
-        if (window.electronAPI && window.electronAPI.switchToChat) {
-          await window.electronAPI.switchToChat();
-        }
-      } catch (error) {
-        console.error('Could not open AI chat from welcome screen:', error);
       }
     });
   }
