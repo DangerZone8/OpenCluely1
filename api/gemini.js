@@ -207,11 +207,11 @@ module.exports = async function handler(req, res) {
     const authorization = String(req.headers.authorization || '').trim();
     const hasAudio = hasAudioRequest;
     const requestedFeature = String(body.feature || '');
-    const feature = hasAudio || requestedFeature === 'voice'
+    const feature = hasAudio
       ? 'voice'
       : isVisionRequest
         ? (requestedFeature === 'screen_aware' ? 'screen_aware' : 'screenshot')
-        : 'chat';
+        : requestedFeature === 'voice' ? 'voice' : 'chat';
     reservedFeature = feature;
 
     if (!authorization) {
