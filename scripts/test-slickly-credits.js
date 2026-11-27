@@ -4,9 +4,9 @@ const assert = require('node:assert/strict');
 const credits = require('../api/credits');
 
 assert.deepEqual(credits.FREE_DAILY_LIMITS, {
-  screen_aware: 2,
+  screen_aware: 0,
   voice: 2,
-  screenshot: 3,
+  screenshot: 0,
   chat: 7
 });
 assert.deepEqual(credits.PRO_DAILY_LIMITS, {
@@ -48,7 +48,7 @@ async function run() {
     assert.equal(res.statusCode, 200);
     assert.equal(JSON.parse(res.body).remaining, 1);
     assert.equal(rpcArgs.p_feature, 'screen_aware');
-    assert.equal(rpcArgs.p_free_daily_limit, 2);
+    assert.equal(rpcArgs.p_free_daily_limit, 0);
     assert.equal(rpcArgs.p_pro_daily_limit, 20);
     assert.equal(rpcArgs.p_feature_units, 3);
     assert.equal(rpcArgs.p_pro_monthly_budget, 1000);
