@@ -3,9 +3,9 @@
 const { json, authenticate, rpc, safeError } = require('./_lib/slickly-auth');
 
 const FREE_DAILY_LIMITS = Object.freeze({
-  screen_aware: 2,
+  screen_aware: 0,
   voice: 2,
-  screenshot: 3,
+  screenshot: 0,
   chat: 7
 });
 
