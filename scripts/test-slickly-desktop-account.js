@@ -76,7 +76,7 @@ assert.doesNotMatch(main,/handleOAuthCallback|slickly-account-open-oauth|setAsDe
 assert.match(account,/emailSignIn'\)\.addEventListener/,'email login must be bound before asynchronous startup');
 assert.match(account,/unpkg\.com\/\@supabase\/supabase-js/,'account login must retry the Supabase CDN');
 assert.match(apiGemini,/requestedFeature === 'voice'/,'hosted AI must meter Whisper transcripts as voice');
-assert.match(main,/\n        'voice'\n      \);/,'desktop Whisper transcripts must request voice metering');
+assert.match(main,/processGeneralAssistantStream\([\s\S]*?cleanText,[\s\S]*?'voice'/,'desktop Whisper transcripts must request voice metering');
 assert.match(llm,/if \(!token\) return null/,'guests must use server-side anonymous metering');
 assert.match(credits,/screen_aware: 0/,'Free accounts must not have screen AI credits');
 assert.match(credits,/screenshot: 0/,'Free accounts must not have screenshot credits');
