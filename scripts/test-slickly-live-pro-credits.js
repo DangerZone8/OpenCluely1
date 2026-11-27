@@ -63,13 +63,26 @@ async function main() {
       verifyResponse.status + '): ' + JSON.stringify(verifiedRows).slice(0, 500));
   }
 
+  // The preceding live-chat smoke test in this same job uses this disposable
+  // account and correctly consumes one chat credit. Read the starting balance
+  // so this weight test verifies its own incremental usage instead of assuming
+  // a pristine monthly counter.
+  const accountResponse = await fetch(site + '/api/account/me', {
+    headers: { Authorization: 'Bearer ' + accessToken }, cache: 'no-store'
+  });
+  const accountData = await accountResponse.json().catch(() => ({}));
+  assert.equal(accountResponse.status, 200, 'Disposable Pro account must load before weighted-credit checks: ' + JSON.stringify(accountData));
+  assert.equal(accountData.plan, 'pro', 'Disposable account must be recognized as Pro before weighted-credit checks.');
+  assert.equal(accountData.monthlyBudget?.limit, 1000, 'Pro account must expose the 1,000-credit monthly budget.');
+  const startingUsed = Number(accountData.monthlyBudget?.used) || 0;
+
   const expected = [
     { feature: 'chat', units: 1, dailyLimit: 40 },
     { feature: 'screen_aware', units: 3, dailyLimit: 20 },
     { feature: 'voice', units: 4, dailyLimit: 6 },
     { feature: 'screenshot', units: 3, dailyLimit: 10 }
   ];
-  let totalUsed = 0;
+  let totalUsed = startingUsed;
 
   for (const item of expected) {
     totalUsed += item.units;
