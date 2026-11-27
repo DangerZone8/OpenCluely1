@@ -1809,7 +1809,8 @@ class ApplicationController {
             messageId,
             delta
           });
-        }
+        },
+        'voice'
       );
       llmResult.metadata = { ...llmResult.metadata, messageId };
 
