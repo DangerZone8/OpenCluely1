@@ -8,9 +8,9 @@ The Free-tier limits reset at 00:00 UTC:
 
 | Feature | Free daily requests |
 |---|---:|
-| Screen Aware AI / live screen analysis | 2 |
-| Voice AI attempts | 2 |
-| Screenshot analysis | 3 |
+| Screen Aware AI / live screen analysis | Pro only |
+| Local Whisper voice conversations | 2 |
+| Screenshot analysis | Pro only |
 | Chat messages | 7 |
 
 Each authenticated invocation consumes one daily feature credit. Credits are reserved before the AI request, so a failed provider request can currently consume a credit; do not advertise automatic refunds.
@@ -32,35 +32,19 @@ These are conservative request weights, not exact token-dollar billing. The host
 
 ## Account identity and sign-in
 
-The account page supports:
-- Google OAuth using Supabase Authorization Code + PKCE;
-- email/password sign-in and account creation (magic-link sign-in is removed);
-- desktop Google OAuth in the system browser, returning to the desktop app through `slickly://auth/callback`;
-- encrypted desktop refresh-token storage and single-owner refresh in the Electron main process.
+The account page supports email/password sign-in and account creation only. Google OAuth and the `slickly://` sign-in protocol are intentionally absent from the desktop release. Desktop sessions use encrypted refresh-token storage and single-owner refresh in the Electron main process.
 
-**No verification email:** in the Supabase project, open **Authentication → Providers → Email** and turn **Confirm email** off. Keep the Email provider enabled. New email/password accounts then sign in immediately rather than waiting for a confirmation link. This also means the email address is not proven to belong to the user; do not treat an unverified email as strong identity proof or rely on it for sensitive account recovery. Google sign-in remains a separate OAuth identity check.
+**No verification email:** in the Supabase project, open **Authentication → Providers → Email** and turn **Confirm email** off. Keep the Email provider enabled. New email/password accounts then sign in immediately rather than waiting for a confirmation link. This also means the email address is not proven to belong to the user; do not treat an unverified email as strong identity proof or rely on it for sensitive account recovery.
 
-## Supabase and Google setup
+## Supabase setup
 
-An authorised project owner should complete these settings:
-
-1. In Supabase, open **Project Settings → API**. Copy the Project URL and the public anon/publishable key.
-2. In Vercel, set these Production environment variables:
-   - `SUPABASE_URL` — Supabase Project URL.
-   - `SUPABASE_ANON_KEY` — public anon/publishable key; this is returned to the browser by `/api/public-config`.
-   - `SUPABASE_SERVICE_ROLE_KEY` — server-only secret; never expose it to the browser, desktop renderer, repository or chat.
-3. In Supabase, open **Authentication → URL Configuration**:
-   - Site URL: `https://slicklyai.vercel.app`.
-   - Add redirect URL: `https://slicklyai.vercel.app/**`.
-   - Add redirect URL: `slickly://auth/callback` for desktop Google OAuth.
-4. In Google Cloud Console, configure the OAuth consent screen (request only the basic OpenID, email and profile identity scopes; add your account as a test user while the app is in testing), then create an OAuth Client ID of type **Web application**. Under **Authorised redirect URIs**, add the exact Supabase callback shown in **Supabase → Authentication → Providers → Google**. It has the form `https://<your-project-ref>.supabase.co/auth/v1/callback`. Do not use the Slickly website URL as Google's redirect URI.
-5. Copy the Google OAuth Client ID and Client Secret into the Supabase Google provider settings and enable the provider. Save the changes.
-6. In Supabase **Authentication → Providers → Email**, keep Email enabled and turn **Confirm email** off to avoid verification emails for password sign-up.
-7. Apply the database migrations in order: `202611140001_slickly_accounts_credits_billing.sql`, `202611140002_slickly_referral_codes.sql`, `202611140003_slickly_cloud_config.sql`, then `202611180001_slickly_monthly_pro_budget.sql`, then `202611180002_slickly_provider_usage_telemetry.sql`.
-8. Redeploy the Vercel project after adding environment variables. Open `https://slicklyai.vercel.app/api/public-config`; it should return the Supabase URL and public key (never the service-role key), not HTTP 503.
-9. Test email/password sign-up, sign-in, browser Google sign-in, and desktop Google sign-in in a staging project before using production accounts.
-
-The Google OAuth redirect URI at Google must be the Supabase callback URL. The Slickly site and desktop custom-scheme URLs belong in Supabase's redirect allowlist. Native desktop sign-in uses PKCE; do not put a service-role key in any client or renderer. The credit API verifies each bearer token against Supabase Auth before calling the database.
+1. In Supabase, open **Project Settings → API**. Copy the Project URL and public anon/publishable key.
+2. In Vercel Production, set `SUPABASE_URL`, `SUPABASE_ANON_KEY` (or `SUPABASE_PUBLISHABLE_KEY`), and server-only `SUPABASE_SERVICE_ROLE_KEY`. Never expose the service-role key to a browser, renderer or repository.
+3. In Supabase **Authentication → Providers → Email**, keep Email enabled and turn **Confirm email** off as requested. With confirmation disabled, email/password sign-up should return a session immediately.
+4. Set `SLICKLY_ADMIN_EMAILS` and `SLICKLY_REFERRAL_ADMIN_EMAILS` as server-only comma-separated allowlists of confirmed administrator email addresses.
+5. Apply the migrations in order: `202611140001_slickly_accounts_credits_billing.sql`, `202611140002_slickly_referral_codes.sql`, `202611140003_slickly_cloud_config.sql`, `202611180001_slickly_monthly_pro_budget.sql`, `202611180002_slickly_provider_usage_telemetry.sql`, then `202611260001_slickly_anonymous_chat_credits.sql`.
+6. Redeploy Vercel after environment changes. `https://slicklyai.vercel.app/api/public-config` should return the Supabase URL and public key, never the service-role key.
+7. Test email/password sign-up, sign-in, desktop session persistence and sign-out in a staging project.
 
 ## Razorpay sandbox setup
 
@@ -82,9 +66,9 @@ The checkout endpoint never accepts a client-supplied amount or plan. Entitlemen
 ## Remaining integration before release
 
 - An authorised project owner must add `SUPABASE_URL`, either `SUPABASE_ANON_KEY` or `SUPABASE_PUBLISHABLE_KEY`, and server-only `SUPABASE_SERVICE_ROLE_KEY` to the Slickly Vercel project.
-- Configure Supabase Email confirmation off and complete Google OAuth provider setup and redirect allowlisting as described above.
+- Configure Supabase Email confirmation off and verify the email/password account flow.
 - Apply the monthly Pro budget and provider-usage telemetry migrations after the existing account, referral and cloud-config migrations.
-- Complete live Google OAuth tests in the browser and installed desktop app using the project owner's OAuth credentials.
+- Complete live email/password sign-up, sign-in, refresh and sign-out tests in the browser and installed desktop app.
 - Mobile-native account integration remains deferred; this branch covers the shared website account and desktop app.
 - Implement idempotent credit refunds for hosted provider failures/timeouts; successful Gemini token counts are now stored by account and feature without retaining prompt or media content.
 - Complete live staging verification of hosted AI authorization and monthly usage enforcement against direct API requests.
@@ -96,7 +80,7 @@ Do not advertise Pro as a complete paid product until the staging gates pass. Li
 
 The second migration, `supabase/migrations/202611140002_slickly_referral_codes.sql`, creates the referral code and redemption tables. Apply it after the accounts/credits migration.
 
-An authorised adult/business account administrator can manage codes from the account portal at `/account.html`. Configure the server-only Vercel environment variable `SLICKLY_REFERRAL_ADMIN_EMAILS` as a comma-separated allowlist of administrator email addresses. Only accounts with a Google OAuth identity and an email on this allowlist can view or change codes. Email/password accounts cannot administer discounts because email confirmation is disabled for ordinary sign-up. Do not put this list or any payment credentials in client-side code.
+An authorised adult/business account administrator can manage codes from the account portal at `/account.html`. Configure the server-only Vercel environment variable `SLICKLY_REFERRAL_ADMIN_EMAILS` as a comma-separated allowlist of administrator email addresses. Only confirmed email/password accounts whose email appears on this server-side allowlist can view or change codes. Do not put this list or any payment credentials in client-side code.
 
 The admin page supports:
 - percentage discounts from 1% to 90%, or fixed discounts from ₹1 to ₹398;
@@ -110,7 +94,7 @@ This is still a staging implementation until an adult/business representative co
 
 ## Slickly Cloud Admin
 
-The admin dashboard is served at `/admin` (the static source is `web/admin.html`). It requires a Google-authenticated Supabase account whose email appears in the server-side `SLICKLY_ADMIN_EMAILS` allowlist. Email/password-only accounts are deliberately not trusted for admin access because email confirmation is disabled. The referral manager also accepts `SLICKLY_REFERRAL_ADMIN_EMAILS`; keep these allowlists server-side and restrict them to authorised adult/business operators.
+The admin dashboard is served at `/admin` (the static source is `web/admin.html`). It requires a confirmed email/password Supabase account whose email appears in the server-side `SLICKLY_ADMIN_EMAILS` allowlist. The referral manager also accepts `SLICKLY_REFERRAL_ADMIN_EMAILS`; keep these allowlists server-side and restrict them to authorised adult/business operators.
 
 Apply the third migration after the accounts and referral migrations:
 3. `supabase/migrations/202611140003_slickly_cloud_config.sql`
@@ -125,7 +109,7 @@ The requested hostname `admin.vercel.app` is not a path this repository can clai
 
 The desktop Settings window now opens the trusted Slickly Account page in a dedicated Electron window with a minimal preload bridge. After sign-in, the account page sends the Supabase session to the main process; the desktop encrypts the refresh token/session with Electron safeStorage in the OS user-data directory and refreshes access tokens server-side from the main process. Sign-out clears that encrypted session. The account page only syncs a desktop session when opened from the desktop app. In desktop mode, the embedded Supabase client has automatic refresh disabled: the Electron main process is the single owner of refresh-token rotation. The trusted account preload exposes only a fresh access-token request; account API calls obtain the current token through that IPC bridge. Concurrent AI requests share one in-flight refresh, rotated refresh tokens are atomically persisted, transient network/Auth failures retain the encrypted session, confirmed invalid-refresh responses clear it, and sign-out wins over any refresh already in flight. Regular browser sessions continue using Supabase's normal client refresh.
 
-Hosted Gemini independently authenticates the Supabase access token and reserves credits atomically on the server before provider execution. Local/BYOK provider requests continue to reserve through the account credit API. Request classification is: typed chat → `chat`, audio payload → `voice`, live screen/image analysis → `screen_aware`, screenshot hotkey workflow → `screenshot`. All image requests are charged at 3 monthly credits, including live screen frames, to avoid client-side under-reporting. Provider connection checks do not consume credits. The credit gate is applied at the common request methods so local/BYOK provider paths are metered too. A signed-in account is required in packaged desktop builds.
+Hosted Gemini independently authenticates the Supabase access token and reserves credits atomically on the server before provider execution. Signed-out users are routed through the hosted API and receive five lifetime chat credits only. Free accounts receive seven chat requests and two local Whisper voice conversations per day; screen-aware AI and screenshots require Pro. Pro accounts retain all features and share 1,000 weighted monthly credits. Local/BYOK provider requests reserve through the account credit API. Request classification is: typed chat → `chat`, audio payload or local Whisper transcript → `voice`, live screen/image analysis → `screen_aware`, screenshot hotkey workflow → `screenshot`. All image requests are charged at 3 monthly credits, including live screen frames, to avoid client-side under-reporting. Provider connection checks do not consume credits. The credit gate is applied at the common request methods so local/BYOK provider paths are metered too. A signed-in account is required for account features; guest chat remains available within the five-credit allowance.
 
 The account page supports scheduling Razorpay Pro cancellation at the end of the current billing period. Entitlement remains active until the provider webhook updates the subscription status.
 
