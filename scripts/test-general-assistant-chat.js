@@ -69,6 +69,35 @@ async function run() {
   ], 'General chat must not inherit DSA-specific history or canned coding responses.');
   assert.doesNotMatch(JSON.stringify(isolatedRequest.contents), /data structures and algorithms|graph problem/i);
 
+  // A spoken follow-up must retain the earlier spoken question and the
+  // assistant's reply, not just the latest Whisper transcript.
+  let voiceFollowUpRequest;
+  llmService.executeStreamingRequest = async (request) => {
+    voiceFollowUpRequest = request;
+    return 'Because it follows from the earlier voice turn.';
+  };
+  await llmService.processGeneralAssistantStream('Why is that the better choice?', [
+    { role: 'user', content: 'I am comparing two database options for Slickly.', skill: 'general', action: 'speech_transcription' },
+    { role: 'model', content: 'Option B is better for your current scale.', skill: 'general', action: 'llm_response' },
+    { role: 'user', content: 'Why is that the better choice?', skill: 'general', action: 'speech_transcription' }
+  ], null, 'voice');
+  assert.deepEqual(voiceFollowUpRequest.contents.map(item => item.parts[0].text), [
+    'I am comparing two database options for Slickly.',
+    'Option B is better for your current scale.',
+    'Why is that the better choice?'
+  ], 'Voice follow-up must retain the prior spoken question and answer.');
+
+  // Guard the main-process wiring: fragments are displayed immediately but
+  // only the coalesced utterance is added to session memory once.
+  const fs = require('node:fs');
+  const mainSource = fs.readFileSync(require('node:path').join(__dirname, '..', 'main.js'), 'utf8');
+  assert.match(mainSource, /sessionManager\.addUserInput\(cleanText, 'speech', 'general'\)/,
+    'The complete coalesced voice utterance must be persisted as one user turn.');
+  assert.doesNotMatch(mainSource, /addUserInput\(fragment, 'speech', 'general'\)/,
+    'Individual speech fragments must not consume separate history entries.');
+  assert.match(mainSource, /getConversationHistory\(32\)/,
+    'Voice requests must request enough history to preserve several complete exchanges.');
+
   let identityCalls = 0;
   const originalExecute = llmService.executeStreamingRequest;
   llmService.executeStreamingRequest = async () => { identityCalls++; return 'unexpected'; };
