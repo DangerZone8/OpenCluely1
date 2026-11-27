@@ -3,6 +3,9 @@
 const assert = require('node:assert/strict');
 const admin = require('../api/admin/cloud-config');
 const publicConfig = require('../api/cloud-config');
+const adminHtml = require('node:fs').readFileSync(require('node:path').join(__dirname, '../web/admin.html'), 'utf8');
+assert.match(adminHtml, /signInWithPassword/,'cloud admin must use email/password login');
+assert.doesNotMatch(adminHtml, /Continue with Google|signInWithOAuth|signInWithOtp/,'cloud admin must not expose Google OAuth or magic-link sign-in');
 
 function response() {
   return { statusCode: 200, headers: {}, body: '',
