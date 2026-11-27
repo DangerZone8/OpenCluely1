@@ -2423,9 +2423,5 @@ if (!gotSingleInstanceLock) {
   app.quit();
 } else {
   const controller = new ApplicationController();
-  app.setAsDefaultProtocolClient("slickly");
   app.on("second-instance", (_event, commandLine) => controller.handleSecondInstance(commandLine));
-  for (const argument of process.argv) {
-    if (typeof argument === "string" && argument.startsWith("slickly://")) controller.handleOAuthCallback(argument);
-  }
 }
