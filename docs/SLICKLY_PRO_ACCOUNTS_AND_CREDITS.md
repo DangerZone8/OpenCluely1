@@ -118,7 +118,7 @@ Offline regression coverage now includes:
 - `scripts/test-slickly-cloud-admin.js` for admin allowlisting, config validation and propagation;
 - `scripts/test-slickly-referral-e2e.js` for the mocked referral-to-activation journey.
 
-These are code-level/mock tests. They do not replace a live staging run with the real Supabase schema, Google OAuth configuration, Razorpay test credentials, webhook delivery and installed desktop builds. Do not enable live checkout until an authorised adult/business operator has completed those checks.
+These are code-level/mock tests. They do not replace a live staging run with the real Supabase schema, email/password auth configuration, Razorpay test credentials, webhook delivery and installed desktop builds. Do not enable live checkout until an authorised adult/business operator has completed those checks.
 
 ## Payment methods and payout settlement
 
