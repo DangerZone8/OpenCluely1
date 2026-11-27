@@ -41,7 +41,7 @@ module.exports = async function accountMe(req, res) {
     }]));
     return json(res, 200, {
       user: { id: user.id, email: user.email || null },
-      isReferralAdmin: [process.env.SLICKLY_REFERRAL_ADMIN_EMAILS || '', process.env.SLICKLY_ADMIN_EMAILS || ''].join(',').split(',').map(value => value.trim().toLowerCase()).includes(String(user.email || '').toLowerCase()),
+      isReferralAdmin: Boolean(user.email_confirmed_at) && [process.env.SLICKLY_REFERRAL_ADMIN_EMAILS || '', process.env.SLICKLY_ADMIN_EMAILS || ''].join(',').split(',').map(value => value.trim().toLowerCase()).includes(String(user.email || '').toLowerCase()),
       plan,
       subscription: row ? { status: row.status, currentPeriodEnd: row.current_period_end } : null,
       credits,
