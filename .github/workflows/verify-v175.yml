@@ -195,7 +195,6 @@ jobs:
       - name: Reset disposable CI account before retry
         if: steps.first-attempt.outcome == 'failure'
         env:
-          SLICKLY_SITE_URL: https://slicklyai.vercel.app
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
@@ -203,7 +202,13 @@ jobs:
         run: |
           node scripts/cleanup-slickly-test-session.js
           node scripts/create-slickly-test-session.js
-          node scripts/test-slickly-live-pro-credits.js
+      - name: Provision fresh Pro quotas for desktop E2E retry
+        if: steps.first-attempt.outcome == 'failure'
+        env:
+          SLICKLY_SITE_URL: https://slicklyai.vercel.app
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/test-slickly-live-pro-credits.js
       - name: Retry the complete desktop UI flow once after a transient failure
         if: steps.first-attempt.outcome == 'failure'
         env:

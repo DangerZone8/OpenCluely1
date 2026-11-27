@@ -1643,8 +1643,9 @@ class ApplicationController {
       return;
     }
 
-    // Route speech UI events according to the user's response-target setting.
-    sessionManager.addUserInput(fragment, 'speech', 'general');
+    // Show each recognized fragment immediately, but persist only the final
+    // coalesced utterance. Persisting fragments separately made one spoken
+    // sentence consume several history slots and could push earlier context out.
     this.sendToVoiceResponseWindows("transcription-received", { text: fragment });
 
     this._utteranceBuffer = this._utteranceBuffer
@@ -1686,8 +1687,7 @@ class ApplicationController {
     this._utteranceDispatchInFlight = true;
 
     try {
-      const sessionHistory = sessionManager.getOptimizedHistory();
-      await this.processTranscriptionWithLLM(combined, sessionHistory);
+      await this.processTranscriptionWithLLM(combined);
     } catch (error) {
       logger.error("Failed to process transcription with LLM", {
         error: error.message,
@@ -1702,7 +1702,7 @@ class ApplicationController {
     }
   }
 
-  async processTranscriptionWithLLM(text, sessionHistory) {
+  async processTranscriptionWithLLM(text) {
     // Hoisted so the catch block can tie a fallback answer to the same UI
     // bubble the streaming start event created; otherwise a total failure
     // leaves an empty streamed bubble stranded next to the fallback message.
@@ -1747,12 +1747,17 @@ class ApplicationController {
       if (this.shouldShowVoiceOverlay()) {
         windowManager.showLLMLoading();
       }
-      // Spoken conversation uses the same general assistant as typed chat.
-      // The old skill-filter prompt treated ordinary greetings as irrelevant
-      // and could return a canned DSA hint instead of a real assistant answer.
+      // Store one complete spoken turn only after speech fragments have been
+      // coalesced. This preserves turn boundaries and prevents partial Whisper
+      // segments from crowding previous voice questions out of the context.
+      sessionManager.addUserInput(cleanText, 'speech', 'general');
+
+      // Voice and typed chat share the same conversation memory. Keep enough
+      // events here for the model's 16-message context window to retain several
+      // complete user/assistant exchanges across consecutive voice questions.
       const llmResult = await llmService.processGeneralAssistantStream(
         cleanText,
-        sessionManager.getConversationHistory(12),
+        sessionManager.getConversationHistory(32),
         (delta) => {
           this.sendToVoiceResponseWindows("transcription-llm-response-chunk", {
             messageId,
