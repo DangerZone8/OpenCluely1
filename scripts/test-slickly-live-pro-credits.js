@@ -89,7 +89,7 @@ async function main() {
     assert.equal(data.limit, item.dailyLimit, item.feature + ' daily guardrail must match.');
     assert.equal(data.monthly?.limit, 1000, 'Pro monthly budget must be exactly 1,000 credits.');
     assert.equal(data.monthly?.used, totalUsed,
-      'Monthly usage must accumulate the configured weight for ' + item.feature + '.');
+      'Monthly usage must accumulate the configured weight for ' + item.feature + '. Actual response: ' + JSON.stringify(data));
     assert.equal(data.monthly?.remaining, 1000 - totalUsed,
       'Monthly remaining credits must match the accumulated weighted usage.');
   }
